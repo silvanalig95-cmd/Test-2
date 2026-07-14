@@ -291,14 +291,17 @@ Hundred Years, 1213 Reconquista) · achievements · Ironman mode.
 
 ---
 
-## 15. Open questions (to settle before coding)
+## 15. Resolved design decisions
 
-1. **Difficulty by realm** is the natural difficulty knob (England = normal,
-   Normandy = hard, Norway = very hard) — or add explicit difficulty settings?
-2. **How mean should the AI be in v1?** Full plotting against the player from
-   game one, or a grace period of ~5 years?
-3. **Death of your ruler mid-war:** wars continue under the heir, or force a
-   truce (historically common, mechanically gentler)?
-4. **Chronicle tone:** dry annalist ("In this year King Harold fell") vs.
-   colorful chronicler with opinions? (Draft leans colorful.)
-5. Anything from v2 you'd fight to pull into v1?
+1. **Historical difficulty.** No difficulty settings — your choice of realm is
+   the difficulty knob (England = normal, Normandy = hard, Norway = very hard).
+2. **No grace period.** The AI plots, schemes, and wars by exactly the same
+   rules as the player, from turn one.
+3. **Wars and alliances are personal (historical reality).** A claim war ends
+   in white peace if the claimant dies and the heir does not hold the claim.
+   Any ruler's death mid-war causes levy desertion for their realm. Marriage
+   alliances lapse when a linking spouse dies, and are tested when a ruler
+   dies — the heir's neighbors may not honor their father's friendships.
+4. **Colorful chronicle.** The end-of-game history is written by an
+   opinionated medieval chronicler, epithets and judgments included.
+5. **v1 scope locked** as written in §14 — nothing pulled forward from v2.
