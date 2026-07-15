@@ -120,6 +120,11 @@ h3{font-variant:small-caps; letter-spacing:1px; color:var(--red); font-size:15px
 #setup h1{font-variant:small-caps; letter-spacing:6px; font-size:44px; color:#d9b95c;
   text-shadow:0 3px 12px rgba(0,0,0,.7)}
 #setup .sub{font-style:italic; margin:8px 0 26px; color:#cbb98c; text-align:center; max-width:640px; line-height:1.5}
+.scenTabs{display:flex; gap:10px; margin:18px 0 4px}
+.scenBtn{background:transparent; color:#cbb98c; border:1px solid #8a6d1f; border-radius:4px;
+  padding:6px 16px; font-size:14px; font-variant:small-caps; letter-spacing:1px}
+.scenBtn.on{background:linear-gradient(#8c3a31,#6d251f); color:#f3e6c8; border-color:#4c1712}
+.scenBtn:hover{color:#f3e6c8}
 #setup .realms{display:flex; gap:18px; flex-wrap:wrap; justify-content:center}
 .realmCard{width:250px; background:linear-gradient(#efe4c8,#d9c89c); color:var(--ink);
   border:2px solid #8a6d1f; border-radius:6px; padding:14px; cursor:pointer; transition:transform .15s}
@@ -160,6 +165,7 @@ h3{font-variant:small-caps; letter-spacing:1px; color:var(--red); font-size:15px
   <button class="small" onclick="UI.help()">Help</button>
   <button class="small" onclick="Game.save()">Save</button>
   <button class="small" onclick="Game.load()">Load</button>
+  <button class="small" id="ffBtn" onclick="Game.fastForward()" title="Play quiet seasons quickly — stops at events, wars, or spring musters">⏩ Quiet seasons</button>
   <button class="primary" id="endBtn" onclick="Game.endSeason()">End Season ⏵</button>
 </div>
 
@@ -183,9 +189,8 @@ h3{font-variant:small-caps; letter-spacing:1px; color:var(--red); font-size:15px
 
 <div id="setup">
   <h1>Crown &amp; Realm</h1>
-  <div class="sub">Anno Domini 1066. Edward the Confessor is dead, and dead men make no kings.
-  Three houses now reach for the crown of England — and God alone knows which of them He favors.
-  Choose the dynasty whose history you will write.</div>
+  <div class="scenTabs" id="scenTabs"></div>
+  <div class="sub" id="setupSub"></div>
   <div class="realms" id="realmCards"></div>
   <div class="loadRow"><button onclick="Game.load()">Resume saved game</button></div>
   <div class="foot">A season is a turn · your family is your realm · the chronicle remembers everything</div>
@@ -290,6 +295,26 @@ const PROVDATA = {
 /* straits: cross like land */
 [['jylland','sjaelland'],['sjaelland','skane']].forEach(()=>{});
 
+const SCENARIOS = {
+  y1066:{ n:'1066 · The Norman Gambit', year:1066, sub:'Edward the Confessor is dead, and dead men make no kings. Three houses now reach for the crown of England — and God alone knows which of them He favors.',
+    cards:{
+      england:{diff:'Difficulty: Normal', blurb:'Harold Godwinson wears a crown three men claim. Rich lands, loyal housecarls — and enemies gathering on two coasts, including his own exiled brother.'},
+      normandy:{diff:'Difficulty: Hard', blurb:'William the Bastard has the finest knights in Christendom, papal favor, and a claim across the sea. He needs only a fleet, a fair wind, and nerve.'},
+      norway:{diff:'Difficulty: Very Hard', blurb:'Harald Hardrada, the Thunderbolt of the North, is fifty-one and unbeaten. One last throne would crown a legend — or end one.'},
+    },
+    provs:null /* REALMDATA defaults */ },
+  y1187:{ n:'1187 · The Devil’s Brood', year:1187, sub:'Henry II rules an empire from Scotland’s border to the Loire — and his own sons circle him like wolves, with the young King of France holding their leashes. Meanwhile, word comes from the East: Jerusalem is in peril.',
+    cards:{
+      england:{diff:'Difficulty: Normal (the empire), Nightmare (the family)', blurb:'Henry II holds England, Normandy and Maine. His son Richard demands the succession, his son John schemes for scraps, and Philip of France whispers to both.'},
+      france:{diff:'Difficulty: Hard', blurb:'Philip Augustus is twenty-two, penniless beside the Angevins — and the most patient man in Europe. The empire encircling Paris is one family quarrel away from pieces.'},
+      scotland:{diff:'Difficulty: Very Hard', blurb:'William the Lion once knelt to Henry at knife-point. The humiliation is unpaid, the claim to Northumbria unforgotten, and the Angevins are busy hating each other.'},
+    },
+    provs:{ england:['essex','wessex','kent','eastanglia','hereford','cornwall','mercia','lancaster','york','northumbria','rouen','caen','maine'],
+      france:['idf','vermandois','ponthieu'], scotland:['lothian','strathclyde','moray'],
+      wales:['gwynedd','deheubarth'], ireland:['leinster','ulster'], brittany:['brittany'],
+      flanders:['flanders'], norway:['viken','vestland'], denmark:['jylland','sjaelland','skane'] } },
+};
+
 const REALMDATA = {
   england:{n:'England', adj:'English', col:'#8c2f39', cap:'essex', cult:'saxon',
     provs:['essex','wessex','kent','eastanglia','hereford','cornwall'], playable:1,
@@ -327,7 +352,7 @@ function rl(id){ return G.realms[id]; }
 function pv(id){ return G.provinces[id]; }
 function ruler(rid){ return ch(rl(rid).ruler); }
 function isPlayer(rid){ return rid === G.player; }
-function fullName(c){ return c.nm + (c.epithet ? ' ' + c.epithet : '') + (c.num ? ' ' + c.num : ''); }
+function fullName(c){ return c.nm + (c.num ? ' ' + c.num : '') + (c.epithet ? ' ' + c.epithet : ''); }
 function title(c){
   const r = Object.values(G.realms).find(r=>!r.dead && r.ruler===c.id);
   if(r) return (c.sex==='m'?(r.rank==='duchy'?'Duke':'King'):(r.rank==='duchy'?'Duchess':'Queen'))+' of '+r.n;
@@ -348,7 +373,7 @@ function mkChar(o){
   const c = Object.assign({
     id:'c'+(++_cid), nm:'?', dyn:'', realm:'', cult:'saxon', sex:'m', by:1030, dead:0,
     tr:[], sk:{dip:ri(2,6),mar:ri(2,6),int:ri(2,6),ste:ri(2,6)}, sp:null, fa:null, mo:null,
-    op:{}, claims:[], seat:null,
+    op:{}, claims:[], pclaims:[], seat:null,
   }, o);
   if(o.id) c.id = o.id;
   G.chars[c.id] = c;
@@ -371,48 +396,68 @@ function mkCourtier(rid, sex){
     by: G.year - ri(20,52), tr:randTraits(2) });
 }
 
-function newGame(playerRealm, seed){
+function newGame(playerRealm, seed, scenId){
   srand(seed);
   _cid = 0;
+  const S = SCENARIOS[scenId];
   G = {
-    seed, year:1066, season:0, player:playerRealm,
+    seed, scen:scenId, year:S.year, endYear:S.year+100, season:0, player:playerRealm,
     realms:{}, provinces:{}, chars:{}, armies:[], wars:[], plots:[], alliances:[], truces:[],
-    log:[], chron:[], ap:3, sel:null, moveMode:null, aid:0, wid:0, pid:0,
+    log:[], chron:[], ap:3, sel:null, moveMode:null, aid:0, wid:0, pid:0, plague:0,
     flags:{}, over:false, regency:false, eventQueue:[],
   };
   for(const [pid, pd] of Object.entries(PROVDATA)){
     G.provinces[pid] = { r:null, occ:null, dev:pd.d, bld:null };
   }
   for(const [rid, rd] of Object.entries(REALMDATA)){
+    const provs = S.provs ? (S.provs[rid]||[]) : rd.provs;
     G.realms[rid] = { id:rid, n:rd.n, col:rd.col, cap:rd.cap, cult:rd.cult,
-      gold:20+rd.provs.length*8, prs:rd.playable?100:60, leg:70, ruler:null, retinue:0,
-      council:{marshal:null,steward:null,spymaster:null,chaplain:null},
-      rank: rd.provs.length>=3 ? 'kingdom':'duchy', dead:0 };
-    for(const p of rd.provs) G.provinces[p].r = rid;
+      gold:20+provs.length*8, prs:S.cards[rid]?100:60, leg:70, ruler:null, retinue:0, law:'primo',
+      excomm:false, council:{marshal:null,steward:null,spymaster:null,chaplain:null},
+      rank: provs.length>=3 ? 'kingdom':'duchy', dead: provs.length?0:'unformed' };
+    for(const p of provs) G.provinces[p].r = rid;
   }
-  G.realms.normandy.rank='duchy'; G.realms.flanders.rank='duchy'; G.realms.brittany.rank='duchy';
-  G.realms.mercia.rank='duchy'; G.realms.northumbria.rank='duchy'; G.realms.wales.rank='kingdom';
   G.provinces.rouen.bld='castle'; G.provinces.idf.bld='castle';
   G.provinces.flanders.bld='market'; G.provinces.essex.bld='market';
   G.provinces.kent.bld='cathedral';
 
-  seedCast();
+  if(scenId==='y1066'){
+    G.realms.normandy.rank='duchy'; G.realms.flanders.rank='duchy'; G.realms.brittany.rank='duchy';
+    G.realms.mercia.rank='duchy'; G.realms.northumbria.rank='duchy'; G.realms.wales.rank='kingdom';
+    seedCast1066();
+    /* standing forces of 1066: housecarls, knights, and Hardrada's veterans */
+    G.realms.england.retinue = 400;
+    G.realms.normandy.retinue = 500;
+    G.realms.norway.retinue = 600;
+    /* recent peaces hold a while: Sweyn made terms with both crowns */
+    G.truces.push({a:'denmark', b:'norway', until:1069}, {a:'denmark', b:'england', until:1069});
+    logIt('court', 'The chronicle of your house begins. Edward the Confessor is dead; the year of three kings has come.');
+    chron(`In the year of Our Lord 1066 this chronicle was begun, when Edward the old king died childless at Westminster and the great of the earth began to circle England like ravens over a stricken hart.`);
+  } else {
+    G.realms.flanders.rank='duchy'; G.realms.brittany.rank='duchy'; G.realms.wales.rank='kingdom';
+    G.provinces.essex.dev=5; G.provinces.rouen.dev=4; G.provinces.idf.dev=5;
+    G.provinces.york.bld='cathedral'; G.provinces.sjaelland.bld='market';
+    seedCast1187();
+    /* Angevin knights and the French royal demesne guard */
+    G.realms.england.retinue = 600;
+    G.realms.france.retinue = 300;
+    G.realms.scotland.retinue = 200;
+    /* the humiliation of Falaise still binds Scotland's hands, barely */
+    G.truces.push({a:'scotland', b:'england', until:1189});
+    logIt('court', 'The chronicle of your house begins. The Angevin empire sprawls from Northumbria to Maine — and its heirs sharpen their knives at their father’s table.');
+    chron(`In the year of Our Lord 1187 this chronicle was begun, when Henry the second of that name ruled more of France than the French king did, and his sons loved him as wolves love a wounded stag.`);
+  }
+  /* the player's imperial threshold scales with their inheritance */
+  G.impThresh = Math.max(15, realmProvs(playerRealm).length+5);
   for(const rid of Object.keys(G.realms)){
+    if(G.realms[rid].dead) continue;
     for(let i=0;i<3;i++) mkCourtier(rid);
     aiFillCouncil(rid);
   }
   G.realms[playerRealm].gold += 10;
-  /* standing forces of 1066: housecarls, knights, and Hardrada's veterans */
-  G.realms.england.retinue = 400;
-  G.realms.normandy.retinue = 500;
-  G.realms.norway.retinue = 600;
-  /* recent peaces hold a while: Sweyn made terms with both crowns */
-  G.truces.push({a:'denmark', b:'norway', until:1069}, {a:'denmark', b:'england', until:1069});
-  logIt('court', 'The chronicle of your house begins. Edward the Confessor is dead; the year of three kings has come.');
-  chron(`In the year of Our Lord 1066 this chronicle was begun, when Edward the old king died childless at Westminster and the great of the earth began to circle England like ravens over a stricken hart.`);
 }
 
-function seedCast(){
+function seedCast1066(){
   const mk = mkChar;
   /* --- House Godwin / England --- */
   mk({id:'harold', nm:'Harold', num:'II', dyn:'Godwin', realm:'england', cult:'saxon', sex:'m', by:1022,
@@ -531,6 +576,80 @@ function seedCast(){
   addOp(ch('sweyn'), 'hardrada', -40);
 }
 
+function seedCast1187(){
+  const mk = mkChar;
+  /* --- The Devil's Brood / Angevin England --- */
+  mk({id:'henry2', nm:'Henry', num:'II', dyn:'Plantagenet', realm:'england', cult:'norman', sex:'m', by:1133,
+    tr:['wrathful','genius','lustful'], sk:{dip:7,mar:7,int:6,ste:8}});
+  mk({id:'eleanor', nm:'Eleanor', epithet:'of Aquitaine', dyn:'Poitiers', realm:'england', cult:'norman', sex:'f', by:1124,
+    tr:['genius','ambitious','patient'], sk:{dip:8,mar:0,int:8,ste:7}});
+  wed('henry2','eleanor', true);
+  mk({id:'richard', nm:'Richard', epithet:'the Lionheart', dyn:'Plantagenet', realm:'england', cult:'norman', sex:'m', by:1157, fa:'henry2', mo:'eleanor',
+    tr:['brave','wrathful','ambitious'], sk:{dip:4,mar:9,int:4,ste:3}, claims:['england']});
+  mk({id:'johnl', nm:'John', epithet:'Lackland', dyn:'Plantagenet', realm:'england', cult:'norman', sex:'m', by:1166, fa:'henry2', mo:'eleanor',
+    tr:['deceitful','greedy','ambitious'], sk:{dip:3,mar:3,int:7,ste:5}});
+  mk({id:'matildasax', nm:'Matilda', dyn:'Plantagenet', realm:'england', cult:'norman', sex:'f', by:1156, fa:'henry2', mo:'eleanor',
+    tr:['patient','kind'], sk:{dip:6,mar:0,int:4,ste:5}});
+  mk({id:'marshal', nm:'William', epithet:'Marshal', dyn:'', realm:'england', cult:'norman', sex:'m', by:1146,
+    tr:['brave','honest','patient'], sk:{dip:5,mar:9,int:4,ste:5}});
+  mk({id:'glanvill', nm:'Ranulf', epithet:'de Glanvill', dyn:'', realm:'england', cult:'norman', sex:'m', by:1130,
+    tr:['patient','cynical','genius'], sk:{dip:6,mar:4,int:6,ste:8}});
+  G.realms.england.ruler = 'henry2';
+
+  /* --- France --- */
+  mk({id:'philip2', nm:'Philip', num:'II', epithet:'Augustus', dyn:'Capet', realm:'france', cult:'norman', sex:'m', by:1165,
+    tr:['genius','ambitious','patient','cynical'], sk:{dip:8,mar:5,int:7,ste:7}, pclaims:['rouen','caen','maine']});
+  mk({id:'isabellah', nm:'Isabelle', epithet:'of Hainaut', dyn:'Flanders', realm:'france', cult:'norman', sex:'f', by:1170,
+    tr:['kind','patient'], sk:{dip:5,mar:0,int:3,ste:4}});
+  wed('philip2','isabellah', true);
+  mk({id:'louis8', nm:'Louis', dyn:'Capet', realm:'france', cult:'norman', sex:'m', by:1187, fa:'philip2', mo:'isabellah',
+    tr:['content','robust'], sk:{dip:3,mar:3,int:2,ste:3}});
+  G.realms.france.ruler = 'philip2';
+
+  /* --- Scotland --- */
+  mk({id:'wlion', nm:'William', epithet:'the Lion', dyn:'Dunkeld', realm:'scotland', cult:'celtic', sex:'m', by:1143,
+    tr:['brave','wrathful','generous'], sk:{dip:4,mar:6,int:3,ste:4}, pclaims:['northumbria']});
+  mk({id:'davidhunt', nm:'David', dyn:'Dunkeld', realm:'scotland', cult:'celtic', sex:'m', by:1152,
+    tr:['patient','honest'], sk:{dip:5,mar:5,int:3,ste:4}});
+  G.realms.scotland.ruler = 'wlion';
+
+  /* --- The rest of the world of 1187 --- */
+  mk({id:'rhys', nm:'Rhys', epithet:'ap Gruffydd', dyn:'Deheubarth', realm:'wales', cult:'celtic', sex:'m', by:1132,
+    tr:['patient','brave','generous'], sk:{dip:6,mar:6,int:4,ste:5}});
+  G.realms.wales.ruler = 'rhys';
+  mk({id:'ruaidri', nm:'Ruaidrí', dyn:'Ua Conchobair', realm:'ireland', cult:'celtic', sex:'m', by:1116,
+    tr:['content','patient'], sk:{dip:4,mar:4,int:3,ste:3}});
+  mk({id:'cathal', nm:'Cathal', dyn:'Ua Conchobair', realm:'ireland', cult:'celtic', sex:'m', by:1153, fa:'ruaidri',
+    tr:['brave','cynical'], sk:{dip:3,mar:5,int:4,ste:3}});
+  G.realms.ireland.ruler = 'ruaidri';
+  mk({id:'constance', nm:'Constance', dyn:'Rennes', realm:'brittany', cult:'celtic', sex:'f', by:1161,
+    tr:['patient','ambitious'], sk:{dip:6,mar:0,int:5,ste:5}});
+  mk({id:'arthur1', nm:'Arthur', dyn:'Plantagenet', realm:'brittany', cult:'norman', sex:'m', by:1187, mo:'constance',
+    tr:['robust','content'], sk:{dip:2,mar:2,int:2,ste:2}, claims:['england']});
+  G.realms.brittany.ruler = 'constance';
+  mk({id:'palsace', nm:'Philip', epithet:'of Alsace', dyn:'Flanders', realm:'flanders', cult:'norman', sex:'m', by:1143,
+    tr:['brave','pious','generous'], sk:{dip:6,mar:6,int:4,ste:6}});
+  G.realms.flanders.ruler = 'palsace';
+  mk({id:'sverre', nm:'Sverre', dyn:'Sverre', realm:'norway', cult:'norse', sex:'m', by:1151,
+    tr:['genius','deceitful','brave'], sk:{dip:6,mar:7,int:7,ste:5}});
+  G.realms.norway.ruler = 'sverre'; G.realms.norway.leg = 45; /* a priest-king by usurpation */
+  mk({id:'knut6', nm:'Knut', num:'VI', dyn:'Estridsen', realm:'denmark', cult:'norse', sex:'m', by:1163,
+    tr:['pious','content','chaste'], sk:{dip:4,mar:4,int:3,ste:5}});
+  mk({id:'valdemar2', nm:'Valdemar', dyn:'Estridsen', realm:'denmark', cult:'norse', sex:'m', by:1170,
+    tr:['ambitious','brave'], sk:{dip:4,mar:6,int:4,ste:5}});
+  G.realms.denmark.ruler = 'knut6';
+
+  /* starting relationships: a family at war with itself */
+  addOp(ch('richard'), 'henry2', -55); addOp(ch('henry2'), 'richard', -25);
+  addOp(ch('johnl'), 'richard', -45); addOp(ch('richard'), 'johnl', -35);
+  addOp(ch('eleanor'), 'henry2', -50); addOp(ch('henry2'), 'eleanor', -30);
+  addOp(ch('philip2'), 'henry2', -55); addOp(ch('henry2'), 'philip2', -40);
+  addOp(ch('philip2'), 'richard', 25); addOp(ch('richard'), 'philip2', 20);
+  addOp(ch('wlion'), 'henry2', -45);
+  addOp(ch('constance'), 'henry2', -30);
+  addOp(ch('palsace'), 'philip2', -20);
+}
+
 function wed(a, b, silent){
   const A = ch(a), B = ch(b);
   A.sp = B.id; B.sp = A.id;
@@ -548,6 +667,9 @@ function opinion(a, b){
   if(a.dyn && a.dyn === b.dyn) v += 15;
   if(a.sp === b.id) v += 20;
   if(a.seat && rl(a.realm) && rl(a.realm).ruler === b.id) v += 15;
+  /* an excommunicate is shunned by all Christendom */
+  const bR = Object.values(G.realms).find(r=>!r.dead && r.ruler===b.id);
+  if(bR && bR.excomm) v -= 25;
   return clamp(Math.round(v), -100, 100);
 }
 function addAlliance(ra, rb, via){
@@ -590,6 +712,7 @@ function deathRisk(c){
   let p = a<2 ? .04 : a<16 ? .006 : a<50 ? .008 : a<60 ? .035 : a<70 ? .09 : a<80 ? .18 : .32;
   if(c.tr.includes('sickly')) p *= 2.2;
   if(c.tr.includes('robust')) p *= 0.45;
+  if(G.plague) p *= 2.4; /* the Great Mortality spares no rank */
   return p/4; /* checked each season */
 }
 function inheritedTraits(fa, mo){
@@ -645,6 +768,16 @@ function heirLine(c, seen){
 function heirOf(rid){
   const r = ruler(rid);
   if(!r) return null;
+  /* elective law: the magnates choose the ablest adult of the blood */
+  if(rl(rid).law==='elective'){
+    const cands = Object.values(G.chars).filter(c=>alive(c)&&c.dyn&&c.dyn===r.dyn&&c.id!==r.id&&c.sex==='m'&&age(c)>=16);
+    if(cands.length){
+      const court = Object.values(G.chars).filter(c=>alive(c)&&c.realm===rid&&c.id!==r.id);
+      const score = c => skill(c,'dip')+skill(c,'mar')+skill(c,'ste')+skill(c,'int')
+        + (court.length ? court.reduce((s,x)=>s+opinion(x,c),0)/court.length/4 : 0);
+      return cands.sort((a,b)=>score(b)-score(a))[0];
+    }
+  }
   const seen = new Set([r.id]);
   let line = heirLine(r, seen);
   let anc = r;
@@ -1124,15 +1257,15 @@ function plotPower(p){
   return pow;
 }
 function plotTargetName(p){
-  return p.type==='defection' ? PROVDATA[p.target].n : (ch(p.target)?fullName(ch(p.target)):'?');
+  return (p.type==='defection'||p.type==='fabricate') ? PROVDATA[p.target].n : (ch(p.target)?fullName(ch(p.target)):'?');
 }
 function plotTick(){
   for(const p of [...G.plots]){
     const pl = ch(p.plotter);
-    if(!alive(pl) || (p.type!=='defection' && !alive(ch(p.target)))){ G.plots = G.plots.filter(x=>x!==p); continue; }
+    if(!alive(pl) || (p.type!=='defection' && p.type!=='fabricate' && !alive(ch(p.target)))){ G.plots = G.plots.filter(x=>x!==p); continue; }
     /* recruit backers */
-    if(p.backers.length<3 && p.type!=='slander'){
-      const tRealm = p.type==='defection' ? pv(p.target).r : ch(p.target).realm;
+    if(p.backers.length<3 && p.type!=='slander' && p.type!=='fabricate'){
+      const tRealm = (p.type==='defection'||p.type==='fabricate') ? pv(p.target).r : ch(p.target).realm;
       const pool = Object.values(G.chars).filter(c=>alive(c)&&c.realm===tRealm&&c.id!==p.plotter&&!p.backers.includes(c.id)
         && (p.type==='defection' || opinion(c, ch(p.target)) < -15)
         && (c.tr.includes('ambitious')||c.tr.includes('deceitful')||c.tr.includes('greedy')));
@@ -1140,7 +1273,7 @@ function plotTick(){
     }
     p.progress += plotPower(p)/8 + ri(0,6);
     /* discovery */
-    const victimRealm = p.type==='defection' ? pv(p.target).r : ch(p.target).realm;
+    const victimRealm = (p.type==='defection'||p.type==='fabricate') ? pv(p.target).r : ch(p.target).realm;
     if(victimRealm && rl(victimRealm) && !rl(victimRealm).dead){
       const spy = councilBonus(victimRealm,'spymaster');
       const discP = .04 + spy*.022 - skill(pl,'int')*.012 + p.backers.length*.02;
@@ -1219,6 +1352,17 @@ function resolvePlot(p){
     if(isPlayer(t.realm)) queueEvent({ title:'Poison in Every Ear',
       text:`A slander runs through the courts of Europe faster than any ship: verses about ${fullName(t)} — obscene, specific, and well-rhymed. Half of it is invented. The other half is worse. <em>(-12 legitimacy, -25 prestige)</em>`,
       choices:[{t:'Find me the poet.', fx:()=>{}}]});
+  }
+  if(p.type==='fabricate'){
+    const owner = pv(p.target).r;
+    if(owner === p.benef) return;
+    const claimant = ruler(p.benef);
+    if(claimant && !claimant.pclaims.includes(p.target)){
+      claimant.pclaims.push(p.target);
+      logIt('plot', `Monks of flexible conscience "discover" a charter: ${PROVDATA[p.target].n} rightfully belongs to ${rl(p.benef).n}.`);
+      if(isPlayer(p.benef)) chron(`In this year came to light an old charter proving our right to ${PROVDATA[p.target].n}. The ink was old. The ink was very old. No further questions were taken.`);
+    }
+    return;
   }
   if(p.type==='defection'){
     const prov = pv(p.target);
@@ -1554,6 +1698,40 @@ const EVENTS = [
     {t:'Win them back with a gift. (-8 gold, +20 opinion)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-8); addOp(c,PR().id,20); }},
     {t:'Let them sulk. Watch them, though.', fx:()=>{}},
   ]};}},
+{id:'greatmort', w:2, once:1, cond:()=>G.year > (G.endYear-92) && !G.plague, run:()=>({
+  title:'The Great Mortality',
+  text:`<span class="dropcap">It came off a ship, they say — or out of a grave, or on the wind. Whole villages sicken between one market day and the next. The physicians blame the air. The priests blame the sins. The dead, who now outnumber both professions' successes, say nothing.</span><br><br><em>For the next two years: income falls, death stalks every character, and provinces wither. It spares no realm and no rank.</em>`,
+  choices:[
+    {t:'Shut the court away in the countryside. (your family safer; the towns despair, -8 legitimacy)', fx:()=>{ G.plague=7; PRL().leg=clamp(PRL().leg-8,0,100); G.flags.plagueRefuge=1;
+      chron('In this year came the great pestilence, and the court fled to clean air, and the towns remembered who fled.'); }},
+    {t:'Stay. Organize burials, quarantines, grain. (+10 legitimacy, your kin share the risk)', fx:()=>{ G.plague=7; PRL().leg=clamp(PRL().leg+10,0,100);
+      chron('In this year came the great pestilence, and the crown did not flee, which the living never forgot.'); }},
+  ]})},
+{id:'jerusalem', w:99, once:1, cond:()=>G.scen==='y1187'&&G.year===1187&&G.season>=1, run:()=>({
+  title:'Jerusalem Has Fallen',
+  text:`<span class="dropcap">The news crosses Europe like a crack through glass: Saladin has destroyed the crusader army at Hattin and taken the Holy City itself. The True Cross is captured. The Pope, they say, died of the grief. Every court in Christendom now asks its ruler one question: <em>will you take the cross?</em></span>`,
+  choices:[
+    {t:'Take the cross. Lead a crusade east. (-30 gold now; return in two years with glory — or not at all)', fx:()=>{
+      if(PRL().gold>=30){ PRL().gold-=30; PRL().prs+=25; PRL().leg=clamp(PRL().leg+10,0,100); G.flags.crusadeReturn=G.year+2;
+        chron(`In this year the ${PR().sex==='m'?'king':'queen'} took the cross at the altar, and the court wept, variously.`); }
+      else { PRL().leg=clamp(PRL().leg-5,0,100); }
+    }},
+    {t:'Send gold and knights, but stay. (-20 gold, +8 legitimacy)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-20); PRL().leg=clamp(PRL().leg+8,0,100); }},
+    {t:'The Holy Land is far; my enemies are near. (-6 legitimacy, clergy seethe)', fx:()=>{ PRL().leg=clamp(PRL().leg-6,0,100); }},
+  ]})},
+{id:'devilsbrood', w:99, once:1, cond:()=>G.scen==='y1187'&&isPlayer('england')&&G.year>=1188&&PRL().ruler==='henry2'&&alive(ch('richard')), run:()=>({
+  title:'Richard Demands the Succession',
+  text:`<span class="dropcap">Your son Richard stands before the court in mail, not silk, and demands to be named heir to everything — England, Normandy, all of it — publicly, now, before witnesses. Behind his shoulder, invisible but present, stands Philip of France, who has been so very helpful to him lately. John watches from the side with the expression of a boy doing arithmetic.</span>`,
+  choices:[
+    {t:'Name him heir before the court. (Richard is bound to you; John starts counting differently)', fx:()=>{ addOp(ch('richard'),'henry2',50); addOp(ch('johnl'),'henry2',-25); PRL().prs-=10;
+      chron('In this year the king named Richard his heir in all things, and the realm exhaled, and John inhaled.'); }},
+    {t:'Refuse. No son of mine will extort me. (Richard walks out — toward Paris)', fx:()=>{ addOp(ch('richard'),'henry2',-40);
+      const p = startPlot('richard','depose','henry2'); p.progress = 40;
+      addOp(ch('philip2'),'richard',20);
+      logIt('plot','Richard rides from court without leave. Men note which road he takes: the Paris road.');
+      chron('In this year the king refused his son the succession, and the son went to the king’s enemy, and the father read Absalom with new attention.'); }},
+    {t:'"When you have earned it." Stall him. (both sons resent the scales still swinging)', fx:()=>{ addOp(ch('richard'),'henry2',-15); addOp(ch('johnl'),'henry2',-10); }},
+  ]})},
 ];
 function fireEvents(){
   const eligible = EVENTS.filter(e=>{
@@ -1638,11 +1816,11 @@ function aiTurn(rid){
     if(age(rul)>=16){
       const claimants = [rul, ...Object.values(G.chars).filter(c=>alive(c)&&c.realm===rid&&c.claims.length&&c.id!==rul.id)];
       let best=null;
+      const viable = tgt => { const T=rl(tgt);
+        return T && !T.dead && tgt!==rid && !truceBetween(rid,tgt) && !warBetween(rid,tgt) && !allianceBetween(rid,tgt); };
       for(const cl of claimants){
         for(const tgt of cl.claims){
-          const T = rl(tgt);
-          if(!T || T.dead || tgt===rid || truceBetween(rid,tgt) || warBetween(rid,tgt)) continue;
-          if(allianceBetween(rid,tgt)) continue;
+          if(!viable(tgt)) continue;
           const ratio = realmStrength(rid) / Math.max(1, realmStrength(tgt));
           let need = 1.3;
           if(amb) need -= .3; if(brave) need -= .15;
@@ -1651,13 +1829,26 @@ function aiTurn(rid){
           const scripted = G.year<=1067 && tgt==='england' && (rid==='normandy'||rid==='norway');
           if(scripted) need = .45;
           if(ratio >= need && chance(scripted? .85 : amb? .6 : .3)){
-            best = {cl, tgt}; break;
+            best = {cl, tgt, cb:{type:'throne', target:tgt}}; break;
           }
         }
         if(best) break;
       }
+      /* a province claim is a smaller, safer war */
+      if(!best && rul.pclaims && rul.pclaims.length){
+        for(const prov of rul.pclaims){
+          const tgt = pv(prov).r;
+          if(!tgt || tgt===rid || !viable(tgt)) continue;
+          const ratio = realmStrength(rid) / Math.max(1, realmStrength(tgt));
+          let need = 1.0;
+          if(amb) need -= .2; if(content) need += .4; if(craven) need += .3;
+          if(ratio >= need && chance(amb? .5 : .25)){
+            best = {cl:rul, tgt, cb:{type:'province', target:prov}}; break;
+          }
+        }
+      }
       if(best){
-        declareWar(rid, best.tgt, {type:'throne', target:best.tgt}, best.cl.id);
+        declareWar(rid, best.tgt, best.cb, best.cl.id);
       }
     }
   }
@@ -1901,14 +2092,22 @@ const UI = {
       <div class="kv"><span>Total levy pool</span><b>${fmtN(realmStrength(G.player))}</b></div>
       <div class="kv"><span>Standing retinue</span><b>${R_.retinue}</b></div>
       <div class="kv"><span>Steward bonus</span><b>+${Math.round(councilBonus(G.player,'steward')*4)}%</b></div>`;
+    h += `<div class="kv"><span>Succession law</span><b>${R_.law==='elective'?'Elective':'Primogeniture'}</b></div>`;
+    if(R_.excomm) h += `<div class="kv"><span>Standing with Rome</span><b class="neg">EXCOMMUNICATE</b></div>`;
     h += `<div class="actBtns">
       <button onclick="Game.act('feast')" ${G.ap<1||R_.gold<10?'disabled':''}>Host a feast (1 ⚡, 10🪙)</button>
       <button onclick="Game.act('retinue')" ${G.ap<1||R_.gold<12?'disabled':''}>Recruit retinue +100 (1 ⚡, 12🪙)</button>
       <button onclick="Game.act('court')" ${G.ap<1?'disabled':''}>Convene court (1 ⚡)</button>
+      ${R_.excomm
+        ? `<button onclick="Game.act('rome')" ${G.ap<1||R_.gold<40?'disabled':''} title="Barefoot in the snow if need be">☩ Reconcile with Rome (1⚡ 40🪙)</button>`
+        : `<button onclick="Game.act('rome')" ${G.ap<1||R_.gold<15||G.flags['rome'+G.year]?'disabled':''} title="Once a year; +8 legitimacy">☩ Petition Rome (1⚡ 15🪙)</button>`}
+      <button onclick="Game.act('law')" ${G.ap<1||R_.prs<50||G.flags['law'+PR().id]?'disabled':''} title="Once per ruler. Elective: magnates crown the ablest adult of the blood — no child regencies, but your sons may be passed over. Costs 50 ☀ and 10 ✠.">⚖ Adopt ${R_.law==='elective'?'primogeniture':'elective succession'} (1⚡ 50☀)</button>
     </div>`;
-    if(provs.length>=15 && !G.over){
+    if(provs.length>=G.impThresh && !G.over){
       h += `<div class="card" style="margin-top:9px"><b>An Empire Beckons.</b> You hold ${provs.length} provinces. For 200 prestige the bishops will anoint you Emperor — and the game is won.
       <div class="actBtns"><button class="primary" ${R_.prs<200?'disabled':''} onclick="Game.coronation()">Imperial Coronation (200 ☀)</button></div></div>`;
+    } else if(!G.over){
+      h += `<div class="hint">Empire at ${G.impThresh} provinces · survive to ${G.endYear} · or 2500 ☀ prestige.</div>`;
     }
     h += `<div class="hint">Select a province, character, or army to act. ⚡ = action points; you get ${G.regency?2:3} a season.</div>`;
     return h;
@@ -1933,6 +2132,8 @@ const UI = {
       h += `<button class="small" ${G.ap<1?'disabled':''} onclick="Game.act('muster','${pid}')" title="Raise all realm levies here">Muster levies (1⚡)</button>`;
       h += `</div>`;
     } else if(R_ && !R_.dead){
+      if(!PR().pclaims.includes(pid) && !warBetween(st.r, G.player))
+        h += `<div class="actBtns"><button class="small" ${G.ap<1||PRL().gold<20?'disabled':''} onclick="Game.act('fabricate','${pid}')" title="Set the monks forging. Takes seasons; discovery costs prestige.">📜 Fabricate claim (1⚡ 20🪙)</button></div>`;
       h += this.diploHtml(st.r);
     }
     return h;
@@ -1964,9 +2165,18 @@ const UI = {
     for(const cl of claimants){
       h += `<button class="small" ${G.ap<1||tr||G.regency?'disabled':''} onclick="Game.act('war','${rid}','${cl.id}')" title="${G.regency?'A regency cannot declare war':''}">⚔ Press ${esc(cl.nm)}’s claim (1⚡)</button>`;
     }
-    if(!claimants.length) h += `<span class="hint">No claim on this realm — war without cause costs dearly.</span>
+    let anyP = false;
+    for(const cl of [PR(), ...myCourt()]){
+      if(!alive(cl) || !cl.pclaims) continue;
+      for(const p of cl.pclaims.filter(p=>pv(p).r===rid)){
+        anyP = true;
+        h += `<button class="small" ${G.ap<1||tr||G.regency?'disabled':''} onclick="Game.act('pwar','${rid}','${cl.id}|${p}')">⚔ Press claim on ${esc(PROVDATA[p].n)} (1⚡)</button>`;
+      }
+    }
+    if(!claimants.length && !anyP) h += `<span class="hint">No claim on this realm — war without cause costs dearly. A patient ruler fabricates one (select one of their provinces).</span>
       <button class="small" ${G.ap<1||G.regency?'disabled':''} onclick="Game.act('war','${rid}',null)">⚔ War without cause (1⚡, -20 ✠)</button>`;
     h += `</div>`;
+    if(R_.excomm) h += `<div class="hint">☩ This ruler is excommunicate — shunned by all Christendom.</div>`;
     return h;
   },
   charHtml(c){
@@ -1982,6 +2192,7 @@ const UI = {
       h += `<div class="kv"><span>Opinion of you</span><b class="${o1>=0?'pos':'neg'}">${o1>0?'+':''}${o1}</b></div>`;
       if(c.sp&&ch(c.sp)) h += `<div class="kv"><span>Spouse</span><b>${esc(fullName(ch(c.sp)))}</b></div>`;
       if(c.claims.length) h += `<div class="kv"><span>Claims</span><b>${c.claims.map(r=>rl(r)?rl(r).n:r).join(', ')}</b></div>`;
+      if(c.pclaims && c.pclaims.length) h += `<div class="kv"><span>Province claims</span><b>${c.pclaims.map(p=>PROVDATA[p].n).join(', ')}</b></div>`;
       h += `<div class="actBtns">`;
       if(mine){
         if(c.prison){
@@ -2048,7 +2259,8 @@ const UI = {
     <b>Each season</b> you get 2–3 action points (⚡) — marriages, buildings, plots, wars all compete for them. Armies move once a season for free.<br><br>
     <b>Seasons matter:</b> muster in spring, fight in summer, go home (or gamble) in autumn — winter in the field maims armies.<br><br>
     <b>Marriage</b> = alliance. <b>Claims</b> = lawful war. <b>Legitimacy</b> keeps your own nobles from ideas. <b>Opinion</b> decides who joins whose plot — and plots are always running, including against you. Your spymaster is your shield.<br><br>
-    <b>Victory:</b> hold 15 provinces and be crowned Emperor, or keep the dynasty alive to 1166, or amass 2500 prestige. Save often; die well.`,
+    <b>Victory:</b> grow the realm until the bishops crown you Emperor, keep the dynasty alive for a hundred years, or amass 2500 prestige. Save often; die well.<br><br>
+    <b>No claim, no war?</b> Select an enemy province and set the monks to <i>fabricating</i> one. Rome can be petitioned for legitimacy — and will excommunicate failing or godless kings. Succession law can be changed once per ruler: elective crowns the ablest adult of the blood instead of the firstborn child.`,
     [{t:'To the throne room.', fx:()=>{}}]);
   },
 };
@@ -2086,6 +2298,36 @@ const Game = {
         const claimant = b? ch(b) : null;
         if(claimant) declareWar(G.player, a, {type:'throne', target:a}, claimant.id);
         else { declareWar(G.player, a, {type:'none', target:a}); R_.leg=clamp(R_.leg-20,0,100); }
+        break; }
+      case 'pwar': { if(G.regency||!this.spend(1)) return;
+        const [cid, prov] = b.split('|');
+        declareWar(G.player, a, {type:'province', target:prov}, cid);
+        break; }
+      case 'fabricate': { if(R_.gold<20||!this.spend(1)) return;
+        R_.gold -= 20;
+        const p = startPlot(PR().id, 'fabricate', a, G.player); p.mine = true;
+        logIt('plot', `In a quiet scriptorium, work begins on a very old charter concerning ${PROVDATA[a].n}.`);
+        break; }
+      case 'rome': {
+        if(R_.excomm){ if(R_.gold<40||!this.spend(1)) return;
+          R_.gold -= 40; R_.excomm = false; R_.leg = clamp(R_.leg+10,0,100);
+          logIt('court','Barefoot, penitent, and considerably poorer, you are received back into the Church.');
+          chron(`In this year the ${PR().sex==='m'?'king':'queen'} was reconciled with Holy Church, having discovered that Hell holds no vassals.`);
+        } else { if(R_.gold<15||G.flags['rome'+G.year]||!this.spend(1)) return;
+          R_.gold -= 15; G.flags['rome'+G.year]=1; R_.leg = clamp(R_.leg+8,0,100);
+          logIt('court','Gold flows to Rome; blessings flow back. The exchange rate is stable.');
+        }
+        break; }
+      case 'law': { if(R_.prs<50||G.flags['law'+PR().id]||!this.spend(1)) return;
+        R_.prs -= 50; R_.leg = clamp(R_.leg-10,0,100); G.flags['law'+PR().id]=1;
+        R_.law = R_.law==='elective' ? 'primo' : 'elective';
+        const heirNow = heirOf(G.player);
+        logIt('court', `The magnates assent: the crown of ${R_.n} now passes by ${R_.law==='elective'?'election of the wise — or at least the loud':'right of the firstborn'}.` );
+        chron(`In this year the law of succession was changed, which pleased those it favored and taught patience to the rest.`);
+        /* passed-over sons notice immediately */
+        for(const k of myKids()){
+          if(k.sex==='m' && age(k)>=16 && heirNow && k.id!==heirNow.id){ addOp(k, PR().id, -25); }
+        }
         break; }
       case 'imprison': if(!this.spend(1)) return; imprison(ch(a));
         for(const c of myCourt()) addOp(c, PR().id, -4); break;
@@ -2197,12 +2439,22 @@ const Game = {
   },
   coronation(){
     const R_ = PRL();
-    if(R_.prs<200 || realmProvs(G.player).length<15) return;
+    if(R_.prs<200 || realmProvs(G.player).length<G.impThresh) return;
     R_.prs -= 200;
     chron(`In this year, before God and such magnates as valued their lands, ${fullName(PR())} was crowned EMPEROR, lord of ${realmProvs(G.player).length} provinces from sea to sea. The chronicler was given a new scriptorium and finds his conscience untroubled.`);
     this.gameOver(true, `The bishops anoint you. The crowds roar. ${fullName(PR())}, Emperor. Your dynasty has climbed as high as crowns go.`);
   },
   /* ---------- turn loop ---------- */
+  fastForward(){
+    if(!G || G.over || G.eventQueue.length) return;
+    for(let i=0; i<8; i++){
+      this.endSeason();
+      if(!G || G.over || G.eventQueue.length) break;
+      if(atWar(G.player).length) break;
+      if(G.armies.some(a=>a.realm===G.player)) break;
+      if(Object.keys(G.provinces).some(p=>enemiesIn(p, G.player).length && pv(p).r===G.player)) break;
+    }
+  },
   endSeason(){
     if(!G || G.over || G.eventQueue.length) return;
     warUpkeep();
@@ -2216,6 +2468,15 @@ const Game = {
     if(G.over){ UI.renderAll(); return; }
     G.season++;
     if(G.season>3){ G.season=0; G.year++; this.yearly(); }
+    if(G.plague){
+      G.plague--;
+      const p = pick(Object.keys(G.provinces));
+      if(pv(p).dev>1 && chance(.5)){ pv(p).dev--; logIt('court', `The pestilence empties ${PROVDATA[p].n}; fields go back to briar.`); }
+      if(!G.plague){
+        logIt('court','The Great Mortality burns itself out at last. The living inherit a quieter world.');
+        chron(`In this year the great pestilence ended. The chronicler, who buried three fellow monks and one abbot, records it without comment. The comment is implied.`);
+      }
+    }
     this.income();
     for(const a of G.armies) a.moved=false;
     G.regency = age(PR())<16;
@@ -2231,6 +2492,7 @@ const Game = {
       for(const p of realmProvs(R_.id)) if(!pv(p).occ) inc += taxOf(p);
       inc *= 1 + councilBonus(R_.id,'steward')*.04;
       if(G.season===2) inc *= 2; /* harvest */
+      if(G.plague) inc *= .65; /* dead men pay no geld */
       R_.gold += inc - (R_.retinue/200);
       R_.gold = Math.max(0, Math.round(R_.gold*10)/10);
       R_.prs += R_.rank==='kingdom'?2:1;
@@ -2241,13 +2503,38 @@ const Game = {
       if(R_.dead) continue;
       let d = (50 - R_.leg)*.06 + councilBonus(R_.id,'chaplain')*.4;
       d += realmProvs(R_.id).filter(p=>pv(p).bld==='cathedral').length;
+      if(R_.excomm) d -= 4;
       R_.leg = clamp(R_.leg + d, 0, 100);
+      /* Rome watches: godless or failing kings invite the anathema */
+      const rul = ruler(R_.id);
+      if(rul && !R_.excomm && (R_.leg<30 || (rul.tr.includes('cruel')&&rul.tr.includes('cynical'))) && chance(.15)){
+        R_.excomm = true;
+        logIt('court', `☩ Rome pronounces anathema: ${fullName(rul)} of ${R_.n} is EXCOMMUNICATED.`);
+        if(isPlayer(R_.id)){
+          chron(`In this year the Holy Father cast the ${rul.sex==='m'?'king':'queen'} out of the communion of the faithful, and the candles were snuffed, and every ambitious neighbor heard them go out.`);
+          queueEvent({ title:'Anathema',
+            text:`<span class="dropcap">Bell, book, and candle. Rome has cut you off from the Church — your oaths are void in the eyes of God, your vassals' loyalty is now a sin, and every rival suddenly remembers how devout they are. <em>(-25 opinion with everyone, legitimacy bleeds each year. Reconciling will cost gold and pride.)</em></span>`,
+            choices:[{t:'God and I will discuss this privately.', fx:()=>{}}]});
+        }
+      }
+      /* a crusading ruler comes home — or doesn't */
+      if(isPlayer(R_.id) && G.flags.crusadeReturn && G.year >= G.flags.crusadeReturn){
+        G.flags.crusadeReturn = 0;
+        if(chance(.2)){
+          queueEvent({ title:'News from the Holy Land', text:`The ships return without the ${PR().sex==='m'?'king':'queen'}. A fever outside Acre. The body travels home in salt and cedar; the crown travels faster.`,
+            choices:[{t:'God takes His own.', fx:()=>killChar(PR(),'died on crusade, within sight of the walls of Acre')}]});
+        } else {
+          R_.prs += 60; R_.leg = clamp(R_.leg+15,0,100); R_.gold += 20;
+          queueEvent({ title:'The Crusader Returns', text:`Scarred, sun-blackened, and trailing legend, you return from the East with relics, ransoms, and a name that will outlive the deeds. <em>(+60 prestige, +15 legitimacy, +20 gold)</em>`,
+            choices:[{t:'Deus vult.', fx:()=>{ chron(`In this year the ${PR().sex==='m'?'king':'queen'} returned from the Holy Land in glory, and the tales grew with each mile from the sea.`); }}]});
+        }
+      }
     }
     if(G.flags.spyBoost) G.flags.spyBoost = Math.max(0, G.flags.spyBoost-1);
   },
   victoryCheck(){
     if(G.over) return;
-    if(G.year>=1166) this.gameOver(true, `One hundred years. Through fevers, knives, storms, and stupidity, the house of ${PR().dyn} still reigns in ${PRL().n}. Most dynasties of 1066 are dust and cautionary tales; yours is a hundred years old and arguing about breakfast. This is victory.`);
+    if(G.year>=G.endYear) this.gameOver(true, `One hundred years. Through fevers, knives, storms, and stupidity, the house of ${PR().dyn} still reigns in ${PRL().n}. Most dynasties of ${G.endYear-100} are dust and cautionary tales; yours is a hundred years old and arguing about breakfast. This is victory.`);
     else if(PRL().prs>=2500) this.gameOver(true, `Your name is spoken in courts you have never seen. ${fmtN(Math.floor(PRL().prs))} prestige: minstrels, chroniclers, and terrified neighbours agree — this is the greatest house of the age.`);
   },
   gameOver(won, msg){
@@ -2298,8 +2585,8 @@ const Game = {
       logIt('court','The chronicle resumes. (Game loaded.)'); UI.renderLog();
     }catch(e){ alert('Load failed: '+e); }
   },
-  start(rid){
-    newGame(rid, (Date.now() ^ (Math.random()*1e9))>>>0);
+  start(scenId, rid){
+    newGame(rid, (Date.now() ^ (Math.random()*1e9))>>>0, scenId);
     document.getElementById('setup').style.display='none';
     fireEvents();
     UI.tab('dyn');
@@ -2308,15 +2595,21 @@ const Game = {
 };
 
 /* ---------- setup screen ---------- */
-(function boot(){
-  const cards = document.getElementById('realmCards');
-  cards.innerHTML = Object.entries(REALMDATA).filter(([,r])=>r.playable).map(([rid,r])=>`
-    <div class="realmCard" onclick="Game.start('${rid}')">
+function renderSetup(scenId){
+  const S = SCENARIOS[scenId];
+  document.getElementById('scenTabs').innerHTML = Object.entries(SCENARIOS).map(([sid,s])=>
+    `<button class="scenBtn${sid===scenId?' on':''}" onclick="renderSetup('${sid}')">${s.n}</button>`).join('');
+  document.getElementById('setupSub').textContent = S.sub;
+  document.getElementById('realmCards').innerHTML = Object.entries(S.cards).map(([rid,card])=>{
+    const r = REALMDATA[rid];
+    return `
+    <div class="realmCard" onclick="Game.start('${scenId}','${rid}')">
       <svg class="shield" viewBox="0 0 34 38"><path d="M3 3 h28 v18 q0 8 -14 14 q-14 -6 -14 -14 z" fill="${r.col}" stroke="#3a2c18" stroke-width="1.5"/>
       <text x="17" y="21" text-anchor="middle" font-size="13" fill="#f3e9cf" font-family="Georgia" font-weight="bold">${r.n[0]}</text></svg>
-      <h2>${r.n}</h2><div class="diff">${r.diff}</div><p>${r.blurb}</p>
-    </div>`).join('');
-})();
+      <h2>${r.n}</h2><div class="diff">${card.diff}</div><p>${card.blurb}</p>
+    </div>`;}).join('');
+}
+renderSetup('y1066');
 </script>
 </body>
 </html>

@@ -283,11 +283,34 @@ AI plots against you) · seasonal war with attrition, sieges, naval invasion ·
 economy (gold/prestige/legitimacy, 3 buildings) · ~30 events ·
 trait-driven AI · season log · chronicle end screen · save/load.
 
-### v2 candidates (explicitly cut from v1)
-Religion & crusades (excommunication, papal politics) · multiple succession
-laws (elective, gavelkind) · vassal sub-realms with their own courts ·
-fabricated claims · plague pandemics · more scenarios (1187 Angevin, 1328
-Hundred Years, 1213 Reconquista) · achievements · Ironman mode.
+### v2 — SHIPPED
+The v2 expansion is now implemented on top of v1:
+
+- **Second scenario: 1187 — The Devil's Brood.** Henry II's Angevin empire
+  (13 provinces spanning the Channel) vs. Philip Augustus's France and
+  William the Lion's Scotland, on the same map with a full historical cast
+  (Richard, John, Eleanor, William Marshal, Arthur of Brittany…). Scripted
+  events: the fall of Jerusalem and the crusade call; Richard demanding the
+  succession with Paris behind him. Scenario picker on the title screen.
+- **Succession laws.** Primogeniture or elective (magnates crown the ablest
+  adult of the blood — no child regencies, but passed-over sons seethe).
+  Changeable once per ruler for prestige + legitimacy.
+- **Fabricated claims.** Set the monks forging a charter against any foreign
+  province — a plot that takes seasons and costs prestige if discovered,
+  yielding a province-claim casus belli.
+- **Province claims & province wars** as a full CB type, for the player and
+  the AI (Philip Augustus presses Normandy; William the Lion presses
+  Northumbria).
+- **Rome.** Petition for legitimacy yearly; failing or godless rulers risk
+  excommunication (-25 opinion with all Christendom, legitimacy bleed) until
+  they reconcile at a price.
+- **The Great Mortality.** A once-per-game plague pandemic: two years of
+  doubled mortality, collapsed income, and withering provinces.
+- **Quiet-seasons fast-forward** — the pacing guard from §3, as a button.
+
+### v3 candidates (still cut)
+Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
+Years and 1213 Reconquista scenarios · achievements · Ironman mode.
 
 ---
 
