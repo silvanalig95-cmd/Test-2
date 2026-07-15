@@ -41,7 +41,17 @@ h3{font-variant:small-caps; letter-spacing:1px; color:var(--red); font-size:15px
 #topbar .res{display:flex; gap:12px; align-items:center}
 #topbar .res span{white-space:nowrap}
 #dateBox{font-style:italic; color:#f0e2b8}
-#apBox b{color:#d9b95c}
+#apBox{background:rgba(217,185,92,.12); border:1px solid #8a6d1f; border-radius:4px; padding:2px 10px}
+#apBox .apLbl{font-variant:small-caps; letter-spacing:1px; color:#d9b95c; margin-right:2px}
+.apPip{font-size:17px; opacity:.22; filter:grayscale(1)}
+.apPip.on{opacity:1; filter:none; color:#ffd968; text-shadow:0 0 6px rgba(255,217,104,.7)}
+.apNone{font-size:11px; font-style:italic; color:#cbb98c}
+.advCard{background:linear-gradient(rgba(140,58,49,.1),rgba(140,58,49,.04)); border:1px solid #8c5a4a;
+  border-radius:4px; padding:8px; margin-bottom:9px}
+.advCard h3{margin-bottom:6px}
+.advRow{display:flex; align-items:center; gap:8px; padding:4px 0; border-top:1px dotted var(--line)}
+.advRow:first-of-type{border-top:none}
+.advRow .txt{flex:1; font-size:12.5px; line-height:1.35}
 #topbar .spacer{flex:1}
 #main{flex:1; display:flex; min-height:0}
 .panel{
@@ -51,8 +61,24 @@ h3{font-variant:small-caps; letter-spacing:1px; color:var(--red); font-size:15px
 }
 #leftPanel{border-right:2px solid var(--line)}
 #rightPanel{border-left:2px solid var(--line)}
-#mapWrap{flex:1; min-width:0; position:relative; background:var(--sea);
-  background-image:repeating-linear-gradient(115deg, rgba(255,255,255,.05) 0 2px, transparent 2px 26px)}
+#mapWrap{flex:1; min-width:0; position:relative;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(224,228,204,.55), transparent 70%),
+    repeating-linear-gradient(115deg, rgba(255,255,255,.05) 0 2px, transparent 2px 26px),
+    linear-gradient(#adc0b2, #9db2a6 60%, #93a89d);
+  box-shadow:inset 0 0 90px rgba(60,45,20,.35)}
+.seaLbl{fill:rgba(55,72,66,.6); font-style:italic; font-size:16px; letter-spacing:4px;
+  text-anchor:middle; font-family:Georgia,serif}
+.rhumb{stroke:rgba(70,85,78,.16); stroke-width:1}
+.compass circle{fill:none; stroke:rgba(55,72,66,.5); stroke-width:1.2}
+.compass path{fill:rgba(55,72,66,.5)}
+.compass path.thin{fill:none; stroke:rgba(55,72,66,.35); stroke-width:1.2}
+.compass text{fill:rgba(55,72,66,.7); font-size:13px; text-anchor:middle; font-family:Georgia,serif}
+.cartouche rect{fill:rgba(238,227,196,.85); stroke:#8a6d1f; stroke-width:1.5}
+.cartouche text{fill:#6b552e; font-size:15px; letter-spacing:3px; text-anchor:middle; font-variant:small-caps}
+.cartouche .cartSub{font-size:10.5px; letter-spacing:1px; font-style:italic; fill:#8a7448}
+.tglyph{stroke:rgba(40,28,10,.4); fill:none; stroke-width:1.5; pointer-events:none}
+.tglyphF{fill:rgba(35,50,18,.35); stroke:none; pointer-events:none}
 #mapSvg{width:100%; height:100%; display:block}
 #log{
   flex:0 0 112px; overflow-y:auto; padding:6px 12px; font-size:12.5px;
@@ -180,7 +206,7 @@ h3{font-variant:small-caps; letter-spacing:1px; color:var(--red); font-size:15px
     <div id="leftBody"></div>
   </div>
   <div id="mapWrap">
-    <svg id="mapSvg" viewBox="0 0 1000 760" preserveAspectRatio="xMidYMid meet"></svg>
+    <svg id="mapSvg" viewBox="0 0 1000 800" preserveAspectRatio="xMidYMid meet"></svg>
   </div>
   <div class="panel" id="rightPanel"><div id="rightBody"></div></div>
 </div>
@@ -257,40 +283,61 @@ const NAMES = {
          f:['Ingrid','Astrid','Gunnhild','Thyra','Ragnhild','Sigrid','Estrid']},
   celtic:{m:['Malcolm','Donald','Duncan','Bleddyn','Rhys','Gruffydd','Diarmait','Murchad','Domnall','Cinaed'],
           f:['Margaret','Gruoch','Nest','Gormflaith','Derbforgaill','Mor','Bethoc']},
+  german:{m:['Otto','Conrad','Heinrich','Frederick','Lothar','Rudolf','Hermann','Ludwig','Albrecht','Welf'],
+          f:['Adelheid','Gisela','Hedwig','Richenza','Agnes','Judith','Mathilde']},
 };
 
 /* Provinces: pts = polygon, t = terrain, d = development, adj = land neighbours, coast = reachable by sea */
 const PROVDATA = {
-  ulster:{n:'Ulster', pts:[[60,230],[150,230],[160,300],[70,310]], t:'hills', d:1, adj:['leinster'], coast:1},
-  leinster:{n:'Leinster', pts:[[70,310],[160,300],[150,395],[55,380]], t:'plains', d:2, adj:['ulster'], coast:1},
-  moray:{n:'Moray', pts:[[245,42],[340,55],[348,125],[288,128],[238,118]], t:'hills', d:1, adj:['strathclyde','lothian'], coast:1},
-  strathclyde:{n:'Strathclyde', pts:[[212,122],[288,128],[282,222],[240,238],[198,205]], t:'hills', d:1, adj:['moray','lothian','lancaster'], coast:1},
-  lothian:{n:'Lothian', pts:[[288,128],[348,125],[358,218],[282,222]], t:'plains', d:2, adj:['moray','strathclyde','northumbria'], coast:1},
-  northumbria:{n:'Northumbria', pts:[[282,222],[358,218],[368,295],[306,296]], t:'hills', d:1, adj:['lothian','lancaster','york'], coast:1},
-  lancaster:{n:'Lancaster', pts:[[240,238],[282,222],[306,296],[302,358],[250,352],[226,292]], t:'forest', d:1, adj:['strathclyde','northumbria','york','mercia','gwynedd'], coast:1},
-  york:{n:'York', pts:[[306,296],[368,295],[378,355],[302,358]], t:'plains', d:2, adj:['northumbria','lancaster','mercia','eastanglia'], coast:1},
-  mercia:{n:'Mercia', pts:[[252,352],[302,358],[330,358],[338,420],[260,428]], t:'plains', d:3, adj:['lancaster','york','eastanglia','gwynedd','hereford','essex'], coast:0},
-  eastanglia:{n:'East Anglia', pts:[[330,358],[378,355],[402,398],[396,428],[338,420]], t:'marsh', d:3, adj:['york','mercia','essex'], coast:1},
-  gwynedd:{n:'Gwynedd', pts:[[196,340],[252,352],[260,428],[208,420],[182,380]], t:'hills', d:1, adj:['lancaster','mercia','deheubarth','hereford'], coast:1},
-  deheubarth:{n:'Deheubarth', pts:[[208,420],[260,428],[254,470],[190,478],[172,448]], t:'hills', d:1, adj:['gwynedd','hereford'], coast:1},
-  hereford:{n:'Hereford', pts:[[260,428],[320,424],[326,478],[254,470]], t:'plains', d:2, adj:['mercia','gwynedd','deheubarth','essex','wessex'], coast:0},
-  essex:{n:'Middlesex', pts:[[320,424],[396,428],[400,470],[326,478]], t:'plains', d:4, adj:['mercia','eastanglia','hereford','kent','wessex'], coast:1},
-  wessex:{n:'Wessex', pts:[[254,470],[326,478],[330,530],[262,540],[238,505]], t:'plains', d:3, adj:['hereford','essex','kent','cornwall'], coast:1},
-  kent:{n:'Kent', pts:[[326,478],[400,470],[408,505],[366,535],[330,530]], t:'plains', d:3, adj:['essex','wessex'], coast:1},
-  cornwall:{n:'Cornwall', pts:[[148,560],[152,535],[238,505],[262,540],[246,568],[180,575]], t:'hills', d:1, adj:['wessex'], coast:1},
-  vestland:{n:'Vestland', pts:[[604,120],[640,38],[690,30],[668,120],[630,145]], t:'hills', d:1, adj:['viken'], coast:1},
-  viken:{n:'Viken', pts:[[668,120],[690,30],[760,42],[782,120],[700,148]], t:'forest', d:2, adj:['vestland'], coast:1},
-  jylland:{n:'Jylland', pts:[[640,188],[690,192],[686,300],[636,304]], t:'forest', d:2, adj:['sjaelland'], coast:1},
-  sjaelland:{n:'Sjaelland', pts:[[700,230],[748,226],[752,282],[704,286]], t:'plains', d:3, adj:['jylland','skane'], coast:1},
-  skane:{n:'Skane', pts:[[762,190],[820,186],[826,252],[768,256]], t:'plains', d:2, adj:['sjaelland'], coast:1},
-  flanders:{n:'Flanders', pts:[[480,472],[566,464],[580,518],[494,526]], t:'plains', d:4, adj:['vermandois','ponthieu'], coast:1},
-  ponthieu:{n:'Ponthieu', pts:[[438,526],[494,526],[506,570],[444,572]], t:'plains', d:2, adj:['flanders','rouen','vermandois'], coast:1},
-  rouen:{n:'Rouen', pts:[[420,580],[444,572],[506,570],[520,626],[434,636]], t:'plains', d:3, adj:['ponthieu','vermandois','idf','caen'], coast:1},
-  caen:{n:'Caen', pts:[[330,588],[420,580],[434,636],[348,650]], t:'plains', d:2, adj:['rouen','maine','brittany'], coast:1},
-  brittany:{n:'Brittany', pts:[[218,610],[330,588],[348,650],[340,690],[250,700],[200,660]], t:'hills', d:2, adj:['caen','maine'], coast:1},
-  maine:{n:'Maine', pts:[[348,650],[434,636],[444,690],[358,702]], t:'forest', d:2, adj:['caen','brittany','idf'], coast:0},
-  idf:{n:'Île-de-France', pts:[[520,626],[600,620],[610,690],[530,700]], t:'plains', d:4, adj:['rouen','maine','vermandois'], coast:0},
-  vermandois:{n:'Vermandois', pts:[[506,570],[494,526],[580,518],[640,540],[630,610],[600,620],[520,626]], t:'plains', d:3, adj:['flanders','ponthieu','rouen','idf'], coast:0},
+  /* --- Ireland --- */
+  ulster:{n:'Ulster', pts:[[58,215],[150,210],[160,268],[66,278]], t:'hills', d:1, adj:['connacht','leinster'], coast:1},
+  connacht:{n:'Connacht', pts:[[44,282],[110,278],[114,336],[48,340]], t:'hills', d:1, adj:['ulster','leinster','munster'], coast:1},
+  leinster:{n:'Leinster', pts:[[110,278],[160,268],[168,330],[114,336]], t:'plains', d:2, adj:['ulster','connacht','munster'], coast:1},
+  munster:{n:'Munster', pts:[[48,340],[114,336],[168,330],[150,398],[60,392]], t:'plains', d:2, adj:['connacht','leinster'], coast:1},
+  /* --- Scotland --- */
+  moray:{n:'Moray', pts:[[255,30],[345,42],[352,105],[300,112],[262,100]], t:'hills', d:1, adj:['strathclyde','lothian'], coast:1},
+  strathclyde:{n:'Strathclyde', pts:[[215,105],[300,112],[292,205],[252,222],[208,190]], t:'hills', d:1, adj:['moray','lothian','lancaster'], coast:1},
+  lothian:{n:'Lothian', pts:[[300,112],[352,105],[368,200],[292,205]], t:'plains', d:2, adj:['moray','strathclyde','northumbria'], coast:1},
+  /* --- England & Wales --- */
+  northumbria:{n:'Northumbria', pts:[[292,205],[368,200],[378,272],[315,275]], t:'hills', d:1, adj:['lothian','lancaster','york'], coast:1},
+  lancaster:{n:'Lancaster', pts:[[252,222],[292,205],[315,275],[312,334],[258,326],[240,270]], t:'forest', d:1, adj:['strathclyde','northumbria','york','mercia','gwynedd'], coast:1},
+  york:{n:'York', pts:[[315,275],[378,272],[392,332],[312,334]], t:'plains', d:2, adj:['northumbria','lancaster','mercia','eastanglia'], coast:1},
+  mercia:{n:'Mercia', pts:[[258,326],[312,334],[348,338],[354,398],[268,406]], t:'plains', d:3, adj:['lancaster','york','eastanglia','gwynedd','hereford','essex'], coast:0},
+  eastanglia:{n:'East Anglia', pts:[[348,338],[392,332],[418,372],[410,402],[354,398]], t:'marsh', d:3, adj:['york','mercia','essex'], coast:1},
+  gwynedd:{n:'Gwynedd', pts:[[204,330],[258,326],[268,406],[216,398],[186,362]], t:'hills', d:1, adj:['lancaster','mercia','deheubarth','hereford'], coast:1},
+  deheubarth:{n:'Deheubarth', pts:[[216,398],[268,406],[262,442],[196,456],[174,424]], t:'hills', d:1, adj:['gwynedd','hereford'], coast:1},
+  hereford:{n:'Hereford', pts:[[268,406],[330,402],[336,452],[262,442]], t:'plains', d:2, adj:['mercia','gwynedd','deheubarth','essex','wessex'], coast:0},
+  essex:{n:'Middlesex', pts:[[330,402],[410,402],[414,440],[336,452]], t:'plains', d:4, adj:['mercia','eastanglia','hereford','kent','wessex'], coast:1},
+  wessex:{n:'Wessex', pts:[[262,442],[336,452],[340,496],[268,506],[244,474]], t:'plains', d:3, adj:['hereford','essex','kent','cornwall'], coast:1},
+  kent:{n:'Kent', pts:[[336,452],[414,440],[420,470],[376,500],[340,496]], t:'plains', d:3, adj:['essex','wessex'], coast:1},
+  cornwall:{n:'Cornwall', pts:[[150,532],[244,474],[268,506],[252,532],[186,548],[152,552]], t:'hills', d:1, adj:['wessex'], coast:1},
+  /* --- Scandinavia --- */
+  trondelag:{n:'Trøndelag', pts:[[640,20],[730,14],[742,66],[654,84]], t:'hills', d:1, adj:['vestland','viken'], coast:1},
+  vestland:{n:'Vestland', pts:[[588,128],[614,58],[654,84],[648,140],[612,158]], t:'hills', d:1, adj:['trondelag','viken'], coast:1},
+  viken:{n:'Viken', pts:[[648,140],[654,84],[742,66],[748,128],[688,162]], t:'forest', d:2, adj:['vestland','trondelag','svealand'], coast:1},
+  svealand:{n:'Svealand', pts:[[748,128],[742,66],[836,58],[856,128],[768,148]], t:'forest', d:2, adj:['viken','gotaland'], coast:1},
+  gotaland:{n:'Götaland', pts:[[768,148],[856,128],[862,208],[788,224],[756,196]], t:'forest', d:1, adj:['svealand','skane'], coast:1},
+  jylland:{n:'Jylland', pts:[[640,206],[688,210],[684,300],[634,306]], t:'forest', d:2, adj:['sjaelland'], coast:1},
+  sjaelland:{n:'Sjaelland', pts:[[700,246],[746,242],[750,294],[704,298]], t:'plains', d:3, adj:['jylland','skane'], coast:1},
+  skane:{n:'Skåne', pts:[[760,238],[820,232],[826,292],[766,296]], t:'plains', d:2, adj:['sjaelland','gotaland'], coast:1},
+  /* --- The Empire & Low Countries --- */
+  frisia:{n:'Frisia', pts:[[590,392],[688,384],[700,448],[602,455]], t:'marsh', d:2, adj:['saxony','flanders','champagne'], coast:1},
+  saxony:{n:'Saxony', pts:[[688,384],[800,374],[816,448],[700,448]], t:'forest', d:2, adj:['frisia','lorraine'], coast:1},
+  lorraine:{n:'Lorraine', pts:[[700,448],[816,448],[828,556],[704,552]], t:'forest', d:2, adj:['saxony','champagne'], coast:0},
+  flanders:{n:'Flanders', pts:[[495,452],[595,458],[590,510],[505,510]], t:'plains', d:4, adj:['frisia','vermandois','ponthieu','champagne'], coast:1},
+  /* --- France --- */
+  champagne:{n:'Champagne', pts:[[595,458],[700,452],[704,552],[698,640],[612,636],[605,560]], t:'plains', d:3, adj:['frisia','lorraine','flanders','vermandois','idf','burgundy'], coast:0},
+  vermandois:{n:'Vermandois', pts:[[505,510],[590,510],[598,558],[512,556]], t:'plains', d:3, adj:['flanders','ponthieu','rouen','idf','champagne'], coast:0},
+  ponthieu:{n:'Ponthieu', pts:[[440,508],[505,510],[512,556],[448,558]], t:'plains', d:2, adj:['flanders','vermandois','rouen'], coast:1},
+  rouen:{n:'Rouen', pts:[[432,558],[448,558],[512,556],[520,622],[440,630]], t:'plains', d:3, adj:['ponthieu','vermandois','idf','caen'], coast:1},
+  idf:{n:'Île-de-France', pts:[[512,556],[605,560],[612,636],[524,626]], t:'plains', d:4, adj:['rouen','vermandois','champagne','burgundy','maine'], coast:0},
+  burgundy:{n:'Burgundy', pts:[[612,636],[698,640],[712,724],[620,730]], t:'hills', d:2, adj:['champagne','idf'], coast:0},
+  caen:{n:'Caen', pts:[[336,562],[432,558],[440,630],[352,640]], t:'plains', d:2, adj:['rouen','maine','brittany'], coast:1},
+  brittany:{n:'Brittany', pts:[[212,585],[336,562],[352,640],[344,678],[252,692],[198,640]], t:'hills', d:2, adj:['caen','maine','poitou'], coast:1},
+  maine:{n:'Maine', pts:[[352,640],[440,630],[448,694],[360,700]], t:'forest', d:2, adj:['caen','brittany','idf','anjou'], coast:0},
+  anjou:{n:'Anjou', pts:[[360,700],[448,694],[444,748],[366,752]], t:'plains', d:2, adj:['maine','poitou','aquitaine'], coast:0},
+  poitou:{n:'Poitou', pts:[[252,692],[344,678],[360,700],[366,752],[268,760],[226,726]], t:'plains', d:2, adj:['brittany','anjou','aquitaine'], coast:1},
+  aquitaine:{n:'Aquitaine', pts:[[226,726],[268,760],[366,752],[444,748],[452,792],[238,792]], t:'plains', d:3, adj:['poitou','anjou'], coast:1},
 };
 /* straits: cross like land */
 [['jylland','sjaelland'],['sjaelland','skane']].forEach(()=>{});
@@ -305,14 +352,15 @@ const SCENARIOS = {
     provs:null /* REALMDATA defaults */ },
   y1187:{ n:'1187 · The Devil’s Brood', year:1187, sub:'Henry II rules an empire from Scotland’s border to the Loire — and his own sons circle him like wolves, with the young King of France holding their leashes. Meanwhile, word comes from the East: Jerusalem is in peril.',
     cards:{
-      england:{diff:'Difficulty: Normal (the empire), Nightmare (the family)', blurb:'Henry II holds England, Normandy and Maine. His son Richard demands the succession, his son John schemes for scraps, and Philip of France whispers to both.'},
+      england:{diff:'Difficulty: Normal (the empire), Nightmare (the family)', blurb:'Henry II holds England, Normandy, Anjou and Aquitaine — half of France. His son Richard demands the succession, his son John schemes for scraps, and Philip Augustus whispers to both.'},
       france:{diff:'Difficulty: Hard', blurb:'Philip Augustus is twenty-two, penniless beside the Angevins — and the most patient man in Europe. The empire encircling Paris is one family quarrel away from pieces.'},
       scotland:{diff:'Difficulty: Very Hard', blurb:'William the Lion once knelt to Henry at knife-point. The humiliation is unpaid, the claim to Northumbria unforgotten, and the Angevins are busy hating each other.'},
     },
-    provs:{ england:['essex','wessex','kent','eastanglia','hereford','cornwall','mercia','lancaster','york','northumbria','rouen','caen','maine'],
-      france:['idf','vermandois','ponthieu'], scotland:['lothian','strathclyde','moray'],
-      wales:['gwynedd','deheubarth'], ireland:['leinster','ulster'], brittany:['brittany'],
-      flanders:['flanders'], norway:['viken','vestland'], denmark:['jylland','sjaelland','skane'] } },
+    provs:{ england:['essex','wessex','kent','eastanglia','hereford','cornwall','mercia','lancaster','york','northumbria','rouen','caen','maine','anjou','poitou','aquitaine'],
+      france:['idf','vermandois','champagne','burgundy','ponthieu'], scotland:['lothian','strathclyde','moray'],
+      wales:['gwynedd','deheubarth'], ireland:['leinster','ulster'], munster:['munster','connacht'], brittany:['brittany'],
+      flanders:['flanders'], norway:['viken','vestland','trondelag'], sweden:['svealand','gotaland'],
+      denmark:['jylland','sjaelland','skane'], germany:['frisia','saxony','lorraine'] } },
 };
 
 const REALMDATA = {
@@ -323,7 +371,7 @@ const REALMDATA = {
     provs:['rouen','caen','maine'], playable:1,
     diff:'Difficulty: Hard', blurb:'William the Bastard has the finest knights in Christendom, papal favor, and a claim across the sea. He needs only a fleet, a fair wind, and nerve.'},
   norway:{n:'Norway', adj:'Norwegian', col:'#5b4a7d', cap:'viken', cult:'norse',
-    provs:['viken','vestland'], playable:1,
+    provs:['viken','vestland','trondelag'], playable:1,
     diff:'Difficulty: Very Hard', blurb:'Harald Hardrada, the Thunderbolt of the North, is fifty-one and unbeaten. One last throne would crown a legend — or end one.'},
   denmark:{n:'Denmark', adj:'Danish', col:'#a5622a', cap:'sjaelland', cult:'norse', provs:['jylland','sjaelland','skane']},
   scotland:{n:'Scotland', adj:'Scottish', col:'#3e6b4f', cap:'lothian', cult:'celtic', provs:['lothian','strathclyde','moray']},
@@ -331,9 +379,14 @@ const REALMDATA = {
   wales:{n:'Wales', adj:'Welsh', col:'#6e5340', cap:'gwynedd', cult:'celtic', provs:['gwynedd','deheubarth']},
   mercia:{n:'Mercia', adj:'Mercian', col:'#7a6a3a', cap:'mercia', cult:'saxon', provs:['mercia','lancaster']},
   northumbria:{n:'Northumbria', adj:'Northumbrian', col:'#6d4b30', cap:'york', cult:'saxon', provs:['york','northumbria']},
-  france:{n:'France', adj:'French', col:'#44518f', cap:'idf', cult:'norman', provs:['idf','vermandois','ponthieu']},
+  france:{n:'France', adj:'French', col:'#44518f', cap:'idf', cult:'norman', provs:['idf','vermandois','champagne','burgundy','ponthieu']},
   flanders:{n:'Flanders', adj:'Flemish', col:'#a8862a', cap:'flanders', cult:'norman', provs:['flanders']},
   brittany:{n:'Brittany', adj:'Breton', col:'#4f6b6b', cap:'brittany', cult:'celtic', provs:['brittany']},
+  munster:{n:'Munster', adj:'Munster', col:'#7f9a4e', cap:'munster', cult:'celtic', provs:['munster','connacht']},
+  sweden:{n:'Sweden', adj:'Swedish', col:'#467d8f', cap:'svealand', cult:'norse', provs:['svealand','gotaland']},
+  germany:{n:'Germany', adj:'German', col:'#5d5d70', cap:'lorraine', cult:'german', provs:['frisia','saxony','lorraine']},
+  anjou:{n:'Anjou', adj:'Angevin', col:'#96604e', cap:'anjou', cult:'norman', provs:['anjou']},
+  aquitaine:{n:'Aquitaine', adj:'Aquitainian', col:'#7d4e7a', cap:'aquitaine', cult:'norman', provs:['aquitaine','poitou']},
 };
 </script>
 <script>
@@ -424,6 +477,8 @@ function newGame(playerRealm, seed, scenId){
   if(scenId==='y1066'){
     G.realms.normandy.rank='duchy'; G.realms.flanders.rank='duchy'; G.realms.brittany.rank='duchy';
     G.realms.mercia.rank='duchy'; G.realms.northumbria.rank='duchy'; G.realms.wales.rank='kingdom';
+    G.realms.anjou.rank='duchy'; G.realms.aquitaine.rank='duchy';
+    G.realms.germany.rank='kingdom'; G.realms.sweden.rank='kingdom'; G.realms.munster.rank='kingdom';
     seedCast1066();
     /* standing forces of 1066: housecarls, knights, and Hardrada's veterans */
     G.realms.england.retinue = 400;
@@ -435,6 +490,7 @@ function newGame(playerRealm, seed, scenId){
     chron(`In the year of Our Lord 1066 this chronicle was begun, when Edward the old king died childless at Westminster and the great of the earth began to circle England like ravens over a stricken hart.`);
   } else {
     G.realms.flanders.rank='duchy'; G.realms.brittany.rank='duchy'; G.realms.wales.rank='kingdom';
+    G.realms.germany.rank='kingdom'; G.realms.sweden.rank='kingdom'; G.realms.munster.rank='kingdom';
     G.provinces.essex.dev=5; G.provinces.rouen.dev=4; G.provinces.idf.dev=5;
     G.provinces.york.bld='cathedral'; G.provinces.sjaelland.bld='market';
     seedCast1187();
@@ -447,6 +503,7 @@ function newGame(playerRealm, seed, scenId){
     logIt('court', 'The chronicle of your house begins. The Angevin empire sprawls from Northumbria to Maine — and its heirs sharpen their knives at their father’s table.');
     chron(`In the year of Our Lord 1187 this chronicle was begun, when Henry the second of that name ruled more of France than the French king did, and his sons loved him as wolves love a wounded stag.`);
   }
+  ensureMarriageMarket();
   /* the player's imperial threshold scales with their inheritance */
   G.impThresh = Math.max(15, realmProvs(playerRealm).length+5);
   for(const rid of Object.keys(G.realms)){
@@ -564,7 +621,28 @@ function seedCast1066(){
     tr:['wrathful','brave','greedy'], sk:{dip:3,mar:6,int:4,ste:3}});
   G.realms.brittany.ruler = 'conan';
 
+  mk({id:'fulk', nm:'Fulk', num:'IV', epithet:'le Réchin', dyn:'Anjou', realm:'anjou', cult:'norman', sex:'m', by:1043,
+    tr:['wrathful','deceitful','greedy'], sk:{dip:3,mar:5,int:6,ste:4}, pclaims:['maine']});
+  G.realms.anjou.ruler = 'fulk';
+  mk({id:'guyg', nm:'William', num:'VIII', dyn:'Poitiers', realm:'aquitaine', cult:'norman', sex:'m', by:1025,
+    tr:['brave','lustful','generous'], sk:{dip:5,mar:6,int:4,ste:5}});
+  G.realms.aquitaine.ruler = 'guyg';
+  mk({id:'henry4', nm:'Henry', num:'IV', dyn:'Salian', realm:'germany', cult:'german', sex:'m', by:1050,
+    tr:['ambitious','wrathful','cynical'], sk:{dip:4,mar:5,int:6,ste:5}});
+  G.realms.germany.ruler = 'henry4';
+  mk({id:'stenkil', nm:'Stenkil', dyn:'Stenkil', realm:'sweden', cult:'norse', sex:'m', by:1028,
+    tr:['pious','content','robust'], sk:{dip:4,mar:5,int:3,ste:4}});
+  G.realms.sweden.ruler = 'stenkil';
+  mk({id:'toirdelbach', nm:'Toirdelbach', dyn:'Uí Briain', realm:'munster', cult:'celtic', sex:'m', by:1009,
+    tr:['patient','ambitious','genius'], sk:{dip:6,mar:5,int:5,ste:5}});
+  mk({id:'muirchertach', nm:'Muirchertach', dyn:'Uí Briain', realm:'munster', cult:'celtic', sex:'m', by:1050, fa:'toirdelbach',
+    tr:['brave','ambitious'], sk:{dip:4,mar:6,int:4,ste:3}});
+  G.realms.munster.ruler = 'toirdelbach';
+
   /* starting relationships */
+  addOp(ch('fulk'), 'william', -35); addOp(ch('william'), 'fulk', -25); /* Maine is disputed */
+  addOp(ch('toirdelbach'), 'diarmait', -30); /* the high kingship of Ireland */
+  addOp(ch('henry4'), 'philip', -15);
   addAlliance('normandy','flanders','matilda');
   addOp(ch('william'), 'harold', -60); addOp(ch('harold'), 'william', -40);
   addOp(ch('hardrada'), 'harold', -50); addOp(ch('harold'), 'hardrada', -40);
@@ -639,7 +717,20 @@ function seedCast1187(){
     tr:['ambitious','brave'], sk:{dip:4,mar:6,int:4,ste:5}});
   G.realms.denmark.ruler = 'knut6';
 
+  mk({id:'barbarossa', nm:'Frederick', num:'I', epithet:'Barbarossa', dyn:'Hohenstaufen', realm:'germany', cult:'german', sex:'m', by:1122,
+    tr:['brave','genius','pious'], sk:{dip:7,mar:8,int:5,ste:6}});
+  mk({id:'heinrich6', nm:'Heinrich', dyn:'Hohenstaufen', realm:'germany', cult:'german', sex:'m', by:1165, fa:'barbarossa',
+    tr:['cruel','genius','ambitious'], sk:{dip:5,mar:6,int:7,ste:7}});
+  G.realms.germany.ruler = 'barbarossa';
+  mk({id:'knuterik', nm:'Knut', epithet:'Eriksson', dyn:'Erik', realm:'sweden', cult:'norse', sex:'m', by:1150,
+    tr:['content','patient','pious'], sk:{dip:4,mar:4,int:4,ste:5}});
+  G.realms.sweden.ruler = 'knuterik';
+  mk({id:'domnall', nm:'Domnall', epithet:'Mór', dyn:'Uí Briain', realm:'munster', cult:'celtic', sex:'m', by:1142,
+    tr:['brave','pious','wrathful'], sk:{dip:4,mar:6,int:3,ste:4}});
+  G.realms.munster.ruler = 'domnall';
+
   /* starting relationships: a family at war with itself */
+  addOp(ch('barbarossa'), 'philip2', 10);
   addOp(ch('richard'), 'henry2', -55); addOp(ch('henry2'), 'richard', -25);
   addOp(ch('johnl'), 'richard', -45); addOp(ch('richard'), 'johnl', -35);
   addOp(ch('eleanor'), 'henry2', -50); addOp(ch('henry2'), 'eleanor', -30);
@@ -703,6 +794,7 @@ function logIt(cls, txt){
   G.log.push({y:G.year, s:G.season, cls, txt});
   if(G.log.length>400) G.log.shift();
 }
+function gameOver(won, msg){ Game.gameOver(won, msg); }
 function chron(txt){ G.chron.push({y:G.year, txt}); }
 </script>
 <script>
@@ -734,7 +826,7 @@ function tryBirths(){
     const h = ch(c.sp);
     if(!alive(h)) continue;
     const a = age(c);
-    if(a<16 || a>45) continue;
+    if(a<16 || a>45 || age(h)<16) continue;
     let p = .055;
     if(c.tr.includes('lustful')||h.tr.includes('lustful')) p += .025;
     if(c.tr.includes('chaste')||h.tr.includes('chaste')) p -= .03;
@@ -898,7 +990,25 @@ function seasonDeaths(){
 
 /* ============ Diplomacy ============ */
 function marriageCandidates(rid){
-  return Object.values(G.chars).filter(c=>alive(c)&&c.realm===rid&&!c.sp&&age(c)>=16&&age(c)<=(c.sex==='f'?42:60)&&c.dyn);
+  /* age 13+ may be betrothed; the marriage is politics first, biology later */
+  return Object.values(G.chars).filter(c=>alive(c)&&c.realm===rid&&!c.sp&&age(c)>=13&&age(c)<=(c.sex==='f'?42:60)&&c.dyn);
+}
+function ensureMarriageMarket(){
+  /* every ruling house keeps some marriageable kin — history always found a cousin */
+  for(const R_ of Object.values(G.realms)){
+    if(R_.dead) continue;
+    const rul = ruler(R_.id);
+    if(!rul || !rul.dyn) continue;
+    const kin = marriageCandidates(R_.id);
+    if(!kin.some(c=>c.sex==='m')){
+      mkChar({ nm:pick(NAMES[R_.cult].m), dyn:rul.dyn, realm:R_.id, cult:R_.cult, sex:'m',
+        by:G.year - ri(16,30), tr:randTraits(2) });
+    }
+    if(!kin.some(c=>c.sex==='f')){
+      mkChar({ nm:pick(NAMES[R_.cult].f), dyn:rul.dyn, realm:R_.id, cult:R_.cult, sex:'f',
+        by:G.year - ri(14,26), tr:randTraits(2) });
+    }
+  }
 }
 function proposeMarriage(myChar, theirChar){
   const myR = rl(G.player), tR = rl(theirChar.realm);
@@ -1922,9 +2032,11 @@ const UI = {
     </svg>`;
   },
   charRow(c, sub){
+    /* sub is trusted HTML built by callers; names are escaped individually */
+    const subHtml = sub!==undefined ? sub : esc(age(c)+', '+c.tr.map(cap).join(', '));
     return `<div class="charRow" onclick="UI.selChar('${c.id}')">${this.medallion(c)}
       <div class="nm"><div>${esc(fullName(c))}${c.dead?' †':''}</div>
-      <div class="sub">${esc(sub!==undefined?sub:(age(c)+', '+c.tr.map(cap).join(', ')))}</div></div></div>`;
+      <div class="sub">${subHtml}</div></div></div>`;
   },
   selChar(id){ G.sel={t:'char',id}; this.renderRight(); },
   selProv(id){
@@ -1945,7 +2057,10 @@ const UI = {
     document.getElementById('goldBox').textContent = `🪙 ${Math.floor(R_.gold)}`;
     document.getElementById('prsBox').textContent = `☀ ${Math.floor(R_.prs)} prestige`;
     document.getElementById('legBox').textContent = `✠ ${Math.floor(R_.leg)} legitimacy`;
-    document.getElementById('apBox').innerHTML = `Actions: <b>${G.ap}</b>`;
+    const apMax = G.regency?2:3;
+    document.getElementById('apBox').innerHTML = `<span class="apLbl">Actions</span> ` +
+      Array.from({length:apMax}, (_,i)=>`<span class="apPip${i<G.ap?' on':''}">⚡</span>`).join('') +
+      (G.ap===0?` <span class="apNone">spent — end the season</span>`:'');
     document.getElementById('endBtn').disabled = !!G.over;
   },
   renderMap(){
@@ -1964,7 +2079,28 @@ const UI = {
       h += `<pattern id="occ_${o}" width="9" height="9" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
         <rect width="9" height="9" fill="${rl(o).col}"/><rect width="9" height="4" fill="rgba(20,12,4,.35)"/></pattern>`;
     }
-    h += `<g filter="url(#rough)">`;
+    /* the sea: labels, rhumb lines, compass, cartouche */
+    h += `<g class="seaDeco">
+      <text class="seaLbl" x="118" y="182">Mare Hibernicum</text>
+      <text class="seaLbl" x="505" y="255">Mare Germanicum</text>
+      <text class="seaLbl" x="352" y="540" style="font-size:12px;letter-spacing:2px">Oceanus Britannicus</text>
+      <text class="seaLbl" x="805" y="330">Mare Balticum</text>
+      <line class="rhumb" x1="95" y1="640" x2="900" y2="80"/>
+      <line class="rhumb" x1="95" y1="640" x2="940" y2="640"/>
+      <line class="rhumb" x1="95" y1="640" x2="500" y2="30"/>
+      <g class="compass" transform="translate(95,640)">
+        <circle r="30"/><circle r="21"/>
+        <path d="M0 -28 L6 0 L0 28 L-6 0 Z"/><path d="M-28 0 L0 6 L28 0 L0 -6 Z"/>
+        <path d="M-17 -17 L0 -4 L17 17 M17 -17 L4 0 L-17 17" class="thin"/>
+        <text y="-36">N</text>
+      </g>
+      <g class="cartouche">
+        <rect x="700" y="726" width="272" height="56" rx="5"/>
+        <text x="836" y="750">CROWN &amp; REALM</text>
+        <text class="cartSub" x="836" y="768">the North Sea world · anno ${G.year}</text>
+      </g>
+    </g>`;
+    h += `<g style="filter:drop-shadow(2px 4px 5px rgba(30,20,5,.4))"><g filter="url(#rough)">`;
     const selProv = G.sel && G.sel.t==='prov' ? G.sel.id : null;
     const moveTargets = G.moveMode ? Game.moveTargets() : {land:[],sea:[]};
     for(const [pid, pd] of Object.entries(PROVDATA)){
@@ -1973,10 +2109,16 @@ const UI = {
       const cls = 'provPath' + (selProv===pid?' sel':'') + (moveTargets.land.includes(pid)||moveTargets.sea.includes(pid)?' moveTarget':'');
       h += `<polygon class="${cls}" points="${pd.pts.map(p=>p.join(',')).join(' ')}" fill="${fill}" onclick="UI.selProv('${pid}')"><title>${esc(pd.n)}</title></polygon>`;
     }
-    h += `</g>`;
+    h += `</g></g>`;
+    const TG = {
+      hills:(x,y)=>`<path class="tglyph" d="M${x-7} ${y} l5 -7 l5 7 M${x+1} ${y} l5 -7 l5 7"/>`,
+      forest:(x,y)=>`<path class="tglyphF" d="M${x-8} ${y} l4 -8 l4 8 z M${x+1} ${y} l4 -8 l4 8 z"/>`,
+      marsh:(x,y)=>`<path class="tglyph" d="M${x-8} ${y-3} h7 M${x+1} ${y-3} h7 M${x-4} ${y+1} h8"/>`,
+    };
     for(const [pid, pd] of Object.entries(PROVDATA)){
       const [cx, cy] = this.centroid(pd.pts);
       h += `<text class="provName" x="${cx}" y="${cy+3}">${esc(pd.n)}</text>`;
+      if(TG[pd.t]) h += TG[pd.t](cx, cy-11);
       if(rl(pv(pid).r) && rl(pv(pid).r).cap===pid && !rl(pv(pid).r).dead)
         h += `<text class="capStar" x="${cx}" y="${cy-9}" text-anchor="middle" font-size="10" fill="#ffe9a0">★</text>`;
       if(G.armies.some(a=>a.prov===pid && a.siege>0))
@@ -2082,11 +2224,63 @@ const UI = {
       el.innerHTML = a? this.armyHtml(a) : this.overviewHtml();
     }
   },
+  advise(){
+    const R_ = PRL(), out = [];
+    const add = (txt, btn, fx) => out.push({txt, btn, fx});
+    const myArmies = G.armies.filter(a=>a.realm===G.player);
+    const invaded = Object.keys(G.provinces).filter(p=>pv(p).r===G.player && enemiesIn(p,G.player).length);
+    const wars = atWar(G.player);
+    if(invaded.length && !myArmies.length && G.ap>0)
+      add(`Enemy soldiers stand on your soil at ${PROVDATA[invaded[0]].n} and no host opposes them.`, '⚔ Muster levies', `Game.act('muster','${R_.cap}')`);
+    else if(wars.length && !myArmies.length && G.season<=1 && G.ap>0)
+      add(`You are at war with no army in the field. Spring and summer are the mustering seasons.`, '⚔ Muster levies', `Game.act('muster','${R_.cap}')`);
+    const idle = myArmies.find(a=>!a.moved);
+    if(wars.length && idle)
+      add(`Your host at ${PROVDATA[idle.prov].n} still has its march this season.`, '➤ Select army', `UI.selArmy('${idle.id}')`);
+    if(!wars.length && myArmies.length)
+      add(`The realm is at peace but ${fmtN(myArmies.reduce((s,a)=>s+armySize(a),0))} men stand idle, eating pay and dying of seasons.`, 'Disband host', `Game.act('disband','${myArmies[0].id}')`);
+    const heir = heirOf(G.player);
+    if(!heir && !PR().sp && G.ap>0)
+      add(`<b>The line hangs by a thread</b> — no heir, no consort. One fever ends the chronicle.`, '💍 Seek a marriage', `Game.marryMenuChar('${PR().id}')`);
+    else if(!heir)
+      add(`<b>No heir.</b> Pray for a child, or the chronicle ends with you.`, 'Court tab', `UI.tab('court')`);
+    const unwed = marriageCandidates(G.player).filter(c=>c.id!==PR().id)[0];
+    if(unwed && G.ap>0 && out.length<3)
+      add(`${fullName(unwed)} (${age(unwed)}) is unwed — a ring here buys an ally's spears.`, '💍 Arrange match', `Game.marryMenuChar('${unwed.id}')`);
+    if(R_.excomm && R_.gold>=40 && G.ap>0)
+      add(`You are excommunicate. Every year outside the Church bleeds legitimacy and friends.`, '☩ Reconcile', `Game.act('rome')`);
+    else if(R_.leg<45 && G.ap>0 && out.length<3)
+      add(`Legitimacy is low (${Math.floor(R_.leg)}) — nobles get ideas about low kings.`, R_.gold>=15&&!G.flags['rome'+G.year] ? '☩ Petition Rome':'⚖ Convene court', R_.gold>=15&&!G.flags['rome'+G.year] ? `Game.act('rome')`:`Game.act('court')`);
+    const angry = myCourt().find(c=>opinion(c,PR())<-30 && c.tr.includes('ambitious') && !c.prison);
+    if(angry && out.length<3 && G.ap>0 && R_.gold>=8)
+      add(`${fullName(angry)} hates you (${opinion(angry,PR())}) and is ambitious. That arithmetic ends in plots.`, '🎁 Send gift', `Game.act('cgift','${angry.id}')`);
+    if(out.length<3 && R_.gold>=60 && G.ap>0){
+      const slot = realmProvs(G.player).filter(p=>!pv(p).bld&&!pv(p).occ).sort((a,b)=>pv(b).dev-pv(a).dev)[0];
+      if(slot) add(`The treasury is fat (${Math.floor(R_.gold)}🪙). Stone remembers longer than feasts.`, `🏗 Market at ${PROVDATA[slot].n}`, `Game.act('build','${slot}','market')`);
+    }
+    if(out.length<3 && !wars.length && G.ap>0 && R_.gold>=20 && ![PR(),...myCourt()].some(c=>alive(c)&&(c.claims.length||c.pclaims.length))){
+      const border = Object.keys(G.provinces).filter(p=>{ const o=pv(p).r;
+        return o && o!==G.player && rl(o) && !rl(o).dead &&
+          ((PROVDATA[p].adj||[]).some(q=>pv(q).r===G.player) || (PROVDATA[p].coast && PROVDATA[rl(G.player).cap].coast));
+      }).sort((a,b)=>realmStrength(pv(a).r)-realmStrength(pv(b).r))[0];
+      if(border) add(`Your house holds no claims — no lawful road to war. The monks could remedy that, given a candle and a quiet scriptorium. ${PROVDATA[border].n} looks… historically yours.`, `📜 Fabricate claim`, `Game.act('fabricate','${border}')`);
+    }
+    if(!out.length && G.ap>0 && R_.gold>=10)
+      add(`A quiet season. Quiet seasons are for making friends before you need them.`, '🍖 Host a feast', `Game.act('feast')`);
+    return out.slice(0,3);
+  },
   overviewHtml(){
     const R_ = PRL();
     const provs = realmProvs(G.player);
     const income = provs.reduce((s,p)=>pv(p).occ?s:s+taxOf(p),0);
-    let h = `<h3>${esc(R_.n)}</h3>
+    let h = '';
+    const adv = this.advise();
+    if(adv.length){
+      h += `<div class="advCard"><h3>The Council Advises</h3>` +
+        adv.map(a=>`<div class="advRow"><div class="txt">${a.txt}</div><button class="small" onclick="${a.fx}">${a.btn}</button></div>`).join('') +
+        `</div>`;
+    }
+    h += `<h3>${esc(R_.n)}</h3>
       <div class="kv"><span>Provinces</span><b>${provs.length}</b></div>
       <div class="kv"><span>Season income</span><b>${income} gold</b></div>
       <div class="kv"><span>Total levy pool</span><b>${fmtN(realmStrength(G.player))}</b></div>
@@ -2353,14 +2547,19 @@ const Game = {
   marryMenu(rid){
     const mine = marriageCandidates(G.player), theirs = marriageCandidates(rid);
     const combos = [];
-    for(const m of mine) for(const t of theirs) if(m.sex!==t.sex && combos.length<8) combos.push([m,t]);
-    if(!combos.length){ UI.modal('No Match Possible','Between the two courts there is no marriageable pair — wrong ages, wrong sexes, or rings already worn.',[{t:'A pity.',fx:()=>{}}]); return; }
+    for(const m of mine) for(const t of theirs) if(m.sex!==t.sex && combos.length<10) combos.push([m,t]);
+    if(!combos.length){
+      const why = !mine.length ? `Your own house has no unwed member of age (13+). Wait for children to grow, or widowhood to strike.` :
+        !theirs.length ? `The house of ${rl(rid).n} has no unwed kin of age just now. Try again in a few seasons — or try another court.` :
+        `Your unwed kin (${mine.map(c=>c.sex).join(',')}) and theirs (${theirs.map(c=>c.sex).join(',')}) are all of the same sex. The Church was consulted and said no.`;
+      UI.modal('No Match Possible', why, [{t:'A pity.',fx:()=>{}}]); return;
+    }
     UI.modal('A Marriage with '+rl(rid).n,
-      'Choose the match. A wedding binds the realms in alliance — while both spouses draw breath.',
-      combos.map(([m,t])=>({t:`${fullName(m)} (${age(m)}) ↔ ${fullName(t)} (${age(t)}, ${t.tr.map(cap).join(', ')})`,
+      `Choose the match. A wedding binds the realms in alliance — while both spouses draw breath. <em>(Unwed of your house: ${mine.length} · of theirs: ${theirs.length})</em>`,
+      combos.map(([m,t])=>({t:`${fullName(m)} (${age(m)}${age(m)<16?', betrothal':''}) ↔ ${fullName(t)} of ${rl(rid).n} (${age(t)}${age(t)<16?', betrothal':''}, ${t.tr.map(cap).join(', ')})`,
         fx:()=>{ if(!this.spend(1)) return;
           if(proposeMarriage(m,t)) UI.modal('The Banns Are Read', `${rl(rid).n} accepts. The houses are joined, the alliance sworn.`, [{t:'Excellent.',fx:()=>{}}]);
-          else UI.modal('Rebuffed', `${rl(rid).n} declines the match, with courtesy as thin as March ice. <em>(They think too little of you — improve relations or raise your prestige.)</em>`, [{t:'Their loss.',fx:()=>{}}]);
+          else UI.modal('Rebuffed', `${rl(rid).n} declines the match, with courtesy as thin as March ice. <em>(They think too little of you — improve relations with envoys and gifts, or raise your prestige.)</em>`, [{t:'Their loss.',fx:()=>{}}]);
         }})).concat([{t:'— Never mind —', fx:()=>{}}]));
   },
   marryMenuChar(cid){
@@ -2372,7 +2571,7 @@ const Game = {
     }
     if(!options.length){ UI.modal('No Match Found','No foreign court offers a marriageable partner this season.',[{t:'Wait, then.',fx:()=>{}}]); return; }
     UI.modal('A Match for '+fullName(m), 'Whose hand shall be sought?',
-      options.map(t=>({t:`${fullName(t)} of ${rl(t.realm).n} (${age(t)}, ${t.tr.map(cap).join(', ')})`,
+      options.map(t=>({t:`${fullName(t)} of ${rl(t.realm).n} (${age(t)}${age(t)<16?', betrothal':''}, ${t.tr.map(cap).join(', ')})`,
         fx:()=>{ if(!this.spend(1)) return;
           if(proposeMarriage(m,t)) UI.modal('The Banns Are Read', `${rl(t.realm).n} accepts the match.`, [{t:'Good.',fx:()=>{}}]);
           else UI.modal('Rebuffed', `${rl(t.realm).n} declines. Their opinion of you is too low, or their ambitions too high.`, [{t:'So be it.',fx:()=>{}}]);
@@ -2531,6 +2730,7 @@ const Game = {
       }
     }
     if(G.flags.spyBoost) G.flags.spyBoost = Math.max(0, G.flags.spyBoost-1);
+    ensureMarriageMarket();
   },
   victoryCheck(){
     if(G.over) return;

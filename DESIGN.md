@@ -308,6 +308,24 @@ The v2 expansion is now implemented on top of v1:
   doubled mortality, collapsed income, and withering provinces.
 - **Quiet-seasons fast-forward** — the pacing guard from §3, as a button.
 
+### v2.1 — map & UX update (SHIPPED)
+- **Map v2:** 30 → 43 provinces. Aquitaine, Poitou, Anjou, Champagne,
+  Burgundy, Lorraine, Saxony, Frisia, Trøndelag, Svealand, Götaland,
+  Connacht, Munster. Five new realms: Germany (Henry IV / Barbarossa),
+  Sweden, Aquitaine, Anjou, Munster. The 1187 Angevin empire now correctly
+  spans 16 provinces from Northumbria to Aquitaine.
+- **Map presentation:** sea labels (Mare Germanicum…), compass rose,
+  cartouche, terrain glyphs (hills/forest/marsh), coastal drop shadow.
+- **Advisor:** "The Council Advises" panel — up to three contextual,
+  one-click suggestions (muster when invaded, marry when heirless,
+  reconcile when excommunicate, build when rich, fabricate when claimless).
+- **Marriage market fixed:** every ruling house keeps marriageable kin
+  (replenished yearly), betrothals from age 13, and the match browser lists
+  every pairing with ages and traits — plus an explanation when no match exists.
+- **Action points** shown as glowing pips that visibly deplete.
+- Bug fixes: Court tab rendered raw HTML; player defeat (realm loss / line
+  extinct / deposition) failed to trigger the game-over screen.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
