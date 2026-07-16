@@ -7,7 +7,9 @@ import { readFileSync, writeFileSync } from 'fs';
 const W = 1000, H = 800, PAD = 8;
 
 // ---- province seeds: id, display name, lon, lat, terrain, dev ----
+const WASTE = new Set(['alps','alps2']);
 const SEEDS = [
+ ['alps','The Alps',7.9,46.35,'hills',1], ['alps2','The Alps',10.3,46.55,'hills',1],
  // England
  ['cornwall','Cornwall',-5.05,50.30,'hills',1], ['devon','Devon',-3.53,50.75,'hills',1],
  ['wessex','Wessex',-1.31,51.06,'plains',3], ['sussex','Sussex',-0.77,50.86,'plains',2],
@@ -81,6 +83,10 @@ const SEEDS = [
  ['armeniakon','Armeniakon',38.00,39.90,'hills',1], ['trebizond','Trebizond',39.30,40.80,'hills',2],
  ['cilicia','Cilicia',34.80,36.90,'plains',2],
  // Eastern Europe
+ ['brabant','Brabant',4.70,50.88,'plains',3], ['thuringia','Thuringia',11.03,51.00,'forest',2],
+ ['verona','Verona',11.00,45.43,'plains',3], ['spoleto','Spoleto',12.65,42.90,'hills',2],
+ ['smyrna','Smyrna',27.14,38.60,'plains',3], ['cordoba','Córdoba',-4.78,37.89,'plains',3],
+ ['bloisp','Blois',1.33,47.59,'plains',2],
  ['bohemia','Bohemia',14.42,50.09,'forest',2], ['poland','Poland',19.40,50.60,'plains',2],
  ['masovia','Masovia',21.01,52.23,'forest',1], ['pomerania','Pomerania',17.00,53.80,'forest',1],
  ['volhynia','Volhynia',24.90,50.40,'forest',1], ['kiev','Kiev',30.52,50.45,'plains',3],
@@ -98,7 +104,7 @@ const DUMMIES = [...DUMMIES_NEW,
  
  
  [15.5,62.8],[19.5,63.5],[24.5,60.5],[22.5,58.8],[24.0,57.0],[21.0,55.6], // Norrland/Finland/Baltics
- [7.9,46.4],[10.3,46.6],                                                  // high Alps
+
 ];
 
 // ---- projection fitted to region ----
@@ -182,6 +188,7 @@ for(let i=0;i<SEEDS.length;i++){
   const coast = landArea < cellArea*0.985 ? 1 : 0;
   const lp = proj([lon,lat]).map(v=>Math.round(v));
   out[id] = { n:name, t:terr, d:dev, lbl:lp, coast, polys:rings, adj:[] };
+  if(WASTE.has(id)) out[id].waste = 1;
   edgeKeys[id] = keys;
 }
 
