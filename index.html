@@ -286,6 +286,30 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 .dropcap:first-letter{float:left; font-family:var(--disp); font-size:46px; line-height:.85; padding:3px 7px 0 0; color:var(--red)}
 .seasonBadge{display:inline-block; border:1px solid var(--gold); border-radius:3px;
   padding:0 8px; background:rgba(217,185,92,.15)}
+#toastHost{position:fixed; bottom:130px; left:50%; transform:translateX(-50%); z-index:80;
+  display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none}
+.toast{background:linear-gradient(#3a2a18,#2b2013); color:#f0e2b8; border:1px solid var(--gold);
+  border-radius:4px; padding:6px 16px; font-size:13px; box-shadow:0 4px 14px rgba(20,12,4,.5);
+  animation:toastIn .25s ease, toastOut .5s ease 2.2s forwards}
+.toast b{color:var(--gold2)}
+@keyframes toastIn{from{opacity:0; transform:translateY(8px)}}
+@keyframes toastOut{to{opacity:0; transform:translateY(-6px)}}
+#seasonBanner{position:fixed; top:18%; left:50%; transform:translateX(-50%); z-index:45; pointer-events:none;
+  font-family:var(--disp); font-weight:700; font-size:30px; letter-spacing:5px; color:#f5e9cb;
+  text-shadow:0 2px 10px rgba(20,12,4,.8), 0 0 30px rgba(217,185,92,.4);
+  padding:10px 34px; border-top:2px solid var(--gold2); border-bottom:2px solid var(--gold2);
+  background:rgba(35,24,12,.55); opacity:0; display:none}
+#seasonBanner.show{display:block; animation:seasonIn 1.7s ease forwards}
+@keyframes seasonIn{0%{opacity:0; transform:translateX(-50%) scale(.96)} 18%{opacity:1; transform:translateX(-50%) scale(1)}
+  75%{opacity:1} 100%{opacity:0}}
+.wsBar{position:relative; height:12px; background:linear-gradient(90deg, rgba(140,47,38,.45), rgba(160,140,95,.25) 50%, rgba(46,94,46,.45));
+  border:1px solid var(--line); border-radius:6px; margin:5px 0 3px}
+.wsBar .mk{position:absolute; top:-3px; width:4px; height:16px; background:#2b2013; border:1px solid var(--gold2); border-radius:2px}
+.wsBar .zero{position:absolute; left:50%; top:0; width:1px; height:100%; background:rgba(43,32,19,.4)}
+#log .entry.big{font-weight:bold}
+.famLink{color:var(--red); cursor:pointer; text-decoration:underline dotted rgba(123,45,38,.5)}
+.famLink:hover{color:var(--red2)}
+.oddsGood{color:#2e5e2e; font-weight:bold} .oddsBad{color:#8c2f26; font-weight:bold} .oddsEven{color:#7a6218; font-weight:bold}
 .resLbl{font-style:normal}
 @media (max-width:1360px){ .resLbl{display:none} #topbar{gap:9px} #topbar .res > span{padding:2px 7px} #topbar .title{font-size:14px; letter-spacing:2px} }
 @media (max-width:1050px){ .panel{width:235px} }
@@ -340,6 +364,8 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 </div>
 
 <div id="modalHost"></div>
+<div id="toastHost"></div>
+<div id="seasonBanner"></div>
 
 <script>
 "use strict";
@@ -462,16 +488,22 @@ const PROVDATA = {
 const SCENARIOS = {
   y1066:{ n:'1066 · The Norman Gambit', year:1066, sub:'Edward the Confessor is dead, and dead men make no kings. Three houses now reach for the crown of England — and God alone knows which of them He favors.',
     cards:{
-      england:{diff:'Difficulty: Normal', blurb:'Harold Godwinson wears a crown three men claim. Rich lands, loyal housecarls — and enemies gathering on two coasts, including his own exiled brother.'},
-      normandy:{diff:'Difficulty: Hard', blurb:'William the Bastard has the finest knights in Christendom, papal favor, and a claim across the sea. He needs only a fleet, a fair wind, and nerve.'},
-      norway:{diff:'Difficulty: Very Hard', blurb:'Harald Hardrada, the Thunderbolt of the North, is fifty-one and unbeaten. One last throne would crown a legend — or end one.'},
+      england:{diff:'Difficulty: Normal', blurb:'Harold Godwinson wears a crown three men claim. Rich lands, loyal housecarls — and enemies gathering on two coasts, including his own exiled brother.',
+        brief:'You are Harold, son of Godwin, crowned in January with unseemly haste. Your realm is the richest in the North — and William of Normandy and Harald of Norway both call it theirs. They will come this year or next, likely by sea, likely where you are not. Your brother Tostig guides the Norse. Keep your levies ready but remember they melt in winter; buy allies with marriages before the storm; and watch your legitimacy — a hasty crown sits loose.'},
+      normandy:{diff:'Difficulty: Hard', blurb:'William the Bastard has the finest knights in Christendom, papal favor, and a claim across the sea. He needs only a fleet, a fair wind, and nerve.',
+        brief:'You are William, Duke of Normandy, called the Bastard by men who check the distance first. Edward promised you England; Harold swore to uphold it on holy relics, then took the crown himself. Muster in spring, cross in summer — Rome will bless a declared war. England outnumbers you: let Hardrada land first and bleed them in the north, then strike the south while their levies limp home.'},
+      norway:{diff:'Difficulty: Very Hard', blurb:'Harald Hardrada, the Thunderbolt of the North, is fifty-one and unbeaten. One last throne would crown a legend — or end one.',
+        brief:'You are Harald Sigurdsson — Hardrada, the hard ruler — last of the great Northmen. Byzantium remembers you; England will learn. Your claim is thin, your host is not, and Tostig Godwinson sits at your table promising the north will rise for you. It will not, but York may fall anyway. Strike fast: your kingdom is poor and long wars favor the rich. Every season your army winters abroad, it shrinks.'},
     },
     provs:null /* REALMDATA defaults */ },
   y1187:{ n:'1187 · The Devil’s Brood', year:1187, sub:'Henry II rules an empire from Scotland’s border to the Loire — and his own sons circle him like wolves, with the young King of France holding their leashes. Meanwhile, word comes from the East: Jerusalem is in peril.',
     cards:{
-      england:{diff:'Difficulty: Normal (the empire), Nightmare (the family)', blurb:'Henry II holds England, Normandy, Anjou and Aquitaine — half of France. His son Richard demands the succession, his son John schemes for scraps, and Philip Augustus whispers to both.'},
-      france:{diff:'Difficulty: Hard', blurb:'Philip Augustus is twenty-two, penniless beside the Angevins — and the most patient man in Europe. The empire encircling Paris is one family quarrel away from pieces.'},
-      scotland:{diff:'Difficulty: Very Hard', blurb:'William the Lion once knelt to Henry at knife-point. The humiliation is unpaid, the claim to Northumbria unforgotten, and the Angevins are busy hating each other.'},
+      england:{diff:'Difficulty: Normal (the empire), Nightmare (the family)', blurb:'Henry II holds England, Normandy, Anjou and Aquitaine — half of France. His son Richard demands the succession, his son John schemes for scraps, and Philip Augustus whispers to both.',
+        brief:'You are Henry Plantagenet, second of that name, ruler of more of France than the King of France. Your enemies are not at the borders — they are at your table. Richard wants the succession named; John wants whatever Richard has; Eleanor has forgiven nothing; and young Philip of France feeds every grievance like a careful fire. Watch your spymaster’s reports. The empire is vast: it can lose provinces and endure. It cannot lose the family and endure.'},
+      france:{diff:'Difficulty: Hard', blurb:'Philip Augustus is twenty-two, penniless beside the Angevins — and the most patient man in Europe. The empire encircling Paris is one family quarrel away from pieces.',
+        brief:'You are Philip, called Augustus by flatterers who will one day be right. The Angevin empire surrounds Paris like a closing hand — but it is one family, and the family is at war with itself. You hold claims to Normandy, Caen and Maine: press them only when the brood turns on Henry. Until then: marriages, gifts, plots, patience. You are twenty-two. Henry is fifty-four. Arithmetic is your ally.'},
+      scotland:{diff:'Difficulty: Very Hard', blurb:'William the Lion once knelt to Henry at knife-point. The humiliation is unpaid, the claim to Northumbria unforgotten, and the Angevins are busy hating each other.',
+        brief:'You are William, King of Scots, called the Lion — though Henry of England once made you kneel like a lamb. The treaty that freed you expires with Henry’s life, and your claim to Northumbria has not aged a day. You cannot beat the Angevin empire in the field. You will not need to: it is eating itself. Grow your legitimacy, marry well, keep your host home in winter — and when the Devil’s Brood tears the south apart, the Lion hunts.'},
     },
     provs:{ england:['essex','wessex','kent','eastanglia','hereford','cornwall','mercia','lancaster','york','northumbria','rouen','caen','maine','anjou','poitou','aquitaine'],
       france:['idf','vermandois','champagne','burgundy','ponthieu'], scotland:['lothian','strathclyde','moray'],
@@ -913,6 +945,21 @@ function logIt(cls, txt){
   if(G.log.length>400) G.log.shift();
 }
 function gameOver(won, msg){ Game.gameOver(won, msg); }
+function toast(html){
+  const host = document.getElementById('toastHost');
+  if(!host) return;
+  const d = document.createElement('div');
+  d.className = 'toast'; d.innerHTML = html;
+  host.appendChild(d);
+  setTimeout(()=>d.remove(), 2800);
+  while(host.children.length>3) host.firstChild.remove();
+}
+function seasonBanner(){
+  const b = document.getElementById('seasonBanner');
+  if(!b || G._ff) return;
+  b.innerHTML = `${['🌱','☀️','🍂','❄️'][G.season]} ${SEASONS[G.season]} · ${G.year}`;
+  b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+}
 function chron(txt){ G.chron.push({y:G.year, txt}); }
 </script>
 <script>
@@ -1208,6 +1255,7 @@ function raiseArmy(rid, provId){
     mercs:0, cmdr:bestCommander(rid), siege:0, moved:true });
   rl(rid).retinue = 0;
   logIt('war', `${rl(rid).n} musters ${fmtN(levies)} levies at ${PROVDATA[provId].n}.`);
+  if(isPlayer(rid)) toast(`⚔ <b>${fmtN(levies)} levies</b> muster at ${esc(PROVDATA[provId].n)}`);
 }
 function bestCommander(rid){
   const R_ = rl(rid);
@@ -2198,12 +2246,32 @@ const UI = {
   },
 
   renderAll(){ this.renderTop(); this.renderMap(); this.renderLeft(); this.renderRight(); this.renderLog(); this.processQueue(); },
+  incomePreview(){
+    const R_ = PRL();
+    let tax = 0;
+    for(const p of realmProvs(G.player)) if(!pv(p).occ) tax += taxOf(p);
+    const stew = councilBonus(G.player,'steward')*.04;
+    const taxT = tax*(1+stew)*(G.season===2?2:1)*(G.plague?.65:1);
+    const ret = R_.retinue/200;
+    let army = 0;
+    for(const a of G.armies) if(a.realm===G.player) army += Math.ceil(a.levies/350)+Math.ceil(a.mercs/160);
+    const net = Math.round((taxT - ret - army)*10)/10;
+    let tip = `<b>Season income</b><br>Taxes ${Math.round(tax)} · Steward +${Math.round(stew*100)}%`;
+    if(G.season===2) tip += `<br>Harvest season: income doubled`;
+    if(G.plague) tip += `<br><span class=neg>Plague: income ×0.65</span>`;
+    if(ret>0) tip += `<br>Retinue upkeep −${ret.toFixed(1)}`;
+    if(army>0) tip += `<br>Armies in the field −${army}`;
+    tip += `<br><b>Net ${net>=0?'+':''}${net} / season</b>`;
+    return {net, tip:tip.replace(/"/g,'&quot;')};
+  },
   renderTop(){
     const sIco = ['🌱','☀️','🍂','❄️'][G.season];
     document.getElementById('dateBox').innerHTML = `${sIco} ${SEASONS[G.season]}, Anno Domini ${G.year}`;
     const R_ = PRL();
     document.getElementById('realmBox').innerHTML = `${this.medallion(PR())}<span><b style="color:#d9b95c;font-family:var(--disp);letter-spacing:1px">${esc(R_.n)}</b> — ${esc(fullName(PR()))}${G.regency?' <i>(regency)</i>':''}</span>`;
-    document.getElementById('goldBox').innerHTML = `🪙 <b>${Math.floor(R_.gold)}</b><i class="resLbl"> gold</i>`;
+    const inc = this.incomePreview();
+    document.getElementById('goldBox').innerHTML = `🪙 <b>${Math.floor(R_.gold)}</b><i class="resLbl"> gold</i> <span class="${inc.net>=0?'':'neg'}" style="font-size:11px">(${inc.net>=0?'+':''}${inc.net})</span>`;
+    document.getElementById('goldBox').setAttribute('data-tip', inc.tip);
     document.getElementById('prsBox').innerHTML = `☀ <b>${Math.floor(R_.prs)}</b><i class="resLbl"> prestige</i>`;
     document.getElementById('legBox').innerHTML = `✠ <b>${Math.floor(R_.leg)}</b><i class="resLbl"> legitimacy</i>`;
     document.getElementById('endBtn').innerHTML = `End ${SEASONS[G.season]} ⏵`;
@@ -2221,6 +2289,22 @@ const UI = {
     t += `<br>Levies ${fmtN(levyOf(pid))} · Tax ${taxOf(pid)}/season`;
     const here = G.armies.filter(a=>a.prov===pid);
     for(const a of here) t += `<br>⚔ ${esc(rl(a.realm).n)} host — ${fmtN(armySize(a))}${a.siege?` (siege ${Math.min(99,Math.round(a.siege))}%)`:''}`;
+    if(G.moveMode){
+      const mv = G.armies.find(x=>x.id===G.moveMode);
+      if(mv && mv.prov!==pid){
+        const foes = enemiesIn(pid, mv.realm);
+        if(foes.length){
+          const cmA = alive(ch(mv.cmdr))?skill(ch(mv.cmdr),'mar'):3;
+          const my = armySize(mv)*(1+cmA*.06)*TERRAIN[pd.t].atk;
+          const their = foes.reduce((s,f)=>{const cf=alive(ch(f.cmdr))?skill(ch(f.cmdr),'mar'):3; return s+armySize(f)*(1+cf*.06);},0)*TERRAIN[pd.t].def;
+          const r = my/Math.max(1,their);
+          const [cls, word] = r>1.25?['oddsGood','Favorable']:r<0.8?['oddsBad','Grim']:['oddsEven','Even'];
+          t += `<br><span class="${cls}">⚔ Battle odds: ${word}</span> — ${Math.round(my)} vs ${Math.round(their)}, before fortune`;
+        } else if(G.season>=2 && (pv(pid).r!==mv.realm || pv(pid).occ)){
+          t += `<br><span class="neg">${G.season===2?'Autumn rains':'Winter'} will bleed an army here</span>`;
+        }
+      }
+    }
     return t.replace(/"/g,'&quot;');
   },
   renderMap(){
@@ -2280,7 +2364,7 @@ const UI = {
       h += `<text class="provName" x="${cx}" y="${cy+3}">${esc(pd.n)}</text>`;
       if(TG[pd.t]) h += TG[pd.t](cx, cy-11);
       if(rl(pv(pid).r) && rl(pv(pid).r).cap===pid && !rl(pv(pid).r).dead)
-        h += `<text class="capStar" x="${cx}" y="${cy-9}" text-anchor="middle" font-size="10" fill="#ffe9a0">★</text>`;
+        h += `<text class="capStar" x="${cx}" y="${cy-10}" text-anchor="middle" font-size="11" fill="#ffe9a0" style="paint-order:stroke" stroke="rgba(30,20,8,.7)" stroke-width="2">♛</text>`;
       if(G.armies.some(a=>a.prov===pid && a.siege>0))
         h += `<text class="siegeIco" x="${cx+22}" y="${cy-8}" font-size="13">🔥</text>`;
     }
@@ -2290,19 +2374,22 @@ const UI = {
     for(const [pid, list] of Object.entries(byProv)){
       const [cx, cy] = this.centroid(PROVDATA[pid].pts);
       list.forEach((a,i)=>{
-        const x = cx - 14 + i*20, y = cy + 16;
+        const x = cx - 14 + i*23, y = cy + 18;
         const seld = G.sel && G.sel.t==='army' && G.sel.id===a.id;
-        h += `<g class="armyTok" onclick="UI.selArmy('${a.id}')">
-          <circle cx="${x}" cy="${y}" r="11" fill="${rl(a.realm).col}" stroke="${seld?'#fff8d0':'#241a0c'}" stroke-width="${seld?3:1.6}"/>
-          <text x="${x}" y="${y+3.5}">${(armySize(a)/1000).toFixed(1)}</text></g>`;
+        const cm = ch(a.cmdr);
+        const tipTxt = `<b>${esc(rl(a.realm).n)} host</b><br>${fmtN(a.levies)} levies · ${fmtN(a.retinue)} retinue · ${fmtN(a.mercs)} mercs<br>Commander: ${cm?esc(fullName(cm))+' (Martial '+skill(cm,'mar')+')':'—'}${a.siege?`<br>Siege ${Math.min(99,Math.round(a.siege))}%`:''}`.replace(/"/g,'&quot;');
+        h += `<g class="armyTok" onclick="UI.selArmy('${a.id}')" data-tip="${tipTxt}">
+          <path d="M${x-11} ${y-12} h22 v15 l-11 7 l-11 -7 z" fill="${rl(a.realm).col}" stroke="${seld?'#ffe98a':'#241a0c'}" stroke-width="${seld?2.6:1.5}"${seld?' style="filter:drop-shadow(0 0 5px rgba(255,233,138,.8))"':''}/>
+          <text x="${x}" y="${y+2}">${(armySize(a)/1000).toFixed(1)}</text></g>`;
       });
     }
     svg.innerHTML = h;
   },
   renderLog(){
     const el = document.getElementById('log');
-    el.innerHTML = G.log.slice(-60).map(e=>
-      `<div class="entry ${e.cls}"><span class="stamp">${SEASONS[e.s].slice(0,3)} ${e.y}</span>${e.txt}</div>`).join('');
+    el.innerHTML = G.log.slice(-60).map(e=>{
+      const big = /Battle of|†|conquered|falls to|Peace between|EXCOMMUNICATED|deposed|is extinguished/i.test(e.txt);
+      return `<div class="entry ${e.cls}${big?' big':''}"><span class="stamp">${SEASONS[e.s].slice(0,3)} ${e.y}</span>${e.txt}</div>`;}).join('');
     el.scrollTop = el.scrollHeight;
   },
   renderLeft(){
@@ -2352,6 +2439,7 @@ const UI = {
         h += `<div class="warRow"><b>${esc(rl(w.att).n)} vs ${esc(rl(w.def).n)}</b><br>
           <span class="hint">${w.cb.type==='throne'?'For the throne of '+esc(rl(w.cb.target).n):'For '+esc(PROVDATA[w.cb.target]?.n||'')}, claimant ${esc(ch(w.claimant)?fullName(ch(w.claimant)):'?')}</span><br>
           War score: <b class="${s>=0?'pos':'neg'}">${s>0?'+':''}${s}</b>
+          <div class="wsBar" data-tip="−100 (their triumph) … +100 (yours). Demands need +55."><div class="zero"></div><div class="mk" style="left:calc(${(s+100)/2}% - 2px)"></div></div>
           <div class="actBtns">
             <button class="small" onclick="Game.offerPeace('${w.id}')">Negotiate peace</button>
           </div></div>`;
@@ -2449,9 +2537,9 @@ const UI = {
     h += `<div class="kv"><span>Succession law</span><b>${R_.law==='elective'?'Elective':'Primogeniture'}</b></div>`;
     if(R_.excomm) h += `<div class="kv"><span>Standing with Rome</span><b class="neg">EXCOMMUNICATE</b></div>`;
     h += `<div class="actBtns">
-      <button onclick="Game.act('feast')" ${G.ap<1||R_.gold<10?'disabled':''}>Host a feast (1 ⚡, 10🪙)</button>
-      <button onclick="Game.act('retinue')" ${G.ap<1||R_.gold<12?'disabled':''}>Recruit retinue +100 (1 ⚡, 12🪙)</button>
-      <button onclick="Game.act('court')" ${G.ap<1?'disabled':''}>Convene court (1 ⚡)</button>
+      <button onclick="Game.act('feast')" ${G.ap<1||R_.gold<10?'disabled':''} data-tip="+10 prestige and +6 opinion with everyone at court">Host a feast (1 ⚡, 10🪙)</button>
+      <button onclick="Game.act('retinue')" ${G.ap<1||R_.gold<12?'disabled':''} data-tip="+100 permanent soldiers who fight year-round. Upkeep 0.5🪙/season; they join your next muster">Recruit retinue +100 (1 ⚡, 12🪙)</button>
+      <button onclick="Game.act('court')" ${G.ap<1?'disabled':''} data-tip="+4 legitimacy; a random courtier warms to you">Convene court (1 ⚡)</button>
       ${R_.excomm
         ? `<button onclick="Game.act('rome')" ${G.ap<1||R_.gold<40?'disabled':''} data-tip="Barefoot in the snow if need be">☩ Reconcile with Rome (1⚡ 40🪙)</button>`
         : `<button onclick="Game.act('rome')" ${G.ap<1||R_.gold<15||G.flags['rome'+G.year]?'disabled':''} data-tip="Once a year; +8 legitimacy">☩ Petition Rome (1⚡ 15🪙)</button>`}
@@ -2543,7 +2631,13 @@ const UI = {
     h += `<div class="card">${this.sklBar('Diplomacy',skill(c,'dip'))}${this.sklBar('Martial',skill(c,'mar'))}${this.sklBar('Intrigue',skill(c,'int'))}${this.sklBar('Stewardship',skill(c,'ste'))}</div>`;
     if(!c.dead && c.id!==PR().id){
       h += `<div class="kv"><span>Opinion of you</span><b class="${o1>=0?'pos':'neg'}">${o1>0?'+':''}${o1}</b></div>`;
-      if(c.sp&&ch(c.sp)) h += `<div class="kv"><span>Spouse</span><b>${esc(fullName(ch(c.sp)))}</b></div>`;
+      const fam = [];
+      if(c.sp&&ch(c.sp)) fam.push(['Spouse', ch(c.sp)]);
+      if(c.fa&&ch(c.fa)) fam.push(['Father', ch(c.fa)]);
+      if(c.mo&&ch(c.mo)) fam.push(['Mother', ch(c.mo)]);
+      for(const [lbl,k] of fam) h += `<div class="kv"><span>${lbl}</span><b class="famLink" onclick="UI.selChar('${k.id}')">${esc(fullName(k))}${k.dead?' †':''}</b></div>`;
+      const kidsOf = Object.values(G.chars).filter(k=>k.fa===c.id||k.mo===c.id);
+      if(kidsOf.length) h += `<div class="kv"><span>Children</span><b>${kidsOf.map(k=>`<span class="famLink" onclick="UI.selChar('${k.id}')">${esc(k.nm)}${k.dead?'†':''}</span>`).join(', ')}</b></div>`;
       if(c.claims.length) h += `<div class="kv"><span>Claims</span><b>${c.claims.map(r=>rl(r)?rl(r).n:r).join(', ')}</b></div>`;
       if(c.pclaims && c.pclaims.length) h += `<div class="kv"><span>Province claims</span><b>${c.pclaims.map(p=>PROVDATA[p].n).join(', ')}</b></div>`;
       h += `<div class="actBtns">`;
@@ -2609,12 +2703,11 @@ const UI = {
   },
   help(){
     this.modal('How to Rule',
-    `<b>You are a dynasty, not a nation.</b> Keep the bloodline alive and the realm grows around it; lose your last province or your last dynast and the chronicle closes.<br><br>
-    <b>Each season</b> you get 2–3 action points (⚡) — marriages, buildings, plots, wars all compete for them. Armies move once a season for free.<br><br>
-    <b>Seasons matter:</b> muster in spring, fight in summer, go home (or gamble) in autumn — winter in the field maims armies.<br><br>
-    <b>Marriage</b> = alliance. <b>Claims</b> = lawful war. <b>Legitimacy</b> keeps your own nobles from ideas. <b>Opinion</b> decides who joins whose plot — and plots are always running, including against you. Your spymaster is your shield.<br><br>
-    <b>Victory:</b> grow the realm until the bishops crown you Emperor, keep the dynasty alive for a hundred years, or amass 2500 prestige. Save often; die well.<br><br>
-    <b>No claim, no war?</b> Select an enemy province and set the monks to <i>fabricating</i> one. Rome can be petitioned for legitimacy — and will excommunicate failing or godless kings. Succession law can be changed once per ruler: elective crowns the ablest adult of the blood instead of the firstborn child.`,
+    `<h3>The Dynasty</h3>You are a family, not a nation. Lose your last province or your last dynast and the chronicle closes. Heirs, marriages, and legitimacy are life itself.<br><br>
+    <h3>The Season</h3>Each season grants 2–3 actions (⚡) — marriages, buildings, plots and wars all compete for them. Armies march once a season for free. Muster in spring, strike in summer; autumn and winter maul armies left in the field.<br><br>
+    <h3>The Game of Thrones</h3><b>Marriage</b> buys alliances · <b>claims</b> make war lawful (the monks can forge one) · <b>legitimacy</b> keeps your nobles honest · <b>opinion</b> decides who joins whose plot — and plots run always, including against you. Your spymaster is your shield; Rome can bless you or cast you out.<br><br>
+    <h3>Victory</h3>Be crowned Emperor at the province threshold shown in your realm panel · keep the dynasty alive a hundred years · or amass 2500 ☀ prestige.<br><br>
+    <h3>The Hand on the Reins</h3><b>Space</b> ends the season · <b>F</b> hurries quiet seasons · <b>Esc</b> deselects · hover anything for detail · the Council Advises panel always suggests a sensible next move. Save often; die well.`,
     [{t:'To the throne room.', fx:()=>{}}]);
   },
 };
@@ -2628,39 +2721,47 @@ const Game = {
     switch(type){
       case 'feast': if(!this.spend(1)) return; R_.gold-=10; R_.prs+=10;
         for(const c of myCourt()) addOp(c, PR().id, 6);
-        logIt('court','You feast the court; grudges soften under grease and mead.'); break;
+        logIt('court','You feast the court; grudges soften under grease and mead.');
+        toast('🍖 A feast! <b>+10 prestige</b>, the court warms to you'); break;
       case 'retinue': if(!this.spend(1)) return; R_.gold-=12; R_.retinue=Math.min(600,R_.retinue+100);
-        logIt('war','A hundred sworn swords join your standing retinue.'); break;
+        logIt('war','A hundred sworn swords join your standing retinue.');
+        toast('⚔ <b>+100 retinue</b> — permanent soldiers, modest upkeep'); break;
       case 'court': if(!this.spend(1)) return; R_.leg=clamp(R_.leg+4,0,100);
         const c0 = pick(myCourt()); if(c0) addOp(c0, PR().id, 10);
-        logIt('court','You hold open court; justice is seen to be done, mostly.'); break;
+        logIt('court','You hold open court; justice is seen to be done, mostly.');
+        toast('✠ <b>+4 legitimacy</b> — justice was seen to be done'); break;
       case 'build': if(R_.gold<BUILDINGS[b].cost||!this.spend(1)) return;
         R_.gold-=BUILDINGS[b].cost; pv(a).bld=b;
-        logIt('court',`A ${BUILDINGS[b].n.toLowerCase()} rises at ${PROVDATA[a].n}.`); break;
+        logIt('court',`A ${BUILDINGS[b].n.toLowerCase()} rises at ${PROVDATA[a].n}.`);
+        toast(`🏗 <b>${BUILDINGS[b].n}</b> rises at ${esc(PROVDATA[a].n)}`); break;
       case 'develop': { const cost=30+pv(a).dev*12; if(R_.gold<cost||!this.spend(1)) return;
-        R_.gold-=cost; pv(a).dev++; logIt('court',`${PROVDATA[a].n} grows: roads, mills, and men.`); break; }
+        R_.gold-=cost; pv(a).dev++; logIt('court',`${PROVDATA[a].n} grows: roads, mills, and men.`);
+        toast(`⛏ ${esc(PROVDATA[a].n)} grows to <b>development ${pv(a).dev}</b>`); break; }
       case 'muster': if(!this.spend(1)) return; raiseArmy(G.player, a); break;
       case 'envoy': if(!this.spend(1)) return;
         addOp(ruler(a), PR().id, 10+skill(PR(),'dip'));
-        logIt('court',`Your envoy flatters the court of ${rl(a).n}.`); break;
+        logIt('court',`Your envoy flatters the court of ${rl(a).n}.`);
+        toast(`🕊 Envoy to ${esc(rl(a).n)}: <b>+${10+skill(PR(),'dip')} opinion</b>`); break;
       case 'gift': if(R_.gold<10||!this.spend(1)) return; R_.gold-=10;
         addOp(ruler(a), PR().id, 20);
-        logIt('court',`Gold and falcons for ${rl(a).n}; their ruler smiles.`); break;
+        logIt('court',`Gold and falcons for ${rl(a).n}; their ruler smiles.`);
+        toast(`🎁 Gift to ${esc(rl(a).n)}: <b>+20 opinion</b>`); break;
       case 'cgift': if(R_.gold<8||!this.spend(1)) return; R_.gold-=8;
-        addOp(ch(a), PR().id, 18); logIt('court',`A gift finds ${fullName(ch(a))}.`); break;
-      case 'war': { if(G.regency||!this.spend(1)) return;
+        addOp(ch(a), PR().id, 18); logIt('court',`A gift finds ${fullName(ch(a))}.`);
+        toast(`🎁 <b>+18 opinion</b> with ${esc(fullName(ch(a)))}`); break;
+      case 'war': { if(G.regency) return;
         const claimant = b? ch(b) : null;
-        if(claimant) declareWar(G.player, a, {type:'throne', target:a}, claimant.id);
-        else { declareWar(G.player, a, {type:'none', target:a}); R_.leg=clamp(R_.leg-20,0,100); }
-        break; }
-      case 'pwar': { if(G.regency||!this.spend(1)) return;
+        this.confirmWar(a, claimant? {type:'throne', target:a} : {type:'none', target:a}, claimant?claimant.id:null);
+        return; }
+      case 'pwar': { if(G.regency) return;
         const [cid, prov] = b.split('|');
-        declareWar(G.player, a, {type:'province', target:prov}, cid);
-        break; }
+        this.confirmWar(a, {type:'province', target:prov}, cid);
+        return; }
       case 'fabricate': { if(R_.gold<20||!this.spend(1)) return;
         R_.gold -= 20;
         const p = startPlot(PR().id, 'fabricate', a, G.player); p.mine = true;
         logIt('plot', `In a quiet scriptorium, work begins on a very old charter concerning ${PROVDATA[a].n}.`);
+        toast(`📜 The monks begin their quiet work on <b>${esc(PROVDATA[a].n)}</b>…`);
         break; }
       case 'rome': {
         if(R_.excomm){ if(R_.gold<40||!this.spend(1)) return;
@@ -2703,6 +2804,30 @@ const Game = {
     }
     UI.renderAll();
   },
+  confirmWar(tgt, cb, claimantId){
+    const mine = realmStrength(G.player), theirs = realmStrength(tgt);
+    const alliesOf = rid => G.alliances.filter(al=>al.a===rid||al.b===rid)
+      .map(al=>al.a===rid?al.b:al.a).filter(r=>rl(r)&&!rl(r).dead&&r!==tgt&&r!==G.player);
+    const theirA = alliesOf(tgt), myA = alliesOf(G.player);
+    const theirTotal = theirs + theirA.reduce((s,r)=>s+realmStrength(r),0);
+    let body = `<div class="kv"><span>Your full levy (with retinue)</span><b>${fmtN(mine)}</b></div>
+      <div class="kv"><span>${esc(rl(tgt).n)}</span><b>${fmtN(theirs)}</b></div>`;
+    if(theirA.length) body += `<div class="kv"><span class="neg">Sworn to their defence</span><b>${theirA.map(r=>esc(rl(r).n)).join(', ')} — in all ~${fmtN(theirTotal)}</b></div>`;
+    if(myA.length) body += `<div class="kv"><span class="pos">May answer your call</span><b>${myA.map(r=>esc(rl(r).n)).join(', ')}</b></div>`;
+    body += cb.type==='throne' ? `<div class="hint">A throne war: victory takes their crown and every province. Defeat costs gold, honor, and the claim itself.</div>` :
+      cb.type==='province' ? `<div class="hint">A province war: victory cedes ${esc(PROVDATA[cb.target].n)}. Smaller stakes, smaller glory.</div>` :
+      `<div class="hint neg">War without cause: −20 legitimacy, and Christendom will remember the aggression.</div>`;
+    body += `<div class="hint">Muster in spring, strike in summer — autumn and winter maul armies in the field.</div>`;
+    UI.modal('Declare War on '+rl(tgt).n+'?', body, [
+      {t:'⚔ Loose the banners of war.', fx:()=>{
+        if(G.regency||!this.spend(1)) return;
+        if(cb.type==='none'){ declareWar(G.player, tgt, cb); PRL().leg=clamp(PRL().leg-20,0,100); }
+        else declareWar(G.player, tgt, cb, claimantId);
+        toast(`⚔ <b>War!</b> ${esc(rl(tgt).n)} is the enemy`);
+      }},
+      {t:'— Hold. Not yet. —', fx:()=>{}},
+    ]);
+  },
   abandonPlot(pid){ G.plots = G.plots.filter(p=>p.id!==pid); UI.renderAll(); },
   marryMenu(rid){
     const mine = marriageCandidates(G.player), theirs = marriageCandidates(rid);
@@ -2718,7 +2843,7 @@ const Game = {
       `Choose the match. A wedding binds the realms in alliance — while both spouses draw breath. <em>(Unwed of your house: ${mine.length} · of theirs: ${theirs.length})</em>`,
       combos.map(([m,t])=>({t:`${fullName(m)} (${age(m)}${age(m)<16?', betrothal':''}) ↔ ${fullName(t)} of ${rl(rid).n} (${age(t)}${age(t)<16?', betrothal':''}, ${t.tr.map(cap).join(', ')})`,
         fx:()=>{ if(!this.spend(1)) return;
-          if(proposeMarriage(m,t)) UI.modal('The Banns Are Read', `${rl(rid).n} accepts. The houses are joined, the alliance sworn.`, [{t:'Excellent.',fx:()=>{}}]);
+          if(proposeMarriage(m,t)){ toast(`⚭ <b>Alliance with ${esc(rl(rid).n)}</b> sworn by marriage`); UI.modal('The Banns Are Read', `${rl(rid).n} accepts. The houses are joined, the alliance sworn.`, [{t:'Excellent.',fx:()=>{}}]); }
           else UI.modal('Rebuffed', `${rl(rid).n} declines the match, with courtesy as thin as March ice. <em>(They think too little of you — improve relations with envoys and gifts, or raise your prestige.)</em>`, [{t:'Their loss.',fx:()=>{}}]);
         }})).concat([{t:'— Never mind —', fx:()=>{}}]));
   },
@@ -2806,6 +2931,7 @@ const Game = {
   /* ---------- turn loop ---------- */
   fastForward(){
     if(!G || G.over || G.eventQueue.length) return;
+    G._ff = true;
     for(let i=0; i<8; i++){
       this.endSeason();
       if(!G || G.over || G.eventQueue.length) break;
@@ -2813,6 +2939,7 @@ const Game = {
       if(G.armies.some(a=>a.realm===G.player)) break;
       if(Object.keys(G.provinces).some(p=>enemiesIn(p, G.player).length && pv(p).r===G.player)) break;
     }
+    if(G){ G._ff = false; seasonBanner(); }
   },
   endSeason(){
     if(!G || G.over || G.eventQueue.length) return;
@@ -2843,6 +2970,7 @@ const Game = {
     fireEvents();
     this.victoryCheck();
     UI.renderAll();
+    seasonBanner();
   },
   income(){
     for(const R_ of Object.values(G.realms)){
@@ -2929,6 +3057,7 @@ const Game = {
       const s = JSON.stringify(Object.assign({}, G, {eventQueue:[], sel:null, moveMode:null, _cid}));
       localStorage.setItem('crownRealmSave', s);
       logIt('court','The scribes copy the ledgers. (Game saved.)');
+      toast('📜 <b>Game saved</b>');
       UI.renderLog();
     }catch(e){ alert('Save failed: '+e); }
   },
@@ -2949,10 +3078,25 @@ const Game = {
     newGame(rid, (Date.now() ^ (Math.random()*1e9))>>>0, scenId);
     document.getElementById('setup').style.display='none';
     fireEvents();
+    const card = SCENARIOS[scenId].cards[rid];
+    if(card && card.brief){
+      G.eventQueue.unshift({ title:'A Crown Is Heavy',
+        text:`<span class="dropcap">${card.brief}</span><br><br><em>Victory: be crowned Emperor at ${G.impThresh} provinces · keep the dynasty alive to ${G.endYear} · or amass 2500 ☀ prestige.<br>Space ends the season · F hurries quiet ones · Esc deselects · hover anything for detail. The Council Advises panel will point the way.</em>`,
+        choices:[{t:'To the matter at hand.', fx:()=>{}}]});
+    }
     UI.tab('dyn');
     UI.renderAll();
   },
 };
+
+/* ---------- keyboard shortcuts ---------- */
+document.addEventListener('keydown', e=>{
+  if(!G || G.over) return;
+  const modalOpen = G.eventQueue.length>0;
+  if(e.key==='Escape' && !modalOpen){ G.sel=null; G.moveMode=null; UI.renderAll(); }
+  if((e.key===' '||e.key==='Enter') && !modalOpen && !e.repeat){ e.preventDefault(); Game.endSeason(); }
+  if((e.key==='f'||e.key==='F') && !modalOpen){ Game.fastForward(); }
+});
 
 /* ---------- tooltip engine ---------- */
 (function(){
