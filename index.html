@@ -157,6 +157,11 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 .provPath.sel{stroke:#fff8e0; stroke-width:2.8; animation:selPulse 1.6s ease-in-out infinite}
 @keyframes selPulse{50%{stroke-opacity:.55}}
 .zoomedOut .provName.small{display:none}
+.zoomedOut .bldIco.small{display:none}
+.bldIco{font-size:9px; fill:#f6eed6; text-anchor:middle; pointer-events:none;
+  paint-order:stroke; stroke:rgba(30,20,8,.8); stroke-width:2px}
+.fx .fxw{font-size:.85em}
+.bigIco{font-size:15px; width:22px; display:inline-block; text-align:center}
 .provName{font-size:9.5px; fill:#f6eed6; text-anchor:middle; pointer-events:none;
   font-family:var(--body); paint-order:stroke; stroke:rgba(30,20,8,.8); stroke-width:2.8px; letter-spacing:.4px}
 .armyTok{cursor:pointer}
@@ -405,10 +410,19 @@ const TERRAIN = {
   marsh:{n:'Marsh', atk:0.75, def:1.05},
 };
 const BUILDINGS = {
-  castle:{n:'Castle', cost:60, desc:'+150 levy, sieges last far longer'},
-  market:{n:'Market', cost:50, desc:'+2 gold each season'},
-  cathedral:{n:'Cathedral', cost:55, desc:'+1 legitimacy each year, +prestige'},
+  castle:{n:'Castle', ico:'♜', cost:60, desc:'+150 levy, sieges last far longer'},
+  market:{n:'Market', ico:'⚖', cost:50, desc:'+2 gold each season'},
+  cathedral:{n:'Cathedral', ico:'✟', cost:55, desc:'+1 legitimacy each year, +prestige'},
 };
+const STATICO = { gold:'🪙', prestige:'☀', legitimacy:'✠', opinion:'♥', levy:'⚔', dev:'🌾' };
+function fmtFx(html){
+  /* decorate stat changes with their symbols and colour */
+  return html.replace(/([+\u2212\u2013-]\s?\d+(?:\.\d+)?)\s*(gold|prestige|legitimacy|opinion)/gi,
+    (m, num, stat) => {
+      const neg = /^[\u2212\u2013-]/.test(num.trim());
+      return `<b class="${neg?'neg':'pos'} fx">${num.replace(/\s/,'')}${STATICO[stat.toLowerCase()]}<span class="fxw"> ${stat}</span></b>`;
+    });
+}
 const TRAITS = {
   brave:{opp:'craven', opn:5, mar:1, d:'Leads from the front. +1 Martial.'},
   craven:{opp:'brave', opn:-8, mar:-1, d:'Flinches from steel. -1 Martial.'},
@@ -2119,14 +2133,14 @@ const EVENTS = [
     {t:'"When you have earned it." Stall him. (both sons resent the scales still swinging)', fx:()=>{ addOp(ch('richard'),'henry2',-15); addOp(ch('johnl'),'henry2',-10); }},
   ]})},
 ];
-function fireEvents(){
+function fireEvents(scriptedOnly){
   const eligible = EVENTS.filter(e=>{
     if(e.once && G.flags['ev_'+e.id]) return false;
     try{ return e.cond(); }catch(_){ return false; }
   });
   /* scripted (w=99) always fire; then up to 2 random others */
   const scripted = eligible.filter(e=>e.w===99);
-  const rest = eligible.filter(e=>e.w<99);
+  const rest = scriptedOnly ? [] : eligible.filter(e=>e.w<99);
   const chosen = [...scripted.slice(0,2)];
   let budget = chance(.75) ? 1 : 2;
   while(budget-- > 0 && rest.length){
@@ -2328,13 +2342,73 @@ const UI = {
       ${c.prison?'<text x="6" y="13" font-size="10">⛓</text>':''}
     </svg>`;
   },
+  portrait(c, big){
+    /* a face from the chronicle: everything derives from who this person is */
+    const h = this.dynHash(c.id + (c.nm||''));
+    const a = c.dead ? Math.max(0, c.dead - c.by) : age(c);
+    const child = a < 16;
+    const skin = ['#e8c39a','#dcb488','#cfa476','#f0d2ae'][h%4];
+    const skin2 = this.shade(skin, .8);
+    let hairC = ['#3a2a18','#6b4a2a','#8a6136','#a5813f','#26241f','#7a3b2a'][(h>>>2)%6];
+    if(a>=65) hairC = '#d9d5c9'; else if(a>=48) hairC = '#a8a49a';
+    const col = c.realm && rl(c.realm) ? rl(c.realm).col : '#777777';
+    const isRuler = Object.values(G.realms).some(r=>!r.dead && r.ruler===c.id);
+    const wrath = c.tr.includes('wrathful') || c.tr.includes('cruel');
+    const kind = c.tr.includes('kind') || c.tr.includes('generous');
+    const hs = (h>>>4)%4;
+    let hair;
+    if(c.sex==='f'){
+      hair = `<path d="M9.6 23 q-1.8 -15 7.4 -16 q9.2 1 7.4 16 l-2.6 0 q.6 -9 -1.2 -11.5 q-1.6 2 -3.6 2 q-2 0 -3.6 -2 q-1.8 2.5 -1.2 11.5 z" fill="${hairC}"/>`;
+    } else if(hs===2 && a>40){
+      hair = `<path d="M10.6 12.5 q-.6 -4.5 2.4 -5.2 M23.4 12.5 q.6 -4.5 -2.4 -5.2" fill="none" stroke="${hairC}" stroke-width="2.2" opacity=".8"/>`;
+    } else if(hs===3){
+      hair = `<path d="M9.5 22 q-1.5 -14 7.5 -15 q9 1 7.5 15 l-2.4 0 q.8 -8 -1 -10.5 q-2 2.6 -4.1 2.6 q-2.1 0 -4.1 -2.6 q-1.8 2.5 -1 10.5 z" fill="${hairC}"/>`;
+    } else {
+      hair = `<path d="M10 15 q-.5 -7.5 7 -8 q7.5 .5 7 8 q-2 -4 -7 -4 q-5 0 -7 4 z" fill="${hairC}"/>`;
+    }
+    let beard = '';
+    const hasBeard = c.sex==='m' && !child && (h>>>6)%3 !== 0;
+    if(hasBeard){
+      const lng = (h>>>6)%3 === 2;
+      beard = `<path d="M11.4 17.5 q0 ${lng?9.5:6} 5.6 ${lng?10:6.5} q5.6 -.5 5.6 -${lng?10:6.5} q-1.6 2.2 -5.6 2.2 q-4 0 -5.6 -2.2 z" fill="${hairC}"/>`;
+    }
+    const brows = wrath
+      ? `<path d="M12.6 13.1 l3 1.1 M21.4 13.1 l-3 1.1" stroke="${hairC}" stroke-width="1.1" fill="none"/>`
+      : `<path d="M12.8 13.7 h2.8 M18.4 13.7 h2.8" stroke="${hairC}" stroke-width="1" fill="none"/>`;
+    const mouth = hasBeard ? '' : kind
+      ? `<path d="M14.8 20.3 q2.2 1.7 4.4 0" stroke="#8a5040" stroke-width="1" fill="none"/>`
+      : wrath
+      ? `<path d="M14.8 21 q2.2 -1.5 4.4 0" stroke="#8a5040" stroke-width="1" fill="none"/>`
+      : `<path d="M15 20.6 h4" stroke="#8a5040" stroke-width="1" fill="none"/>`;
+    const crown = isRuler
+      ? (c.sex==='f'
+        ? `<rect x="11" y="8.2" width="12" height="1.8" fill="#e9c34f" stroke="#8a6d1f" stroke-width=".5"/>`
+        : `<path d="M11 10 l1.4 -3.4 2.2 2.2 2.4 -3.6 2.4 3.6 2.2 -2.2 1.4 3.4 z" fill="#e9c34f" stroke="#8a6d1f" stroke-width=".6"/>`)
+      : '';
+    const dead = c.dead ? 'opacity:.5; filter:grayscale(.9);' : '';
+    const face = `
+      <circle cx="9.9" cy="16.5" r="1.5" fill="${skin}"/><circle cx="24.1" cy="16.5" r="1.5" fill="${skin}"/>
+      <ellipse cx="17" cy="16" rx="7" ry="8" fill="${skin}"/>
+      ${hair}${beard}
+      <circle cx="14.2" cy="15.7" r=".9" fill="#2b2013"/><circle cx="19.8" cy="15.7" r=".9" fill="#2b2013"/>
+      ${brows}
+      <path d="M17 15.8 l-.9 2.6 h1.8" fill="none" stroke="${skin2}" stroke-width=".8"/>
+      ${mouth}${crown}`;
+    return `<svg class="medal port${big?' big':''}" style="${dead}" viewBox="0 0 34 38">
+      <rect x="1" y="1" width="32" height="36" rx="4" fill="#ece0bd" stroke="#8a6d1f" stroke-width="1.2"/>
+      <path d="M5 37 q1.5 -9 12 -9 q10.5 0 12 9 z" fill="${col}" stroke="#3a2c18" stroke-width=".8"/>
+      <rect x="14.4" y="21.5" width="5.2" height="5.5" fill="${skin2}"/>
+      ${child ? `<g transform="translate(17 16) scale(.82) translate(-17 -16)">${face}</g>` : face}
+      ${c.prison ? '<text x="5" y="35" font-size="9">⛓</text>' : ''}
+    </svg>`;
+  },
   sklBar(label, v){
     return `<div class="sklb"><label>${label}</label><div class="sklTrack"><div class="sklFill" style="width:${Math.round(v/12*100)}%"></div></div><b>${v}</b></div>`;
   },
   charRow(c, sub){
     /* sub is trusted HTML built by callers; names are escaped individually */
     const subHtml = sub!==undefined ? sub : esc(age(c)+', '+c.tr.map(cap).join(', '));
-    return `<div class="charRow" onclick="UI.selChar('${c.id}')">${this.medallion(c)}
+    return `<div class="charRow" onclick="UI.selChar('${c.id}')">${this.portrait(c)}
       <div class="nm"><div>${esc(fullName(c))}${c.dead?' †':''}</div>
       <div class="sub">${subHtml}</div></div></div>`;
   },
@@ -2391,7 +2465,7 @@ const UI = {
     const pd = PROVDATA[pid], st = pv(pid);
     let t = `<b>${esc(pd.n)}</b><br>${st.r&&rl(st.r)?esc(rl(st.r).n):'—'}`;
     if(st.occ) t += ` · <span class="neg">occupied by ${esc(rl(st.occ).n)}</span>`;
-    t += `<br>${TERRAIN[pd.t].n} · development ${st.dev} · ${st.bld?BUILDINGS[st.bld].n:'no building'}`;
+    t += `<br>${TERRAIN[pd.t].n} · ${STATICO.dev}${st.dev} · ${st.bld?BUILDINGS[st.bld].ico+' '+BUILDINGS[st.bld].n:'no building'}`;
     t += `<br>Levies ${fmtN(levyOf(pid))} · Tax ${taxOf(pid)}/season`;
     const here = G.armies.filter(a=>a.prov===pid);
     for(const a of here) t += `<br>⚔ ${esc(rl(a.realm).n)} host — ${fmtN(armySize(a))}${a.siege?` (siege ${Math.min(99,Math.round(a.siege))}%)`:''}`;
@@ -2471,6 +2545,7 @@ const UI = {
       const [cx, cy] = pd.lbl;
       h += `<text class="provName${pd.area<430?' small':''}" x="${cx}" y="${cy+3}">${esc(pd.n)}</text>`;
       if(TG[pd.t] && pd.area>500) h += TG[pd.t](cx, cy-11);
+      if(pv(pid).bld) h += `<text class="bldIco small" x="${cx-16}" y="${cy+4}">${BUILDINGS[pv(pid).bld].ico}</text>`;
       if(rl(pv(pid).r) && rl(pv(pid).r).cap===pid && !rl(pv(pid).r).dead)
         h += `<text class="capStar" x="${cx}" y="${cy-10}" text-anchor="middle" font-size="11" fill="#ffe9a0" style="paint-order:stroke" stroke="rgba(30,20,8,.7)" stroke-width="2">♛</text>`;
       if(G.armies.some(a=>a.prov===pid && a.siege>0))
@@ -2671,14 +2746,14 @@ const UI = {
       <div class="kv"><span>Realm</span><b>${R_?esc(R_.n):'—'}</b></div>
       ${st.occ?`<div class="kv"><span>Occupied by</span><b class="neg">${esc(rl(st.occ).n)}</b></div>`:''}
       <div class="kv"><span>Terrain</span><b>${TERRAIN[pd.t].n}</b></div>
-      <div class="kv"><span>Development</span><b>${st.dev} / 5</b></div>
-      <div class="kv"><span>Building</span><b>${st.bld?BUILDINGS[st.bld].n:'—'}</b></div>
-      <div class="kv"><span>Levies</span><b>${fmtN(levyOf(pid))}</b></div>
-      <div class="kv"><span>Tax / season</span><b>${taxOf(pid)}</b></div>`;
+      <div class="kv"><span>${STATICO.dev} Development</span><b>${st.dev} / 5</b></div>
+      <div class="kv"><span>${st.bld?BUILDINGS[st.bld].ico:'🏗'} Building</span><b>${st.bld?BUILDINGS[st.bld].n:'—'}</b></div>
+      <div class="kv"><span>${STATICO.levy} Levies</span><b>${fmtN(levyOf(pid))}</b></div>
+      <div class="kv"><span>${STATICO.gold} Tax / season</span><b>${taxOf(pid)}</b></div>`;
     if(mine){
       h += `<div class="actBtns">`;
       if(!st.bld) for(const [bid,b] of Object.entries(BUILDINGS))
-        h += `<button class="small" ${G.ap<1||PRL().gold<b.cost?'disabled':''} onclick="Game.act('build','${pid}','${bid}')" data-tip="${b.desc}">${b.n} (1⚡ ${b.cost}🪙)</button>`;
+        h += `<button class="small" ${G.ap<1||PRL().gold<b.cost?'disabled':''} onclick="Game.act('build','${pid}','${bid}')" data-tip="${b.desc}">${b.ico} ${b.n} (1⚡ ${b.cost}🪙)</button>`;
       if(st.dev<5) h += `<button class="small" ${G.ap<1||PRL().gold<30+st.dev*12?'disabled':''} onclick="Game.act('develop','${pid}')">Develop (1⚡ ${30+st.dev*12}🪙)</button>`;
       h += `<button class="small" ${G.ap<1?'disabled':''} onclick="Game.act('muster','${pid}')" data-tip="Raise all realm levies here">Muster levies (1⚡)</button>`;
       h += `</div>`;
@@ -2698,7 +2773,7 @@ const UI = {
     let h = `<h3 style="margin-top:10px">${esc(R_.n)}</h3>`;
     if(rul){
       const o = opinion(rul, myR);
-      h += `<div class="charRow" onclick="UI.selChar('${rul.id}')">${this.medallion(rul)}<div class="nm"><div>${esc(fullName(rul))}</div>
+      h += `<div class="charRow" onclick="UI.selChar('${rul.id}')">${this.portrait(rul)}<div class="nm"><div>${esc(fullName(rul))}</div>
         <div class="sub">${esc(title(rul))}, ${age(rul)} · thinks of you: <span class="${o>=0?'pos':'neg'}">${o>0?'+':''}${o}</span></div></div></div>`;
     }
     h += `<div class="kv"><span>Strength</span><b>~${fmtN(realmStrength(rid))}</b></div>`;
@@ -2733,9 +2808,10 @@ const UI = {
   charHtml(c){
     const mine = c.realm===G.player;
     const o1 = opinion(c, PR()), rulerOf = Object.values(G.realms).find(r=>!r.dead&&r.ruler===c.id);
-    let h = `<div style="display:flex;gap:10px;align-items:center">${this.medallion(c,true)}
-      <div><h3 style="margin:0">${esc(fullName(c))}${c.dead?' †':''}</h3>
-      <div class="hint" style="margin:0">${esc(title(c))} · ${c.dead?('died '+c.dead+' aged '+(c.dead-c.by)):('age '+age(c))} · ${c.sex==='m'?'♂':'♀'} ${esc(c.dyn?('House '+c.dyn):'lowborn')}</div></div></div>`;
+    let h = `<div style="display:flex;gap:10px;align-items:center">${this.portrait(c,true)}
+      <div style="flex:1"><h3 style="margin:0">${esc(fullName(c))}${c.dead?' †':''}</h3>
+      <div class="hint" style="margin:0">${esc(title(c))} · ${c.dead?('died '+c.dead+' aged '+(c.dead-c.by)):('age '+age(c))} · ${c.sex==='m'?'♂':'♀'} ${esc(c.dyn?('House '+c.dyn):'lowborn')}</div></div>
+      ${c.dyn?`<span data-tip="Arms of House ${esc(c.dyn)}">${this.medallion(c)}</span>`:''}</div>`;
     h += `<div style="margin:7px 0">` + c.tr.map(t=>`<span class="trait ${TRAITS[t].opn<0?'bad':''}" data-tip="${esc(TRAITS[t].d)}">${cap(t)}</span>`).join('') + `</div>`;
     h += `<div class="card">${this.sklBar('Diplomacy',skill(c,'dip'))}${this.sklBar('Martial',skill(c,'mar'))}${this.sklBar('Intrigue',skill(c,'int'))}${this.sklBar('Stewardship',skill(c,'ste'))}</div>`;
     if(!c.dead && c.id!==PR().id){
@@ -2797,8 +2873,8 @@ const UI = {
     if(!G.eventQueue.length){ host.innerHTML=''; return; }
     const ev = G.eventQueue[0];
     host.innerHTML = `<div class="modalBack"><div class="modal">
-      <h2>${ev.title}</h2><div class="body">${ev.text}</div>
-      <div class="choices">${ev.choices.map((c,i)=>`<button onclick="UI.choose(${i})">${c.t}</button>`).join('')}</div>
+      <h2>${ev.title}</h2><div class="body">${fmtFx(ev.text)}</div>
+      <div class="choices">${ev.choices.map((c,i)=>`<button onclick="UI.choose(${i})">${fmtFx(c.t)}</button>`).join('')}</div>
     </div></div>`;
   },
   choose(i){
@@ -3193,7 +3269,7 @@ const Game = {
   start(scenId, rid){
     newGame(rid, (Date.now() ^ (Math.random()*1e9))>>>0, scenId);
     document.getElementById('setup').style.display='none';
-    fireEvents();
+    fireEvents(true); /* opening turn: the briefing and scripted history only */
     const card = SCENARIOS[scenId].cards[rid];
     if(card && card.brief){
       G.eventQueue.unshift({ title:'A Crown Is Heavy',
