@@ -326,6 +326,20 @@ The v2 expansion is now implemented on top of v1:
 - Bug fixes: Court tab rendered raw HTML; player defeat (realm loss / line
   extinct / deposition) failed to trigger the game-over screen.
 
+### v2.2 — the real map (SHIPPED)
+- **Geographic map**: province geometry now generated from Natural Earth
+  coastline data (see `tools/gen_map.mjs`) — real coastlines, fjords, and
+  islands, projected conic-conformal, partitioned into **70 provinces** by
+  Voronoi around historical seats (York, Winchester, Rouen, Uppsala,
+  Toulouse…). Adjacency and coastal flags computed from the geometry.
+- **Four new realms**: Ulaid, Toulouse, Blois-Champagne, Burgundy — 21
+  realms total. The 1187 Angevin empire now correctly runs 24 provinces
+  from Northumbria to Gascony.
+- **Zoom & pan**: mouse-wheel zoom to cursor, drag to pan, ＋/－/⌂
+  controls; small-province labels appear as you zoom in.
+- **Achievements**: twelve deeds persisted across runs (localStorage),
+  earned with a toast and displayed on the title screen.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
