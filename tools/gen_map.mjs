@@ -55,20 +55,56 @@ const SEEDS = [
  ['cologne','Cologne',6.96,50.94,'plains',3], ['saxony','Saxony',9.60,52.40,'forest',2],
  ['lorraine','Lorraine',6.18,48.90,'forest',2], ['franconia','Franconia',9.93,49.90,'forest',2],
  ['swabia','Swabia',9.50,48.30,'hills',2],
+ ['bavaria','Bavaria',12.10,49.02,'forest',2], ['austria','Austria',16.37,48.21,'plains',2],
+ ['carinthia','Carinthia',14.31,46.62,'hills',1],
+ // Iberia
+ ['galicia','Galicia',-8.54,42.88,'hills',1], ['leonp','León',-5.57,42.60,'plains',2],
+ ['castile','Castile',-3.70,42.00,'plains',2], ['navarre','Navarre',-1.64,42.60,'hills',2],
+ ['aragon','Aragon',-0.88,41.65,'plains',2], ['barcelona','Barcelona',1.80,41.55,'plains',3],
+ ['portugal','Portugal',-8.43,40.21,'hills',2], ['toledo','Toledo',-4.03,39.86,'plains',3],
+ ['andalusia','Andalusia',-5.30,37.50,'plains',3], ['valencia','Valencia',-0.80,39.20,'plains',2],
+ // Italy
+ ['savoy','Savoy',7.50,45.07,'hills',2], ['lombardy','Lombardy',9.60,45.40,'plains',4],
+ ['venice','Venice',12.34,45.44,'marsh',4], ['genoa','Genoa',8.93,44.20,'hills',3],
+ ['tuscany','Tuscany',11.25,43.60,'plains',3], ['romagna','Romagna',11.80,44.30,'plains',2],
+ ['latium','Latium',12.48,41.89,'plains',4], ['apulia','Apulia',16.60,41.00,'plains',2],
+ ['naples','Naples',14.25,40.85,'plains',3], ['calabria','Calabria',16.25,39.10,'hills',1],
+ ['sicily','Sicily',13.80,37.70,'plains',3],
+ // Balkans & Byzantium
+ ['croatia','Croatia',15.80,44.80,'hills',1], ['serbia','Serbia',20.90,43.70,'hills',1],
+ ['hungary','Hungary',19.04,47.30,'plains',3], ['transylvania','Transylvania',23.60,46.77,'hills',1],
+ ['wallachia','Wallachia',25.46,44.70,'plains',1], ['bulgaria','Bulgaria',25.30,43.00,'hills',2],
+ ['macedonia','Macedonia',22.94,40.75,'plains',3], ['hellas','Hellas',23.00,38.60,'hills',2],
+ ['epirus','Epirus',20.60,39.80,'hills',1], ['dyrrachion','Dyrrachion',19.60,41.40,'hills',2],
+ ['thrace','Thrace',27.60,41.30,'plains',5], ['nicaea','Nicaea',29.30,40.00,'plains',3],
+ ['paphlagonia','Paphlagonia',32.85,40.60,'plains',2], ['cappadocia','Cappadocia',34.80,38.72,'plains',2],
+ ['armeniakon','Armeniakon',38.00,39.90,'hills',1], ['trebizond','Trebizond',39.30,40.80,'hills',2],
+ ['cilicia','Cilicia',34.80,36.90,'plains',2],
+ // Eastern Europe
+ ['bohemia','Bohemia',14.42,50.09,'forest',2], ['poland','Poland',19.40,50.60,'plains',2],
+ ['masovia','Masovia',21.01,52.23,'forest',1], ['pomerania','Pomerania',17.00,53.80,'forest',1],
+ ['volhynia','Volhynia',24.90,50.40,'forest',1], ['kiev','Kiev',30.52,50.45,'plains',3],
 ];
-const DUMMIES = [
- [-8.5,43.1],[-5.9,43.3],[-3.7,43.1],[-1.6,42.8],[0.5,42.4],[2.1,42.2],  // Iberia
- [9.19,45.46],[12.0,45.3],[7.6,44.6],[14.0,46.2],                        // Italy/Alps south
- [11.58,48.3],[14.4,50.0],[13.0,51.2],[14.5,52.6],[12.5,54.0],[16.5,53.2],[19.0,54.2],[17.5,51.5],[21.0,52.5], // Bavaria/Bohemia/Poland/Baltic coast
- [16.0,47.5],[19.5,47.4],                                                // Austria/Hungary
+const DUMMIES_NEW = [
+ [13.5,64.3],[16.5,65.2],[19.5,64.8],[34.5,52.5],[38.5,50.5],[36.0,51.8],[40.0,48.5],[41.5,52.0],
+ [-7.0,38.5],[-2.5,36.9],[35.5,34.0],[36.2,33.5],[38.5,35.5],[40.5,37.0],[41.5,42.0],[44.0,40.0],
+ [34.0,44.6],[36.5,45.3],[33.0,47.0],[35.0,48.5],[39.0,47.2],[37.5,55.7],[30.3,59.9],[27.5,53.9],
+ [25.3,54.7],[24.1,56.9],[24.7,59.4],[10.0,36.8],[3.0,36.7],[-6.8,34.0],[13.2,32.9],[22.6,32.1],
+ [28.0,63.0],[31.0,61.0],[23.8,61.5],[32.0,34.7],[33.4,35.2],
+];
+const DUMMIES = [...DUMMIES_NEW,
+ 
+ 
+ 
+ 
  [15.5,62.8],[19.5,63.5],[24.5,60.5],[22.5,58.8],[24.0,57.0],[21.0,55.6], // Norrland/Finland/Baltics
  [7.9,46.4],[10.3,46.6],                                                  // high Alps
 ];
 
 // ---- projection fitted to region ----
 const regionGeo = { type:'Polygon', coords:null };
-const bbox = { type: 'Polygon', coordinates: [[[-11,42],[-11,64.5],[20,64.5],[20,42],[-11,42]]] };
-const proj = geoConicConformal().parallels([44,62]).rotate([-4.5,0]);
+const bbox = { type: 'Polygon', coordinates: [[[-11,34.5],[-11,64.8],[42,64.8],[42,34.5],[-11,34.5]]] };
+const proj = geoConicConformal().parallels([40,60]).rotate([-15,0]);
 proj.fitExtent([[PAD,PAD],[W-PAD,H-PAD]], bbox);
 
 // ---- land polygons (projected, clipped to viewport) ----
@@ -77,7 +113,7 @@ const land = topojson.feature(world, world.objects.land);
 const viewRect = [[[PAD,PAD],[W-PAD,PAD],[W-PAD,H-PAD],[PAD,H-PAD],[PAD,PAD]]];
 function ringArea(r){ let a=0; for(let i=0;i<r.length-1;i++) a += r[i][0]*r[i+1][1]-r[i+1][0]*r[i][1]; return Math.abs(a/2); }
 let landMP = [];
-const geoRect = [[[-11,42],[20,42],[20,64.5],[-11,64.5],[-11,42]]];
+const geoRect = [[[-11,34.5],[42,34.5],[42,64.8],[-11,64.8],[-11,34.5]]];
 const geom = land.type==='FeatureCollection' ? land.features[0].geometry : land.geometry;
 console.log('land polygons in source:', geom.coordinates.length);
 for(const poly of geom.coordinates){
@@ -162,7 +198,7 @@ for(let i=0;i<SEEDS.length;i++){
   }
 }
 // ---- manual straits (crossable like land) ----
-for(const [a,b] of [['jylland','fyn'],['slesvig','fyn'],['fyn','sjaelland'],['sjaelland','skane']]){
+for(const [a,b] of [['jylland','fyn'],['slesvig','fyn'],['fyn','sjaelland'],['sjaelland','skane'],['sicily','calabria'],['thrace','nicaea']]){
   if(out[a]&&out[b]&&!out[a].adj.includes(b)){ out[a].adj.push(b); out[b].adj.push(a); }
 }
 const sizeKB = Math.round(JSON.stringify(out).length/1024);

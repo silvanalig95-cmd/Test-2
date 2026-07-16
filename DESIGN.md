@@ -340,6 +340,25 @@ The v2 expansion is now implemented on top of v1:
 - **Achievements**: twelve deeds persisted across runs (localStorage),
   earned with a toast and displayed on the title screen.
 
+### v2.3 — Europe entire (SHIPPED)
+- **Map expanded to most of Europe**: 117 provinces from Portugal to
+  Trebizond — Iberia, Italy, the Balkans, Anatolia, Hungary, Poland, Kievan
+  Rus, with Messina/Bosporus/Danish straits. ~33 realms including Byzantium
+  (playable in both scenarios), the Seljuks, al-Andalus, the Papacy, Venice,
+  Sicily, Hungary, Poland, Kiev, Cumania.
+- **Religion**: Catholic ☩, Orthodox ☦, Muslim ☪, Pagan 🌙. Cross-faith
+  opinion penalties, no cross-faith marriages, Rome/excommunication gated to
+  Catholics (Orthodox endow the Patriarchate, Muslims the madrasas), and
+  **holy wars** — a province casus belli against any realm of another faith,
+  used by the AI along the faith lines (Iberia, Anatolia, the steppe).
+- **Culture** shown on every character (nine name cultures incl. Greek,
+  Arabic, Iberian, Slavic, Magyar, Turkic).
+- **Scripted Manzikert (1071)**: the Seljuk realm spawns under Alp Arslan,
+  seizes eastern Anatolia and declares war on Byzantium.
+- **Levy exploit fixed**: men already fielded cannot be mustered twice.
+- **UI**: Wars and Plots are separate tabs (with spymaster status); skill
+  values carry icons (🕊⚔🗡🔑) everywhere they appear.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
