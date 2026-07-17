@@ -87,6 +87,12 @@ const SEEDS = [
  ['verona','Verona',11.00,45.43,'plains',3], ['spoleto','Spoleto',12.65,42.90,'hills',2],
  ['smyrna','Smyrna',27.14,38.60,'plains',3], ['cordoba','Córdoba',-4.78,37.89,'plains',3],
  ['bloisp','Blois',1.33,47.59,'plains',2],
+ ['lyonnais','Lyonnais',4.83,45.60,'hills',3], ['limousin','Limousin',1.77,45.60,'hills',2],
+ ['pisa','Pisa',10.40,43.60,'plains',3], ['westphalia','Westphalia',7.90,51.60,'plains',2],
+ ['adrianople','Adrianople',26.57,41.80,'plains',3], ['attaleia','Attaleia',30.70,36.90,'plains',2],
+ ['badajoz','Badajoz',-6.97,38.70,'plains',2], ['bosnia','Bosnia',18.20,44.20,'hills',1],
+ ['zeta','Zeta',19.26,42.60,'hills',1], ['crete','Crete',24.80,35.30,'hills',2],
+ ['cyprus','Cyprus',33.00,35.10,'plains',2],
  ['bohemia','Bohemia',14.42,50.09,'forest',2], ['poland','Poland',19.40,50.60,'plains',2],
  ['masovia','Masovia',21.01,52.23,'forest',1], ['pomerania','Pomerania',17.00,53.80,'forest',1],
  ['volhynia','Volhynia',24.90,50.40,'forest',1], ['kiev','Kiev',30.52,50.45,'plains',3],
@@ -96,7 +102,7 @@ const DUMMIES_NEW = [
  [-7.0,38.5],[-2.5,36.9],[35.5,34.0],[36.2,33.5],[38.5,35.5],[40.5,37.0],[41.5,42.0],[44.0,40.0],
  [34.0,44.6],[36.5,45.3],[33.0,47.0],[35.0,48.5],[39.0,47.2],[37.5,55.7],[30.3,59.9],[27.5,53.9],
  [25.3,54.7],[24.1,56.9],[24.7,59.4],[10.0,36.8],[3.0,36.7],[-6.8,34.0],[13.2,32.9],[22.6,32.1],
- [28.0,63.0],[31.0,61.0],[23.8,61.5],[32.0,34.7],[33.4,35.2],
+ [28.0,63.0],[31.0,61.0],[23.8,61.5],
 ];
 const DUMMIES = [...DUMMIES_NEW,
  
@@ -205,7 +211,7 @@ for(let i=0;i<SEEDS.length;i++){
   }
 }
 // ---- manual straits (crossable like land) ----
-for(const [a,b] of [['jylland','fyn'],['slesvig','fyn'],['fyn','sjaelland'],['sjaelland','skane'],['sicily','calabria'],['thrace','nicaea']]){
+for(const [a,b] of [['jylland','fyn'],['slesvig','fyn'],['fyn','sjaelland'],['sjaelland','skane'],['sicily','calabria'],['thrace','nicaea'],['crete','hellas'],['cyprus','cilicia']]){
   if(out[a]&&out[b]&&!out[a].adj.includes(b)){ out[a].adj.push(b); out[b].adj.push(a); }
 }
 const sizeKB = Math.round(JSON.stringify(out).length/1024);
