@@ -4,10 +4,11 @@ import { Delaunay } from 'd3-delaunay';
 import pc from 'polygon-clipping';
 import { readFileSync, writeFileSync } from 'fs';
 
-const W = 1000, H = 800, PAD = 8;
+const W = 1000, PAD = 8;
+let H = 800; // recomputed from the fitted projection below
 
 // ---- province seeds: id, display name, lon, lat, terrain, dev ----
-const WASTE = new Set(['alps','alps2']);
+const WASTE = new Set(['alps','alps2','sahara_w','sahara_c','libyan','nafud','syriandes']);
 const SEEDS = [
  ['alps','The Alps',7.9,46.35,'hills',1], ['alps2','The Alps',10.3,46.55,'hills',1],
  // England
@@ -121,6 +122,31 @@ const SEEDS = [
  ['polotsk','Polotsk',28.80,55.50,'forest',1], ['prussia','Prussia',20.50,54.20,'forest',1],
  ['lithuania','Lithuania',24.30,54.90,'forest',1], ['livonia','Livonia',24.80,57.10,'forest',1],
  ['halland','Halland',12.90,56.90,'plains',1], ['finland','Finland',23.80,60.90,'forest',1],
+ // ===== North Africa: the Maghreb (Berber) =====
+ ['marrakesh','Marrakesh',-8.00,31.63,'plains',3], ['fez','Fez',-5.00,34.03,'hills',3],
+ ['sus','Sus',-9.20,30.42,'hills',1], ['tlemcen','Tlemcen',-1.32,34.88,'hills',2],
+ ['tahert','Tahert',1.32,35.37,'hills',1], ['algiers','Algiers',3.06,36.75,'hills',2],
+ ['bejaia','Bejaïa',5.08,36.75,'hills',2], ['tunis','Tunis',10.17,36.80,'plains',3],
+ ['kairouan','Kairouan',10.10,35.68,'plains',2], ['tripoli','Tripoli',13.18,32.89,'plains',2],
+ ['barca','Barca',20.07,32.11,'hills',1],
+ // ===== Egypt =====
+ ['alexandria','Alexandria',29.92,31.20,'plains',4], ['cairo','Cairo',31.25,30.05,'plains',5],
+ ['damietta','Damietta',31.81,31.42,'marsh',3], ['said','Upper Egypt',32.70,26.20,'plains',2],
+ // ===== The Levant =====
+ ['antioch','Antioch',36.16,36.20,'hills',3], ['aleppo','Aleppo',37.16,36.20,'plains',3],
+ ['tripolis','Tripoli',35.85,34.44,'hills',2], ['damascus','Damascus',36.30,33.51,'plains',4],
+ ['acre','Acre',35.07,32.92,'plains',3], ['jerusalem','Jerusalem',35.22,31.78,'hills',3],
+ ['kerak','Kerak',35.70,31.18,'hills',1],
+ // ===== Mesopotamia (Abbasid) =====
+ ['jazira','Jazira',40.20,37.15,'plains',2], ['mosul','Mosul',43.13,36.34,'plains',3],
+ ['baghdad','Baghdad',44.36,33.31,'plains',5], ['basra','Basra',47.80,30.50,'marsh',3],
+ // ===== Arabia =====
+ ['medina','Medina',39.60,24.47,'plains',2], ['mecca','Mecca',39.83,21.43,'hills',3],
+ ['nejd','Nejd',45.00,25.00,'plains',1], ['hasa','al-Hasa',49.60,25.40,'plains',2],
+ // ===== impassable deserts =====
+ ['sahara_w','The Sahara',-3.00,27.50,'desert',0], ['sahara_c','The Sahara',13.00,26.50,'desert',0],
+ ['libyan','The Libyan Desert',24.50,25.60,'desert',0], ['nafud','The Nejd Waste',43.50,21.30,'desert',0],
+ ['syriandes','The Syrian Waste',38.50,32.20,'desert',0],
 ];
 const DUMMIES_NEW = [
  [13.5,64.3],[16.5,65.2],[19.5,64.8],[35.5,53.5],[38.5,50.5],[36.5,51.8],[40.0,48.5],[41.5,52.0],
@@ -128,7 +154,13 @@ const DUMMIES_NEW = [
  [34.0,44.6],[36.5,45.3],[34.5,47.5],[35.5,48.8],[39.0,47.2],[37.5,55.7],[10.0,36.8],[3.0,36.7],
  [-6.8,34.0],[13.2,32.9],[22.6,32.1],[28.5,62.8],[33.5,60.5],[35.0,57.5],[30.5,54.0],
 ];
-const DUMMIES = [...DUMMIES_NEW,
+// absorb out-of-scope land at the new southern/eastern frontier (Persia, the Sudan, the deep desert edge)
+const DUMMIES_SE = [
+ [50.5,29.0],[50.8,31.5],[50.2,33.5],[49.5,35.5],[48.0,37.0],[46.5,38.5],[44.5,39.5],[42.5,40.0],
+ [50.5,26.0],[50.7,23.0],[48.0,20.5],[44.0,19.5],[40.0,19.3],[36.0,19.4],[32.0,20.2],[27.0,21.0],
+ [22.0,20.3],[16.0,20.4],[9.0,20.6],[2.0,21.2],[-4.0,22.0],[-9.0,25.0],[-10.2,29.0],
+];
+const DUMMIES = [...DUMMIES_NEW, ...DUMMIES_SE,
  [15.5,62.8],[19.5,63.5],[26.5,61.5],
 ];
 // ---- major rivers: geographic polylines, projected at build ----
@@ -147,13 +179,19 @@ const RIVERS = {
  Rhone:[[6.1,46.2],[5.3,45.8],[4.8,45.3],[4.65,44.3],[4.6,43.9],[4.85,43.35]],
  Volga:[[36.5,57.5],[38.5,56.0],[40.0,55.0]],
  Oder:[[17.6,49.9],[17.9,51.0],[15.0,52.0],[14.6,53.0],[14.3,53.9]],
+ Nile:[[32.9,29.8],[31.2,30.4],[31.5,31.4],[30.0,31.5]],
+ NileUp:[[32.9,24.1],[32.8,26.5],[32.9,29.8]],
+ Euphrates:[[38.7,37.0],[39.8,36.0],[41.0,35.0],[42.5,34.0],[44.4,33.2],[46.1,31.8],[47.4,31.0]],
+ Tigris:[[42.4,37.3],[43.1,36.3],[43.9,34.6],[44.4,33.3],[45.8,32.0],[47.4,31.0]],
 };
 
-// ---- projection fitted to region ----
-const regionGeo = { type:'Polygon', coords:null };
-const bbox = { type: 'Polygon', coordinates: [[[-11,34.5],[-11,64.8],[42,64.8],[42,34.5],[-11,34.5]]] };
+// ---- projection fitted to region (canvas height derived to preserve the region's aspect) ----
+const bbox = { type: 'Polygon', coordinates: [[[-11,20],[-11,64.8],[50,64.8],[50,20],[-11,20]]] };
 const proj = geoConicConformal().parallels([40,60]).rotate([-15,0]);
+proj.fitWidth(W - 2*PAD, bbox);
+{ const b = geoPath(proj).bounds(bbox); H = Math.round(b[1][1] - b[0][1] + 2*PAD); }
 proj.fitExtent([[PAD,PAD],[W-PAD,H-PAD]], bbox);
+console.log('canvas H =', H);
 
 // ---- land polygons (projected, clipped to viewport) ----
 const world = JSON.parse(readFileSync('node_modules/world-atlas/land-50m.json'));
@@ -161,7 +199,7 @@ const land = topojson.feature(world, world.objects.land);
 const viewRect = [[[PAD,PAD],[W-PAD,PAD],[W-PAD,H-PAD],[PAD,H-PAD],[PAD,PAD]]];
 function ringArea(r){ let a=0; for(let i=0;i<r.length-1;i++) a += r[i][0]*r[i+1][1]-r[i+1][0]*r[i][1]; return Math.abs(a/2); }
 let landMP = [];
-const geoRect = [[[-11,34.5],[42,34.5],[42,64.8],[-11,64.8],[-11,34.5]]];
+const geoRect = [[[-11,20],[50,20],[50,64.8],[-11,64.8],[-11,20]]];
 const geom = land.type==='FeatureCollection' ? land.features[0].geometry : land.geometry;
 console.log('land polygons in source:', geom.coordinates.length);
 for(const poly of geom.coordinates){
@@ -247,7 +285,11 @@ for(let i=0;i<SEEDS.length;i++){
   }
 }
 // ---- manual straits (crossable like land) ----
-for(const [a,b] of [['jylland','fyn'],['slesvig','fyn'],['fyn','sjaelland'],['sjaelland','skane'],['sicily','calabria'],['thrace','nicaea'],['crete','hellas'],['cyprus','cilicia'],['mallorca','barcelona'],['mallorca','valencia']]){
+for(const [a,b] of [['jylland','fyn'],['slesvig','fyn'],['fyn','sjaelland'],['sjaelland','skane'],['sicily','calabria'],['thrace','nicaea'],['crete','hellas'],['cyprus','cilicia'],['mallorca','barcelona'],['mallorca','valencia'],
+  // the new south: straits & desert-margin crossings
+  ['andalusia','fez'],['granada','fez'],['sicily','tunis'],['tunis','kairouan'],['cyprus','acre'],['cyprus','antioch'],
+  ['said','medina'],['acre','jerusalem'],['jerusalem','kerak'],['kerak','medina'],['basra','hasa'],['hasa','nejd'],['nejd','medina'],['barca','alexandria'],
+  ['tripoli','barca'],['jazira','mosul'],['aleppo','damascus']]){
   if(out[a]&&out[b]&&!out[a].adj.includes(b)){ out[a].adj.push(b); out[b].adj.push(a); }
 }
 const sizeKB = Math.round(JSON.stringify(out).length/1024);

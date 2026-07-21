@@ -478,6 +478,38 @@ Diplomacy was only legible one court at a time; now the whole web is.
   both pressing claims on England.
 - **Overview** gains an Allies / Rivals tally that links to the tab.
 
+### v3.0 — the Mediterranean world (SHIPPED)
+The map grows south and east to take in the whole medieval Mediterranean.
+- **35 new provinces** across the Maghreb (Marrakesh, Fez, Sus, Tlemcen,
+  Tahert, Algiers, Bejaïa, Tunis, Kairouan, Tripoli, Barca), Egypt
+  (Alexandria, Cairo, Damietta, Upper Egypt), the Levant (Antioch, Aleppo,
+  Tripoli, Damascus, Acre, Jerusalem, Kerak), Mesopotamia (Jazira, Mosul,
+  Baghdad, Basra) and Arabia (Medina, Mecca, Nejd, al-Hasa) — 216 provinces
+  in all.
+- **The generator** (tools/gen_map.mjs) extends its bbox to lon −11..50,
+  lat 20..64.8 and derives the canvas height (1000×747) from the fitted
+  projection so the region fills the frame; new straits stitch the coast
+  together (Gibraltar, Sicily–Tunis, the Sinai, the Sirte crossing,
+  Jazira–Mosul) and new rivers (Nile, Tigris, Euphrates) are drawn. The
+  whole continent is one connected landmass; only the British Isles remain
+  sea-separated, as they should be.
+- **Five impassable deserts** (the Sahara ×2, the Libyan Desert, the Nejd
+  and Syrian wastes) fill the interior as sand-hatched wasteland — a
+  distinct warm pattern from the grey Alps — so the south reads as land,
+  not sea, while remaining uncrossable.
+- **New realms & peoples**: a Berber culture with its own names, and the
+  Muslim powers of the age. 1066 fields the Almoravids, Hammadids, Zirids,
+  the Fatimid Caliphate (Egypt, the Levant coast and the Hejaz with Mecca
+  and Medina) and the Abbasid Caliphate (Mesopotamia and inland Syria);
+  Byzantium holds Antioch. 1187 replaces them with the Almohads, the
+  Abbasids, the Crusader states of Outremer (Antioch, Tripoli, Acre), and
+  **Saladin's Ayyubid Sultanate** — holding Egypt, Syria and a
+  freshly-taken Jerusalem, giving the "Jerusalem Has Fallen" and Saladin
+  Tithe events their historical antagonist on the map at last.
+- **Robustness**: an auto-ruler fallback now generates a culturally-named
+  ruler for any realm that holds land without a scripted one, so new powers
+  (and future additions) never spawn headless.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
