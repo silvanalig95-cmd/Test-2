@@ -510,6 +510,25 @@ The map grows south and east to take in the whole medieval Mediterranean.
   ruler for any realm that holds land without a scripted one, so new powers
   (and future additions) never spawn headless.
 
+### v3.1 — the living score (SHIPPED)
+The generative music grows from one melody voice into a small ensemble
+that reads the game.
+- **Layered ensemble**: a continuous drone, a bass on the downbeat, a
+  two-note harmonic pad, and the lead melody — over a slow chord
+  progression (i–vi–iv–v, one chord per bar) so the harmony actually moves
+  instead of sitting on a single mode.
+- **Culture timbre**: western/slav play soft triangle-and-sine (church-like);
+  norse/greek/arabic play a reedier sawtooth lead with a plucked attack, a
+  gentle vibrato for the hijaz modes, and a frame-drum pulse. Berber joins
+  the arabic mode.
+- **Mood follows the realm's fortunes**: at war the drums double and the
+  tempo hurries; pestilence thins the texture to a mournful drag and darkens
+  it; excommunication and low legitimacy darken the lead; a proud realm at
+  peace lightens and quickens. Re-evaluated every bar, so the score shifts
+  with events as you play.
+- A lowpass warms the master and a 2.2-second fade-in/out keeps toggling
+  smooth. Still fully generative — nothing recorded.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

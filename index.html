@@ -396,7 +396,7 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
   </div>
   <div class="spacer"></div>
   <button class="small" onclick="UI.ledger()" data-tip="The Great Powers — a ranked survey of every realm in Christendom and beyond">📜 Powers</button>
-  <button class="small" id="musBtn" onclick="MUSIC.toggle()" data-tip="Ambient music in the modes of your realm's culture — Byzantine drones, Andalusi hijaz, Norse drums, Western dorian. Generated live; nothing recorded.">🔇</button>
+  <button class="small" id="musBtn" onclick="MUSIC.toggle()" data-tip="Live generative score in your culture's mode — layered drone, bass, harmony and lead with a frame-drum pulse. It follows the realm's fortunes: war brings drums and hurries the tempo, pestilence thins it to a mournful drag, a proud realm at peace lightens. Nothing recorded.">🔇</button>
   <button class="small" onclick="UI.help()">Help</button>
   <button class="small" onclick="Game.save()">Save</button>
   <button class="small" onclick="Game.load()">Load</button>
@@ -1306,58 +1306,100 @@ function logIt(cls, txt){
 }
 function gameOver(won, msg){ Game.gameOver(won, msg); }
 const MUSIC = {
-  on:false, ctx:null, nodes:null, step:0, timer:null,
+  on:false, ctx:null, master:null, delay:null, lp:null, droneG:null, timer:null,
+  step:0, bar:0, deg:0, mode:'western', base:220, beat:.46, chordRoot:0, curMood:null,
   scales:{ western:[0,2,3,5,7,9,10], norse:[0,3,5,7,10], greek:[0,1,4,5,7,8,10], arabic:[0,1,4,5,7,8,11], slav:[0,2,3,5,7,8,11] },
   cultMap:{ saxon:'western', norman:'western', celtic:'western', german:'western', iberian:'western', italian:'western',
-    magyar:'slav', slav:'slav', norse:'norse', greek:'greek', arabic:'arabic', turkic:'arabic' },
+    magyar:'slav', slav:'slav', norse:'norse', greek:'greek', arabic:'arabic', turkic:'arabic', berber:'arabic' },
+  timbre:{ western:{lead:'triangle', bass:'sine', pluck:0}, slav:{lead:'triangle', bass:'sine', pluck:0},
+    norse:{lead:'sawtooth', bass:'triangle', pluck:1}, greek:{lead:'sawtooth', bass:'triangle', pluck:1}, arabic:{lead:'sawtooth', bass:'triangle', pluck:1} },
+  prog:[0,5,3,4], /* the harmonic root cycles: i – vi – iv – v, one chord per bar */
+  /* read the realm's fortunes and colour the music by them */
+  mood(){
+    const m = {tension:0, sparse:0, dark:0, joy:0};
+    if(!G || !rl(G.player)) return m;
+    const wars = (typeof atWar==='function') ? atWar(G.player).length : 0;
+    if(wars) m.tension = Math.min(1, .5 + (wars-1)*.25);
+    if(G.plague){ m.sparse = 1; m.dark = Math.max(m.dark,.6); }
+    const R = rl(G.player);
+    if(R.excomm) m.dark = Math.max(m.dark,.7);
+    if(R.leg < 35) m.dark = Math.max(m.dark,.35);
+    if(!wars && !G.plague && R.leg>65 && R.prs>120) m.joy = .5;
+    return m;
+  },
+  freq(deg){ const sc=this.scales[this.mode], oct=Math.floor(deg/sc.length), idx=((deg%sc.length)+sc.length)%sc.length;
+    return this.base * Math.pow(2, oct) * Math.pow(2, sc[idx]/12); },
+  voice(freq, t, dur, type, peak, opt){
+    opt=opt||{}; const ctx=this.ctx; if(!ctx) return;
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=type;
+    if(opt.glide){ o.frequency.setValueAtTime(freq*Math.pow(2,-opt.glide/12), t); o.frequency.exponentialRampToValueAtTime(freq, t+.06); }
+    else o.frequency.setValueAtTime(freq, t);
+    if(opt.vib){ const lfo=ctx.createOscillator(), vg=ctx.createGain(); lfo.frequency.value=5.5; vg.gain.value=freq*opt.vib; lfo.connect(vg); vg.connect(o.frequency); lfo.start(t); lfo.stop(t+dur+.1); }
+    const atk = opt.pluck? .006 : .035;
+    g.gain.setValueAtTime(.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t+atk);
+    g.gain.exponentialRampToValueAtTime(.0001, t+dur);
+    o.connect(g); g.connect(this.master); if(opt.target) g.connect(opt.target);
+    o.start(t); o.stop(t+dur+.09);
+  },
+  drum(t, freq, peak, len){ const ctx=this.ctx; if(!ctx) return;
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type='triangle'; o.frequency.setValueAtTime(freq,t); o.frequency.exponentialRampToValueAtTime(freq*.5,t+len);
+    g.gain.setValueAtTime(peak,t); g.gain.exponentialRampToValueAtTime(.0001,t+len);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t+len+.05); },
+  arm(){ if(this.timer) clearInterval(this.timer); this.timer=setInterval(()=>this.tick(), this.beat*1000); },
+  tick(){
+    const ctx=this.ctx; if(!ctx) return;
+    const t=ctx.currentTime+.06, beatInBar=this.step%4, tb=this.timbre[this.mode];
+    if(beatInBar===0){
+      this.bar++; this.curMood=this.mood();
+      this.chordRoot=this.prog[this.bar%this.prog.length];
+      /* tempo follows the mood: war hurries, pestilence drags */
+      const want = this.curMood.tension>.4 ? .38 : this.curMood.sparse ? .58 : .46;
+      if(Math.abs(want-this.beat)>.01){ this.beat=want; this.arm(); }
+      this.voice(this.freq(this.chordRoot-7), t, this.beat*3.4, tb.bass, .09, {glide: tb.pluck?0:2, pluck:tb.pluck});
+      const padPeak=this.curMood.sparse?.028:.05;
+      this.voice(this.freq(this.chordRoot), t, this.beat*3.6, 'sine', padPeak);
+      this.voice(this.freq(this.chordRoot+2), t, this.beat*3.6, 'sine', padPeak*.8);
+      if(this.mode!=='western' || this.curMood.tension) this.drum(t, this.curMood.tension?70:82, this.curMood.tension?.15:.09, .22);
+    }
+    if(this.curMood.tension && (beatInBar===1||beatInBar===3)) this.drum(t, 58, .11*this.curMood.tension, .18);
+    else if((this.mode==='arabic'||this.mode==='greek'||this.mode==='norse') && beatInBar===2) this.drum(t, 150, .045, .10);
+    const restP = this.curMood.sparse? .55 : (.24 - this.curMood.joy*.08);
+    if(Math.random()>=restP){
+      const steps = this.curMood.tension?[-2,-1,0,1,2,3,4]:[-2,-1,-1,0,1,1,2,3];
+      this.deg = clamp(this.deg + steps[Math.floor(Math.random()*steps.length)], this.chordRoot-4, this.chordRoot+7);
+      if(Math.random()<.3) this.deg = this.chordRoot + [0,2,4][Math.floor(Math.random()*3)];
+      const dur=this.beat*(Math.random()<.28?2:1)*(Math.random()<.1?3:1);
+      const peak=this.curMood.dark?.075:.10;
+      this.voice(this.freq(this.deg+7), t, dur, tb.lead, peak, {vib:(this.mode==='arabic'||this.mode==='greek')?.006:0, target:this.delay, pluck:tb.pluck});
+    }
+    this.step++;
+  },
   start(){
     if(this.ctx) this.stop();
     try{ this.ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
-    const ctx = this.ctx;
-    const master = ctx.createGain(); master.gain.value = .13; master.connect(ctx.destination);
-    const delay = ctx.createDelay(1); delay.delayTime.value = .31;
-    const fb = ctx.createGain(); fb.gain.value = .32;
-    delay.connect(fb); fb.connect(delay); delay.connect(master);
-    const mode = this.cultMap[(G && rl(G.player) ? rl(G.player).cult : 'norman')] || 'western';
-    const scale = this.scales[mode];
-    const base = (mode==='greek'||mode==='arabic') ? 196 : 220;
-    const droneG = ctx.createGain(); droneG.gain.value = .045; droneG.connect(master);
-    for(const f of [base/2, base*3/4]){
-      const o = ctx.createOscillator(); o.type='triangle'; o.frequency.value=f; o.connect(droneG); o.start();
-    }
-    this.nodes = {master, delay};
-    let deg = 0;
-    const beat = .42;
-    this.timer = setInterval(()=>{
-      this.step++;
-      if((mode==='norse'||mode==='arabic') && this.step%4===0){
-        const t0 = ctx.currentTime;
-        const d = ctx.createOscillator(), dg = ctx.createGain();
-        d.type='triangle'; d.frequency.setValueAtTime(88,t0); d.frequency.exponentialRampToValueAtTime(48,t0+.16);
-        dg.gain.setValueAtTime(.11,t0); dg.gain.exponentialRampToValueAtTime(.0001,t0+.22);
-        d.connect(dg); dg.connect(master); d.start(t0); d.stop(t0+.26);
-      }
-      if(Math.random()<.2) return;
-      deg = clamp(deg + [-2,-1,-1,0,1,1,2,3][Math.floor(Math.random()*8)], -3, scale.length+4);
-      const oct = Math.floor(deg/scale.length), idx = ((deg%scale.length)+scale.length)%scale.length;
-      const f = base * Math.pow(2, oct) * Math.pow(2, scale[idx]/12);
-      const t = ctx.currentTime;
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type='sine'; o.frequency.value = f;
-      const dur = beat * (Math.random()<.3?2:1) * (Math.random()<.12?3:1);
-      g.gain.setValueAtTime(.0001, t);
-      g.gain.exponentialRampToValueAtTime(.11, t+.035);
-      g.gain.exponentialRampToValueAtTime(.0001, t+dur);
-      o.connect(g); g.connect(master); g.connect(delay);
-      o.start(t); o.stop(t+dur+.06);
-    }, beat*1000);
-    this.on = true;
+    const ctx=this.ctx;
+    this.master = ctx.createGain(); this.master.gain.value=.0001;
+    this.lp = ctx.createBiquadFilter(); this.lp.type='lowpass'; this.lp.frequency.value=2600; this.lp.Q.value=.4;
+    this.master.connect(this.lp); this.lp.connect(ctx.destination);
+    try{ this.master.gain.exponentialRampToValueAtTime(.12, ctx.currentTime+2.2); }catch(e){ this.master.gain.value=.12; }
+    this.delay = ctx.createDelay(1); this.delay.delayTime.value=.33;
+    const fb=ctx.createGain(); fb.gain.value=.34; this.delay.connect(fb); fb.connect(this.delay); this.delay.connect(this.master);
+    this.mode = this.cultMap[(G && rl(G.player) ? rl(G.player).cult : 'norman')] || 'western';
+    this.base = (this.mode==='greek'||this.mode==='arabic') ? 196 : 220;
+    this.droneG = ctx.createGain(); this.droneG.gain.value=.035; this.droneG.connect(this.master);
+    for(const f of [this.base/2, this.base*3/4]){ const o=ctx.createOscillator(); o.type='triangle'; o.frequency.value=f; o.connect(this.droneG); o.start(); }
+    this.step=0; this.bar=0; this.deg=0; this.beat=.46; this.curMood=this.mood();
+    this.arm();
+    this.on=true;
   },
   stop(){
-    if(this.timer) clearInterval(this.timer);
-    this.timer = null;
-    if(this.ctx){ try{ this.ctx.close(); }catch(e){} }
-    this.ctx = null; this.on = false;
+    if(this.timer) clearInterval(this.timer); this.timer=null;
+    const c=this.ctx;
+    if(c){ try{ this.master.gain.cancelScheduledValues(c.currentTime); this.master.gain.setValueAtTime(Math.max(.0001,this.master.gain.value), c.currentTime); this.master.gain.exponentialRampToValueAtTime(.0001, c.currentTime+.4); setTimeout(()=>{ try{c.close();}catch(e){} }, 480); }catch(e){ try{c.close();}catch(_){}} }
+    this.ctx=null; this.master=null; this.on=false;
   },
   toggle(){
     if(this.on){ this.stop(); try{ localStorage.setItem('crownMusic','off'); }catch(e){} }
