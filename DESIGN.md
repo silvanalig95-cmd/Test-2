@@ -359,6 +359,23 @@ The v2 expansion is now implemented on top of v1:
 - **UI**: Wars and Plots are separate tabs (with spymaster status); skill
   values carry icons (🕊⚔🗡🔑) everywhere they appear.
 
+### v2.4 — the great map (SHIPPED)
+- **181 provinces** across Europe (up from 137): denser France, Germany,
+  Italy, Iberia, Balkans, Anatolia and the Rus, plus the Baltic
+  (Lithuania/Prussia/Livonia as a new pagan realm), Finland, Novgorod,
+  Sicily/Corsica/Sardinia/Crete/Cyprus/Mallorca as islands. 39 realms.
+- **Look & feel overhaul**: bold dark coastlines with faint interior
+  province borders (rendered via a two-layer draw so the sea-facing edge
+  stays bold and internal divisions stay quiet); 14 major rivers (Rhine,
+  Danube, Loire, Seine, Po, Thames, Elbe, Ebro, Tagus, Dnieper, Vistula,
+  Rhône, Volga, Oder); per-province tinting so every realm reads as shades
+  of one hue (and same-hue = same realm at a glance).
+- **Realm spotlight**: selecting any province, character or army highlights
+  that realm's whole territory and dims the rest.
+- **The Great Powers ledger** (📜 button): every living realm ranked by
+  levy strength, with ruler, faith, size and its disposition toward you;
+  click a row to fly the map to that realm.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

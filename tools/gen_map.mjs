@@ -96,22 +96,58 @@ const SEEDS = [
  ['bohemia','Bohemia',14.42,50.09,'forest',2], ['poland','Poland',19.40,50.60,'plains',2],
  ['masovia','Masovia',21.01,52.23,'forest',1], ['pomerania','Pomerania',17.00,53.80,'forest',1],
  ['volhynia','Volhynia',24.90,50.40,'forest',1], ['kiev','Kiev',30.52,50.45,'plains',3],
+ // --- density additions ---
+ ['angouleme','Angoulême',0.16,45.65,'plains',2], ['perigord','Périgord',0.90,45.10,'hills',2],
+ ['nevers','Nevers',3.30,47.00,'hills',2], ['foix','Foix',1.55,42.98,'hills',1],
+ ['dauphine','Dauphiné',5.60,45.05,'hills',2],
+ ['alsace','Alsace',7.55,48.30,'hills',2], ['luxembourg','Luxembourg',6.10,49.65,'hills',1],
+ ['hainaut','Hainaut',3.95,50.42,'plains',2], ['meissen','Meissen',13.30,51.10,'forest',1],
+ ['brandenburg','Brandenburg',13.20,52.45,'plains',1], ['lusatia','Lusatia',14.75,51.55,'forest',1],
+ ['salzburg','Salzburg',13.10,47.75,'hills',1], ['styria','Styria',15.44,47.07,'hills',1],
+ ['carniola','Carniola',14.50,46.05,'hills',1], ['tyrol','Tyrol',11.40,47.10,'hills',1],
+ ['montferrat','Montferrat',8.10,44.95,'hills',2], ['modena','Modena',10.90,44.65,'plains',3],
+ ['ancona','Ancona',13.20,43.40,'hills',2], ['abruzzo','Abruzzo',13.90,42.10,'hills',1],
+ ['benevento','Benevento',14.85,41.10,'hills',2], ['salerno','Salerno',15.30,40.55,'hills',2],
+ ['coimbra','Coimbra',-8.35,40.20,'hills',2], ['lisbon','Lisbon',-8.90,38.85,'plains',2],
+ ['murcia','Murcia',-1.13,37.99,'plains',2], ['granada','Granada',-3.60,37.18,'hills',3],
+ ['mallorca','Mallorca',2.90,39.60,'plains',1],
+ ['thessaly','Thessaly',22.30,39.55,'plains',2], ['morea','Morea',22.30,37.40,'hills',2],
+ ['vidin','Vidin',22.85,43.80,'hills',1], ['dobruja','Dobruja',28.10,44.20,'plains',1],
+ ['rascia','Rascia',20.50,43.10,'hills',1],
+ ['ankyra','Ankyra',33.40,39.20,'plains',2], ['ikonion','Ikonion',32.50,37.87,'plains',1],
+ ['melitene','Melitene',38.30,38.35,'hills',1],
+ ['halych','Halych',24.70,49.10,'forest',1], ['chernigov','Chernigov',31.30,51.50,'forest',1],
+ ['smolensk','Smolensk',32.05,54.78,'forest',1], ['novgorod','Novgorod',31.30,58.50,'forest',2],
+ ['polotsk','Polotsk',28.80,55.50,'forest',1], ['prussia','Prussia',20.50,54.20,'forest',1],
+ ['lithuania','Lithuania',24.30,54.90,'forest',1], ['livonia','Livonia',24.80,57.10,'forest',1],
+ ['halland','Halland',12.90,56.90,'plains',1], ['finland','Finland',23.80,60.90,'forest',1],
 ];
 const DUMMIES_NEW = [
- [13.5,64.3],[16.5,65.2],[19.5,64.8],[34.5,52.5],[38.5,50.5],[36.0,51.8],[40.0,48.5],[41.5,52.0],
+ [13.5,64.3],[16.5,65.2],[19.5,64.8],[35.5,53.5],[38.5,50.5],[36.5,51.8],[40.0,48.5],[41.5,52.0],
  [-7.0,38.5],[-2.5,36.9],[35.5,34.0],[36.2,33.5],[38.5,35.5],[40.5,37.0],[41.5,42.0],[44.0,40.0],
- [34.0,44.6],[36.5,45.3],[33.0,47.0],[35.0,48.5],[39.0,47.2],[37.5,55.7],[30.3,59.9],[27.5,53.9],
- [25.3,54.7],[24.1,56.9],[24.7,59.4],[10.0,36.8],[3.0,36.7],[-6.8,34.0],[13.2,32.9],[22.6,32.1],
- [28.0,63.0],[31.0,61.0],[23.8,61.5],
+ [34.0,44.6],[36.5,45.3],[34.5,47.5],[35.5,48.8],[39.0,47.2],[37.5,55.7],[10.0,36.8],[3.0,36.7],
+ [-6.8,34.0],[13.2,32.9],[22.6,32.1],[28.5,62.8],[33.5,60.5],[35.0,57.5],[30.5,54.0],
 ];
 const DUMMIES = [...DUMMIES_NEW,
- 
- 
- 
- 
- [15.5,62.8],[19.5,63.5],[24.5,60.5],[22.5,58.8],[24.0,57.0],[21.0,55.6], // Norrland/Finland/Baltics
-
+ [15.5,62.8],[19.5,63.5],[26.5,61.5],
 ];
+// ---- major rivers: geographic polylines, projected at build ----
+const RIVERS = {
+ Rhine:[[9.5,46.5],[8.3,47.6],[7.6,48.6],[8.2,49.0],[7.3,50.0],[6.9,50.9],[6.1,51.8],[6.0,51.95]],
+ Danube:[[8.3,48.0],[10.9,48.7],[13.0,48.3],[16.4,48.1],[18.9,47.9],[19.0,45.9],[21.0,45.2],[22.9,44.05],[25.4,44.1],[27.9,44.5],[29.7,45.2]],
+ Loire:[[4.0,45.0],[3.0,46.6],[1.5,47.4],[0.0,47.4],[-1.5,47.3],[-2.1,47.28]],
+ Seine:[[4.6,47.7],[3.5,48.4],[2.3,48.9],[1.1,49.4],[0.2,49.5]],
+ Po:[[7.2,44.9],[8.9,45.1],[10.9,45.05],[12.0,45.0],[12.5,44.97]],
+ Thames:[[-1.7,51.7],[-0.9,51.5],[0.1,51.5],[0.7,51.5]],
+ Elbe:[[14.4,50.1],[13.0,51.0],[11.6,52.0],[10.0,53.0],[9.0,53.6],[8.7,53.9]],
+ Ebro:[[-3.5,42.85],[-1.8,42.6],[-0.5,41.6],[0.6,41.1],[0.87,40.72]],
+ Tagus:[[-1.8,40.4],[-4.0,39.9],[-6.0,39.6],[-8.0,39.35],[-9.2,38.7]],
+ Dnieper:[[31.0,53.5],[30.5,52.1],[31.0,50.4],[33.0,49.0],[34.8,47.6],[32.5,46.6],[31.9,46.55]],
+ Vistula:[[19.5,49.9],[20.0,50.9],[21.0,52.2],[19.3,53.5],[18.8,54.35]],
+ Rhone:[[6.1,46.2],[5.3,45.8],[4.8,45.3],[4.65,44.3],[4.6,43.9],[4.85,43.35]],
+ Volga:[[36.5,57.5],[38.5,56.0],[40.0,55.0]],
+ Oder:[[17.6,49.9],[17.9,51.0],[15.0,52.0],[14.6,53.0],[14.3,53.9]],
+};
 
 // ---- projection fitted to region ----
 const regionGeo = { type:'Polygon', coords:null };
@@ -211,13 +247,22 @@ for(let i=0;i<SEEDS.length;i++){
   }
 }
 // ---- manual straits (crossable like land) ----
-for(const [a,b] of [['jylland','fyn'],['slesvig','fyn'],['fyn','sjaelland'],['sjaelland','skane'],['sicily','calabria'],['thrace','nicaea'],['crete','hellas'],['cyprus','cilicia']]){
+for(const [a,b] of [['jylland','fyn'],['slesvig','fyn'],['fyn','sjaelland'],['sjaelland','skane'],['sicily','calabria'],['thrace','nicaea'],['crete','hellas'],['cyprus','cilicia'],['mallorca','barcelona'],['mallorca','valencia']]){
   if(out[a]&&out[b]&&!out[a].adj.includes(b)){ out[a].adj.push(b); out[b].adj.push(a); }
 }
 const sizeKB = Math.round(JSON.stringify(out).length/1024);
 console.log('provinces:', Object.keys(out).length, '| size', sizeKB, 'KB');
 console.log('landlocked:', Object.entries(out).filter(([,v])=>!v.coast).map(([k])=>k).join(','));
 console.log('isolated (no adj):', Object.entries(out).filter(([,v])=>!v.adj.length).map(([k])=>k).join(',')||'none');
+// project rivers, clipped to viewport, rounded
+const riversOut = {};
+for(const [name, pts] of Object.entries(RIVERS)){
+  const pr = pts.map(pt=>proj(pt)).filter(p=>p && isFinite(p[0]) && isFinite(p[1]))
+    .map(p=>[Math.round(p[0]*10)/10, Math.round(p[1]*10)/10]);
+  if(pr.length>=2) riversOut[name] = pr;
+}
+writeFileSync('rivers.json', JSON.stringify(riversOut));
+console.log('rivers:', Object.keys(riversOut).length);
 writeFileSync('provdata.json', JSON.stringify(out));
 // preview page
 let svg = `<svg viewBox="0 0 1000 800" xmlns="http://www.w3.org/2000/svg" style="background:#a9bdb1">`;
