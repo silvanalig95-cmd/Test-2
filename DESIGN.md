@@ -376,6 +376,38 @@ The v2 expansion is now implemented on top of v1:
   levy strength, with ruler, faith, size and its disposition toward you;
   click a row to fly the map to that realm.
 
+### v2.5 — the living turn (SHIPPED)
+Answer to "the seasons feel board-game-like": give the turn anticipation,
+a payoff, a calendar identity, and put people behind the actions.
+- **Tidings**: a forward-looking panel above the realm overview — enemy
+  hosts in the field, claimants with the strength to press, plot progress,
+  the spymaster's sense of hidden plots, pregnancies due, buildings
+  finishing, truces lapsing, seasonal attrition warnings, plague seasons
+  remaining. Each row clicks through to the thing it warns about.
+- **Season Report**: instead of a drip of log lines, each season ends with
+  one composed chronicle page — Your Realm / Wars & Battles / The Wider
+  World — shown only when at least two notable things happened, and never
+  during fast-forward.
+- **Seasonal signature actions** (one per season, once a year): spring
+  tournament, summer forced march (one host marches twice), autumn harvest
+  levy (gold now, goodwill later), winter crown-wearing court.
+- **Pregnancy**: conception is announced ("X is with child"), birth follows
+  three seasons later — twins possible, childbed deaths possible, posthumous
+  children of dead fathers handled. Due dates surface in Tidings.
+- **Embodied orders replace action points**: the abstract 2–3 ⚡ budget is
+  gone. Each season the crown gives one order of any kind (👑), and each
+  filled council seat performs one task of its office — marshal ⚔ musters,
+  marches, recruits; steward 🔑 builds, develops, squeezes; spymaster 🗡
+  plots and forges; chaplain 🕊 prays, parleys, sends envoys. A busy
+  councillor (or an empty seat) can be covered by the crown in person,
+  spending the crown's order. A child ruler has no crown order — regencies
+  govern through the council alone. The topbar shows the five order tokens
+  with tooltips naming each councillor; buttons show their seat's icon as
+  the cost.
+- **Advisor with a face**: council suggestions are now voiced by the actual
+  seat-holder by name, and marriage-match pickers show acceptance odds for
+  every candidate.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

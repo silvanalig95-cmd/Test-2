@@ -138,11 +138,21 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 .actBtns{display:flex; flex-wrap:wrap; gap:5px; margin-top:8px}
 .warRow{border-left:3px solid var(--red); padding-left:8px; margin-bottom:8px}
 .plotRow{border-left:3px solid #4a2a5a; padding-left:8px; margin-bottom:8px}
+.tidCard{background:linear-gradient(rgba(58,74,90,.1),rgba(58,74,90,.04)); border:1px solid #5a6d8c;
+  border-radius:4px; padding:9px; margin-bottom:10px}
+.tidCard h3{color:#3d5a76}
+.tidRow{display:flex; gap:7px; padding:2.5px 0; font-size:12.5px; line-height:1.35; border-top:1px dotted rgba(90,109,140,.3)}
+.tidRow:first-of-type{border-top:none}
+.tidRow .ti{flex:0 0 16px; text-align:center}
+.tidRow:hover{background:rgba(255,250,220,.4)}
+.repLine{font-size:13px; padding:2.5px 0; border-bottom:1px dotted rgba(160,140,95,.35); line-height:1.4}
 .advCard{background:linear-gradient(rgba(140,58,49,.1),rgba(140,58,49,.04)); border:1px solid #8c5a4a;
   border-radius:4px; padding:9px; margin-bottom:10px}
 .advRow{display:flex; align-items:center; gap:8px; padding:5px 0; border-top:1px dotted var(--line)}
+.advWho{color:var(--gold2); font-style:italic}
 .advRow:first-of-type{border-top:none}
 .advRow .txt{flex:1; font-size:12.5px; line-height:1.4}
+button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0); font-weight:bold}
 
 /* skill bars */
 .sklb{display:flex; align-items:center; gap:7px; padding:2px 0; font-size:12px}
@@ -856,7 +866,7 @@ function newGame(playerRealm, seed, scenId){
   G = {
     seed, scen:scenId, year:S.year, endYear:S.year+100, season:0, player:playerRealm,
     realms:{}, provinces:{}, chars:{}, armies:[], wars:[], plots:[], alliances:[], truces:[],
-    log:[], chron:[], ap:3, sel:null, moveMode:null, aid:0, wid:0, pid:0, plague:0,
+    log:[], chron:[], ap:0, orders:null, sel:null, moveMode:null, aid:0, wid:0, pid:0, plague:0,
     flags:{}, over:false, regency:false, eventQueue:[],
   };
   for(const [pid, pd] of Object.entries(PROVDATA)){
@@ -924,6 +934,7 @@ function newGame(playerRealm, seed, scenId){
     aiFillCouncil(rid);
   }
   G.realms[playerRealm].gold += 10;
+  resetOrders();
 }
 
 function seedCast1066(){
@@ -1506,7 +1517,34 @@ function inheritedTraits(fa, mo){
 }
 function tryBirths(){
   for(const c of Object.values(G.chars)){
-    if(!alive(c) || c.sex!=='f' || !c.sp) continue;
+    if(!alive(c) || c.sex!=='f') continue;
+    /* carry to term */
+    if(c.preg){
+      c.preg--;
+      if(c.preg > 0) continue;
+      c.preg = 0;
+      const h = ch(c.pregBy);
+      c.pregBy = null;
+      const fCult = (h && h.cult) || c.cult, fDyn = (h && h.dyn) || c.dyn;
+      const homeRealm = (h && alive(h)) ? h.realm : c.realm;
+      const births = chance(.05) ? 2 : 1;
+      for(let i=0; i<births; i++){
+        const sex = chance(.51)?'m':'f';
+        const kid = mkChar({ nm:pick(NAMES[fCult][sex]), dyn:fDyn, realm:homeRealm, cult:fCult, sex,
+          by:G.year, fa:h?h.id:null, mo:c.id, tr:inheritedTraits(h,c),
+          sk:{dip:ri(1,5),mar:ri(1,5),int:ri(1,5),ste:ri(1,5)} });
+        const rel = h && rl(h.realm) && rl(h.realm).ruler===h.id;
+        if(rel || isPlayer(homeRealm) || isPlayer(c.realm)){
+          const post = h && !alive(h) ? ', a child of a dead father' : '';
+          logIt('court', `${births===2&&i===1 ? 'Twins! A second child' : `A ${sex==='m'?'son':'daughter'}`}, ${kid.nm}, is born to ${fullName(c)}${post}.`);
+        }
+        if(rel && isPlayer(h.realm)) chron(`In this year a ${sex==='m'?'son':'daughter'} was born to the royal house and given the name ${kid.nm}, and there was feasting.`);
+      }
+      if(chance(.04) && alive(c)) killChar(c, 'died in childbed');
+      continue;
+    }
+    /* conception */
+    if(!c.sp) continue;
     const h = ch(c.sp);
     if(!alive(h)) continue;
     const a = age(c);
@@ -1516,17 +1554,11 @@ function tryBirths(){
     if(c.tr.includes('chaste')||h.tr.includes('chaste')) p -= .03;
     const kidsOf = Object.values(G.chars).filter(k=>k.mo===c.id);
     if(kidsOf.some(k=>G.year - k.by < 2)) continue; /* nursing years */
-    p = (p+.02) * Math.max(.25, 1 - kidsOf.length*.13);
+    p = (p+.03) * Math.max(.25, 1 - kidsOf.length*.13);
     if(!chance(p)) continue;
-    const sex = chance(.51)?'m':'f';
-    const kid = mkChar({ nm:pick(NAMES[h.cult][sex]), dyn:h.dyn, realm:h.realm, cult:h.cult, sex,
-      by:G.year, fa:h.id, mo:c.id, tr:inheritedTraits(h,c),
-      sk:{dip:ri(1,5),mar:ri(1,5),int:ri(1,5),ste:ri(1,5)} });
-    const rel = (rl(h.realm) && rl(h.realm).ruler===h.id);
-    if(rel || isPlayer(h.realm) || isPlayer(c.realm))
-      logIt('court', `A ${sex==='m'?'son':'daughter'}, ${kid.nm}, is born to ${fullName(h)} and ${fullName(c)}.`);
-    if(rel && isPlayer(h.realm)) chron(`In this year a ${sex==='m'?'son':'daughter'} was born to the ${sex==='m'?'king':'king'}'s house and given the name ${kid.nm}, and there was feasting.`);
-    if(chance(.04) && alive(c)){ killChar(c, 'died in childbed'); }
+    c.preg = 3; c.pregBy = h.id;
+    if(isPlayer(c.realm) || isPlayer(h.realm))
+      logIt('court', `${fullName(c)} is with child.`);
   }
 }
 function heirLine(c, seen){
@@ -1803,7 +1835,10 @@ function enemiesIn(provId, rid){
   return G.armies.filter(a=>a.prov===provId && hostile(a.realm, rid));
 }
 function moveArmy(a, dest, naval){
-  if(a.moved) return false;
+  if(a.moved){
+    if(a.extraMove) a.extraMove = false;
+    else return false;
+  }
   const R_ = rl(a.realm);
   if(naval){
     if(R_.gold < 15) return false;
@@ -3042,10 +3077,12 @@ const UI = {
     document.getElementById('prsBox').innerHTML = `☀ <b>${Math.floor(R_.prs)}</b><i class="resLbl"> prestige</i>`;
     document.getElementById('legBox').innerHTML = `✠ <b>${Math.floor(R_.leg)}</b><i class="resLbl"> legitimacy</i>`;
     document.getElementById('endBtn').innerHTML = `End ${SEASONS[G.season]} ⏵`;
-    const apMax = G.regency?2:3;
-    document.getElementById('apBox').innerHTML = `<span class="apLbl">Actions</span> ` +
-      Array.from({length:apMax}, (_,i)=>`<span class="apPip${i<G.ap?' on':''}">⚡</span>`).join('') +
-      (G.ap===0?` <span class="apNone">spent — end the season</span>`:'');
+    const seatTip = s => { if(s==='ruler') return G.regency ? 'Regency — a child cannot command; the crown’s own order is lost' : 'The crown’s own order: spend it on any action, or to stand in for a busy councillor';
+      const cid = R_.council[s], c2 = cid&&ch(cid);
+      return c2&&alive(c2) ? `${SEATNAME[s]} ${fullName(c2)}${G.orders&&G.orders[s]?' — awaits your order':' — has done this season’s work'}` : `No ${SEATNAME[s].toLowerCase()} — appoint one in the Council tab`; };
+    document.getElementById('apBox').innerHTML = `<span class="apLbl">Orders</span> ` +
+      ['ruler','marshal','steward','spymaster','chaplain'].map(s=>`<span class="apPip${G.orders&&G.orders[s]?' on':''}" data-tip="${esc(seatTip(s))}">${SEATICO[s]}</span>`).join('') +
+      (G.orders && !Object.values(G.orders).some(x=>x) ? ` <span class="apNone">all spent — end the season</span>`:'');
     document.getElementById('endBtn').disabled = !!G.over;
   },
   provTip(pid){
@@ -3295,50 +3332,102 @@ const UI = {
   },
   advise(){
     const R_ = PRL(), out = [];
-    const add = (txt, btn, fx) => out.push({txt, btn, fx});
+    const add = (txt, btn, fx, seat) => out.push({txt, btn, fx, seat});
     const myArmies = G.armies.filter(a=>a.realm===G.player);
     const invaded = Object.keys(G.provinces).filter(p=>pv(p).r===G.player && enemiesIn(p,G.player).length);
     const wars = atWar(G.player);
-    if(invaded.length && !myArmies.length && G.ap>0)
-      add(`Enemy soldiers stand on your soil at ${PROVDATA[invaded[0]].n} and no host opposes them.`, '⚔ Muster levies', `Game.act('muster','${R_.cap}')`);
-    else if(wars.length && !myArmies.length && G.season<=1 && G.ap>0)
-      add(`You are at war with no army in the field. Spring and summer are the mustering seasons.`, '⚔ Muster levies', `Game.act('muster','${R_.cap}')`);
+    if(invaded.length && !myArmies.length && Game.can('muster'))
+      add(`Enemy soldiers stand on your soil at ${PROVDATA[invaded[0]].n} and no host opposes them.`, '⚔ Muster levies', `Game.act('muster','${R_.cap}')`, 'marshal');
+    else if(wars.length && !myArmies.length && G.season<=1 && Game.can('muster'))
+      add(`You are at war with no army in the field. Spring and summer are the mustering seasons.`, '⚔ Muster levies', `Game.act('muster','${R_.cap}')`, 'marshal');
     const idle = myArmies.find(a=>!a.moved);
     if(wars.length && idle)
-      add(`Your host at ${PROVDATA[idle.prov].n} still has its march this season.`, '➤ Select army', `UI.selArmy('${idle.id}')`);
+      add(`Your host at ${PROVDATA[idle.prov].n} still has its march this season.`, '➤ Select army', `UI.selArmy('${idle.id}')`, 'marshal');
     if(!wars.length && myArmies.length)
-      add(`The realm is at peace but ${fmtN(myArmies.reduce((s,a)=>s+armySize(a),0))} men stand idle, eating pay and dying of seasons.`, 'Disband host', `Game.act('disband','${myArmies[0].id}')`);
-    if(!PR().sp && age(PR())<=60 && G.ap>0)
-      add(`Your ruler is unwed — no consort, no heirs of the body, no marriage alliance.`, '⚭ Seek a match', `Game.marryMenuChar('${PR().id}')`);
+      add(`The realm is at peace but ${fmtN(myArmies.reduce((s,a)=>s+armySize(a),0))} men stand idle, eating pay and dying of seasons.`, 'Disband host', `Game.act('disband','${myArmies[0].id}')`, 'marshal');
+    if(!PR().sp && age(PR())<=60 && Game.can('marry'))
+      add(`Your ruler is unwed — no consort, no heirs of the body, no marriage alliance.`, '⚭ Seek a match', `Game.marryMenuChar('${PR().id}')`, 'ruler');
     const heir = heirOf(G.player);
-    if(!heir && !PR().sp && G.ap>0)
-      add(`<b>The line hangs by a thread</b> — no heir, no consort. One fever ends the chronicle.`, '💍 Seek a marriage', `Game.marryMenuChar('${PR().id}')`);
+    if(!heir && !PR().sp && Game.can('marry'))
+      add(`<b>The line hangs by a thread</b> — no heir, no consort. One fever ends the chronicle.`, '💍 Seek a marriage', `Game.marryMenuChar('${PR().id}')`, 'ruler');
     else if(!heir)
-      add(`<b>No heir.</b> Pray for a child, or the chronicle ends with you.`, 'Court tab', `UI.tab('court')`);
+      add(`<b>No heir.</b> Pray for a child, or the chronicle ends with you.`, 'Court tab', `UI.tab('court')`, 'ruler');
     const unwed = marriageCandidates(G.player).filter(c=>c.id!==PR().id)[0];
-    if(unwed && G.ap>0 && out.length<3)
-      add(`${fullName(unwed)} (${age(unwed)}) is unwed — a ring here buys an ally's spears.`, '💍 Arrange match', `Game.marryMenuChar('${unwed.id}')`);
-    if(R_.excomm && R_.gold>=40 && G.ap>0)
-      add(`You are excommunicate. Every year outside the Church bleeds legitimacy and friends.`, '☩ Reconcile', `Game.act('rome')`);
-    else if(R_.leg<45 && G.ap>0 && out.length<3)
-      add(`Legitimacy is low (${Math.floor(R_.leg)}) — nobles get ideas about low kings.`, R_.gold>=15&&!G.flags['rome'+G.year] ? '☩ Petition Rome':'⚖ Convene court', R_.gold>=15&&!G.flags['rome'+G.year] ? `Game.act('rome')`:`Game.act('court')`);
+    if(unwed && Game.can('marry') && out.length<3)
+      add(`${fullName(unwed)} (${age(unwed)}) is unwed — a ring here buys an ally's spears.`, '💍 Arrange match', `Game.marryMenuChar('${unwed.id}')`, 'ruler');
+    if(R_.excomm && R_.gold>=40 && Game.can('rome'))
+      add(`You are excommunicate. Every year outside the Church bleeds legitimacy and friends.`, '☩ Reconcile', `Game.act('rome')`, 'chaplain');
+    else if(R_.leg<45 && (Game.can('rome')||Game.can('court')) && out.length<3)
+      add(`Legitimacy is low (${Math.floor(R_.leg)}) — nobles get ideas about low kings.`, R_.gold>=15&&!G.flags['rome'+G.year] ? '☩ Petition Rome':'⚖ Convene court', R_.gold>=15&&!G.flags['rome'+G.year] ? `Game.act('rome')`:`Game.act('court')`, 'chaplain');
     const angry = myCourt().find(c=>opinion(c,PR())<-30 && c.tr.includes('ambitious') && !c.prison);
-    if(angry && out.length<3 && G.ap>0 && R_.gold>=8)
-      add(`${fullName(angry)} hates you (${opinion(angry,PR())}) and is ambitious. That arithmetic ends in plots.`, '🎁 Send gift', `Game.act('cgift','${angry.id}')`);
-    if(out.length<3 && R_.gold>=60 && G.ap>0){
+    if(angry && out.length<3 && Game.can('cgift') && R_.gold>=8)
+      add(`${fullName(angry)} hates you (${opinion(angry,PR())}) and is ambitious. That arithmetic ends in plots.`, '🎁 Send gift', `Game.act('cgift','${angry.id}')`, 'ruler');
+    if(out.length<3 && R_.gold>=60 && Game.can('build')){
       const slot = realmProvs(G.player).filter(p=>!pv(p).bld&&!pv(p).cons&&!pv(p).occ).sort((a,b)=>pv(b).dev-pv(a).dev)[0];
-      if(slot) add(`The treasury is fat (${Math.floor(R_.gold)}🪙). Stone remembers longer than feasts.`, `🏗 Market at ${PROVDATA[slot].n}`, `Game.act('build','${slot}','market')`);
+      if(slot) add(`The treasury is fat (${Math.floor(R_.gold)}🪙). Stone remembers longer than feasts.`, `🏗 Market at ${PROVDATA[slot].n}`, `Game.act('build','${slot}','market')`, 'steward');
     }
-    if(out.length<3 && !wars.length && G.ap>0 && R_.gold>=20 && ![PR(),...myCourt()].some(c=>alive(c)&&(c.claims.length||c.pclaims.length))){
+    if(out.length<3 && !wars.length && Game.can('fabricate') && R_.gold>=20 && ![PR(),...myCourt()].some(c=>alive(c)&&(c.claims.length||c.pclaims.length))){
       const border = Object.keys(G.provinces).filter(p=>{ const o=pv(p).r;
         return o && o!==G.player && rl(o) && !rl(o).dead &&
           ((PROVDATA[p].adj||[]).some(q=>pv(q).r===G.player) || (PROVDATA[p].coast && PROVDATA[rl(G.player).cap].coast));
       }).sort((a,b)=>realmStrength(pv(a).r)-realmStrength(pv(b).r))[0];
-      if(border) add(`Your house holds no claims — no lawful road to war. The monks could remedy that, given a candle and a quiet scriptorium. ${PROVDATA[border].n} looks… historically yours.`, `📜 Fabricate claim`, `Game.act('fabricate','${border}')`);
+      if(border) add(`Your house holds no claims — no lawful road to war. The monks could remedy that, given a candle and a quiet scriptorium. ${PROVDATA[border].n} looks… historically yours.`, `📜 Fabricate claim`, `Game.act('fabricate','${border}')`, 'spymaster');
     }
-    if(!out.length && G.ap>0 && R_.gold>=10)
-      add(`A quiet season. Quiet seasons are for making friends before you need them.`, '🍖 Host a feast', `Game.act('feast')`);
+    if(!out.length && Game.can('feast') && R_.gold>=10)
+      add(`A quiet season. Quiet seasons are for making friends before you need them.`, '🍖 Host a feast', `Game.act('feast')`, 'ruler');
     return out.slice(0,3);
+  },
+  tidings(){
+    const out = [];
+    const wars = atWar(G.player);
+    for(const w of wars){
+      const foes = w.sides.a.includes(G.player) ? w.sides.b : w.sides.a;
+      for(const f of foes){
+        const fa = G.armies.filter(a=>a.realm===f);
+        const tot = fa.reduce((s,a)=>s+armySize(a),0);
+        if(tot>0) out.push({i:'⚔', t:`${esc(rl(f).n)} fields <b>${fmtN(tot)}</b> men — nearest at ${esc(PROVDATA[fa[0].prov].n)}`, click:`UI.selProv('${fa[0].prov}')`});
+      }
+    }
+    if(!wars.length){
+      for(const r of Object.values(G.realms)){
+        if(r.dead || r.id===G.player) continue;
+        const rul = ruler(r.id);
+        if(rul && rul.claims.includes(G.player) && !truceBetween(r.id, G.player)){
+          const ratio = realmStrength(r.id)/Math.max(1, realmStrength(G.player));
+          out.push({i:'👁', t:`${esc(fullName(rul))} of ${esc(r.n)} holds a claim on your crown${ratio>0.8?' — <b class="neg">and the strength to press it</b>':''}`});
+        }
+      }
+    }
+    for(const p of G.plots.filter(x=>x.mine))
+      out.push({i:'🗡', t:`Your ${p.type} against ${esc(plotTargetName(p))}: <b>${Math.min(99,Math.round(p.progress))}%</b>`});
+    const spySk = councilBonus(G.player,'spymaster');
+    const hidden = G.plots.filter(p=>{
+      if(p.mine || p.exposed) return false;
+      const vr = (p.type==='defection'||p.type==='fabricate') ? pv(p.target).r : (ch(p.target)&&ch(p.target).realm);
+      return vr===G.player;
+    }).length;
+    if(hidden>0 && spySk>=5)
+      out.push({i:'🗡', t:`Your spymaster senses <b class="neg">${hidden===1?'a plot':hidden+' plots'}</b> moving against your house — not yet unmasked`});
+    for(const c of Object.values(G.chars)){
+      if(alive(c) && c.preg && c.realm===G.player && (c.dyn===PR().dyn || (c.sp && ch(c.sp) && ch(c.sp).dyn===PR().dyn)))
+        out.push({i:'🤱', t:`${esc(fullName(c))} is with child — due ${c.preg<=1?'<b>this season</b>':'in '+c.preg+' seasons'}`, click:`UI.selChar('${c.id}')`});
+    }
+    for(const p of realmProvs(G.player)){
+      const s = pv(p);
+      if(s.cons) out.push({i:'🏗', t:`${BUILDINGS[s.cons.b].ico} ${BUILDINGS[s.cons.b].n} at ${esc(PROVDATA[p].n)} — ${s.cons.left===1?'<b>completes next season</b>':s.cons.left+' seasons yet'}`, click:`UI.selProv('${p}')`});
+    }
+    for(const t of G.truces){
+      if(t.a!==G.player && t.b!==G.player) continue;
+      const other = t.a===G.player ? t.b : t.a;
+      if(!rl(other) || rl(other).dead) continue;
+      if(t.until - (G.year + G.season/4) <= 1.25 && t.until > G.year)
+        out.push({i:'☮', t:`The truce with ${esc(rl(other).n)} expires in ${t.until}`});
+    }
+    const abroad = G.armies.some(a=>a.realm===G.player && (pv(a.prov).r!==G.player || pv(a.prov).occ));
+    if(G.season===1 && abroad) out.push({i:'🍂', t:'Autumn next — attrition begins for hosts on foreign soil'});
+    if(G.season===2 && abroad) out.push({i:'❄', t:'<b class="neg">Winter next</b> — hosts still abroad will bleed badly'});
+    if(G.plague) out.push({i:'☠', t:`The Great Mortality rages — ${G.plague} season${G.plague>1?'s':''} yet to run`});
+    return out.slice(0,7);
   },
   overviewHtml(){
     const R_ = PRL();
@@ -3348,7 +3437,15 @@ const UI = {
     const adv = this.advise();
     if(adv.length){
       h += `<div class="advCard"><h3>The Council Advises</h3>` +
-        adv.map(a=>`<div class="advRow"><div class="txt">${a.txt}</div><button class="small" onclick="${a.fx}">${a.btn}</button></div>`).join('') +
+        adv.map(a=>{ const cid = a.seat && a.seat!=='ruler' && R_.council[a.seat];
+          const who = cid && ch(cid) && alive(ch(cid)) ? `<span class="advWho">${SEATICO[a.seat]} ${esc(fullName(ch(cid)))}:</span> ` : a.seat==='ruler' ? `<span class="advWho">👑 Your own counsel:</span> ` : '';
+          return `<div class="advRow"><div class="txt">${who}${a.txt}</div><button class="small" onclick="${a.fx}">${a.btn}</button></div>`; }).join('') +
+        `</div>`;
+    }
+    const tid = this.tidings();
+    if(tid.length){
+      h += `<div class="tidCard"><h3>Tidings</h3>` +
+        tid.map(x=>`<div class="tidRow"${x.click?` onclick="${x.click}" style="cursor:pointer"`:''}><span class="ti">${x.i}</span><span class="tt">${x.t}</span></div>`).join('') +
         `</div>`;
     }
     h += `<div class="eyebrow">Your realm · ${G.scen==='y1066'?'anno 1066':'anno 1187'} start</div><h3>${esc(R_.n)}</h3>
@@ -3361,13 +3458,19 @@ const UI = {
     h += `<div class="kv"><span>Faith</span><b>${RELICO[R_.rel]} ${RELNAME[R_.rel]}</b></div>`;
     if(R_.excomm) h += `<div class="kv"><span>Standing with Rome</span><b class="neg">EXCOMMUNICATE</b></div>`;
     h += `<div class="actBtns">
-      <button onclick="Game.act('feast')" ${G.ap<1||R_.gold<10?'disabled':''} data-tip="+10 prestige and +6 opinion with everyone at court">Host a feast (1 ⚡, 10🪙)</button>
-      <button onclick="Game.act('retinue')" ${G.ap<1||R_.gold<12?'disabled':''} data-tip="+100 permanent soldiers who fight year-round. Upkeep 0.5🪙/season; they join your next muster">Recruit retinue +100 (1 ⚡, 12🪙)</button>
-      <button onclick="Game.act('court')" ${G.ap<1?'disabled':''} data-tip="+4 legitimacy; a random courtier warms to you">Convene court (1 ⚡)</button>
+      <button onclick="Game.act('feast')" ${!Game.can('feast')||R_.gold<10?'disabled':''} data-tip="+10 prestige and +6 opinion with everyone at court">Host a feast (👑 10🪙)</button>
+      <button onclick="Game.act('retinue')" ${!Game.can('retinue')||R_.gold<12?'disabled':''} data-tip="+100 permanent soldiers who fight year-round. Upkeep 0.5🪙/season; they join your next muster">Recruit retinue +100 (⚔ 12🪙)</button>
+      <button onclick="Game.act('court')" ${!Game.can('court')?'disabled':''} data-tip="+4 legitimacy; a random courtier warms to you">Convene court (🕊)</button>
+      ${[
+        `<button class="seasonal" onclick="Game.act('tourney2')" ${!Game.can('tourney2')||R_.gold<12||G.flags['sa'+G.year]?'disabled':''} data-tip="Spring only: lances, wagers and glory. +12 prestige, court +4 opinion">🏇 Spring tournament (⚔ 12🪙)</button>`,
+        `<button class="seasonal" onclick="Game.act('march')" ${!Game.can('march')||G.flags['sa'+G.year+'s']||!G.armies.some(a=>a.realm===G.player)?'disabled':''} data-tip="Summer only: drive the men hard — one host may march twice this season">⚔ Forced march (⚔)</button>`,
+        `<button class="seasonal" onclick="Game.act('harvest')" ${!Game.can('harvest')||G.flags['sa'+G.year+'a']?'disabled':''} data-tip="Autumn only: squeeze the harvest. +${realmProvs(G.player).filter(p=>!pv(p).occ).length} gold now; court -4 opinion, -3 legitimacy">🌾 Harvest levy (🔑)</button>`,
+        `<button class="seasonal" onclick="Game.act('crowncourt')" ${!Game.can('crowncourt')||R_.gold<8||G.flags['sa'+G.year+'w']?'disabled':''} data-tip="Winter only: the solemn crown-wearing. +8 legitimacy, court +6 opinion">👑 Crown Court (🕊 8🪙)</button>`,
+      ][G.season]}
       ${R_.rel==='catholic' && R_.excomm
-        ? `<button onclick="Game.act('rome')" ${G.ap<1||R_.gold<40?'disabled':''} data-tip="Barefoot in the snow if need be">☩ Reconcile with Rome (1⚡ 40🪙)</button>`
-        : `<button onclick="Game.act('rome')" ${G.ap<1||R_.gold<15||G.flags['rome'+G.year]?'disabled':''} data-tip="Once a year; +8 legitimacy">${RELICO[R_.rel]} ${R_.rel==='catholic'?'Petition Rome':R_.rel==='orthodox'?'Endow the Patriarchate':R_.rel==='muslim'?'Endow the madrasas':'Hold the great blót'} (1⚡ 15🪙)</button>`}
-      <button onclick="Game.act('law')" ${G.ap<1||R_.prs<50||G.flags['law'+PR().id]?'disabled':''} data-tip="Once per ruler. Elective: magnates crown the ablest adult of the blood — no child regencies, but your sons may be passed over. Costs 50 ☀ and 10 ✠.">⚖ Adopt ${R_.law==='elective'?'primogeniture':'elective succession'} (1⚡ 50☀)</button>
+        ? `<button onclick="Game.act('rome')" ${!Game.can('rome')||R_.gold<40?'disabled':''} data-tip="Barefoot in the snow if need be">☩ Reconcile with Rome (🕊 40🪙)</button>`
+        : `<button onclick="Game.act('rome')" ${!Game.can('rome')||R_.gold<15||G.flags['rome'+G.year]?'disabled':''} data-tip="Once a year; +8 legitimacy">${RELICO[R_.rel]} ${R_.rel==='catholic'?'Petition Rome':R_.rel==='orthodox'?'Endow the Patriarchate':R_.rel==='muslim'?'Endow the madrasas':'Hold the great blót'} (🕊 15🪙)</button>`}
+      <button onclick="Game.act('law')" ${!Game.can('law')||R_.prs<50||G.flags['law'+PR().id]?'disabled':''} data-tip="Once per ruler. Elective: magnates crown the ablest adult of the blood — no child regencies, but your sons may be passed over. Costs 50 ☀ and 10 ✠.">⚖ Adopt ${R_.law==='elective'?'primogeniture':'elective succession'} (👑 50☀)</button>
     </div>`;
     if(provs.length>=G.impThresh && !G.over){
       h += `<div class="card" style="margin-top:9px"><b>An Empire Beckons.</b> You hold ${provs.length} provinces. For 200 prestige the bishops will anoint you Emperor — and the game is won.
@@ -3375,7 +3478,7 @@ const UI = {
     } else if(!G.over){
       h += `<div class="hint">Empire at ${G.impThresh} provinces · survive to ${G.endYear} · or 2500 ☀ prestige.</div>`;
     }
-    h += `<div class="hint">Select a province, character, or army to act. ⚡ = action points; you get ${G.regency?2:3} a season.</div>`;
+    h += `<div class="hint">One order each a season: 👑 crown (anything) · ⚔ marshal · 🔑 steward · 🗡 spymaster · 🕊 chaplain. The crown can stand in for a busy councillor.</div>`;
     return h;
   },
   provHtml(pid){
@@ -3393,16 +3496,16 @@ const UI = {
     if(mine){
       h += `<div class="actBtns">`;
       if(!st.bld && !st.cons) for(const [bid,b] of Object.entries(BUILDINGS))
-        h += `<button class="small" ${G.ap<1||PRL().gold<b.cost?'disabled':''} onclick="Game.act('build','${pid}','${bid}')" data-tip="${b.desc}">${b.ico} ${b.n} (1⚡ ${b.cost}🪙)</button>`;
-      if(st.dev<5) h += `<button class="small" ${G.ap<1||PRL().gold<30+st.dev*12?'disabled':''} onclick="Game.act('develop','${pid}')">Develop (1⚡ ${30+st.dev*12}🪙)</button>`;
-      h += `<button class="small" ${G.ap<1?'disabled':''} onclick="Game.act('muster','${pid}')" data-tip="Raise all realm levies here">Muster levies (1⚡)</button>`;
+        h += `<button class="small" ${!Game.can('build')||PRL().gold<b.cost?'disabled':''} onclick="Game.act('build','${pid}','${bid}')" data-tip="${b.desc}">${b.ico} ${b.n} (🔑 ${b.cost}🪙)</button>`;
+      if(st.dev<5) h += `<button class="small" ${!Game.can('develop')||PRL().gold<30+st.dev*12?'disabled':''} onclick="Game.act('develop','${pid}')">Develop (🔑 ${30+st.dev*12}🪙)</button>`;
+      h += `<button class="small" ${!Game.can('muster')?'disabled':''} onclick="Game.act('muster','${pid}')" data-tip="Raise all realm levies here">Muster levies (⚔)</button>`;
       h += `</div>`;
     } else if(R_ && !R_.dead){
       let xb = '';
       if(!PR().pclaims.includes(pid) && !warBetween(st.r, G.player) && R_.rel===PRL().rel)
-        xb += `<button class="small" ${G.ap<1||PRL().gold<20?'disabled':''} onclick="Game.act('fabricate','${pid}')" data-tip="Set the monks forging. Takes seasons; discovery costs prestige.">📜 Fabricate claim (1⚡ 20🪙)</button>`;
+        xb += `<button class="small" ${!Game.can('fabricate')||PRL().gold<20?'disabled':''} onclick="Game.act('fabricate','${pid}')" data-tip="Set the monks forging. Takes seasons; discovery costs prestige.">📜 Fabricate claim (🗡 20🪙)</button>`;
       if(R_.rel !== PRL().rel && !warBetween(st.r, G.player) && !truceBetween(st.r, G.player))
-        xb += `<button class="small" ${G.ap<1||G.regency?'disabled':''} onclick="Game.act('holywar','${pid}')" data-tip="War for the faith needs no charter: +5 legitimacy on declaration, and this province as the prize.">${RELICO[PRL().rel]}⚔ Holy war for ${esc(pd.n)} (1⚡)</button>`;
+        xb += `<button class="small" ${!Game.can('holywar')||G.regency?'disabled':''} onclick="Game.act('holywar','${pid}')" data-tip="War for the faith needs no charter: +5 legitimacy on declaration, and this province as the prize.">${RELICO[PRL().rel]}⚔ Holy war for ${esc(pd.n)} (👑)</button>`;
       if(xb) h += `<div class="actBtns">${xb}</div>`;
       h += this.diploHtml(st.r);
     }
@@ -3430,22 +3533,22 @@ const UI = {
     }
     const claimants = [PR(), ...myCourt()].filter(c=>alive(c)&&c.claims.includes(rid));
     h += `<div class="actBtns">
-      <button class="small" ${G.ap<1||G.flags['env'+rid+G.year]?'disabled':''} onclick="Game.act('envoy','${rid}')" data-tip="${G.flags['env'+rid+G.year]?'Already received this year — courts tire of flattery':'Improve their ruler’s opinion of you. One embassy per court per year.'}">Send envoy (1⚡)</button>
-      <button class="small" ${G.ap<1||PRL().gold<10?'disabled':''} onclick="Game.act('gift','${rid}')">Send gift (1⚡ 10🪙)</button>
-      <button class="small" ${G.ap<1?'disabled':''} onclick="Game.marryMenu('${rid}')" data-tip="${(()=>{ const o2=rul?opinion(rul,PR()):0; const est=clamp(Math.round((o2+(PRL().prs-R_.prs)/8+(PRL().rank==='kingdom'?15:0)+skill(PR(),'dip')*3+10)/50*100),2,98); return 'Their disposition: roughly '+est+'% likely to accept a fair match'; })()}">Arrange marriage (1⚡)</button>`;
+      <button class="small" ${!Game.can('envoy')||G.flags['env'+rid+G.year]?'disabled':''} onclick="Game.act('envoy','${rid}')" data-tip="${G.flags['env'+rid+G.year]?'Already received this year — courts tire of flattery':'Improve their ruler’s opinion of you. One embassy per court per year.'}">Send envoy (🕊)</button>
+      <button class="small" ${!Game.can('gift')||PRL().gold<10?'disabled':''} onclick="Game.act('gift','${rid}')">Send gift (🕊 10🪙)</button>
+      <button class="small" ${!Game.can('marry')?'disabled':''} onclick="Game.marryMenu('${rid}')" data-tip="${(()=>{ const o2=rul?opinion(rul,PR()):0; const est=clamp(Math.round((o2+(PRL().prs-R_.prs)/8+(PRL().rank==='kingdom'?15:0)+skill(PR(),'dip')*3+10)/50*100),2,98); return 'Their disposition: roughly '+est+'% likely to accept a fair match'; })()}">Arrange marriage (👑)</button>`;
     for(const cl of claimants){
-      h += `<button class="small" ${G.ap<1||tr||G.regency?'disabled':''} onclick="Game.act('war','${rid}','${cl.id}')" data-tip="${G.regency?'A regency cannot declare war':''}">⚔ Press ${esc(cl.nm)}’s claim (1⚡)</button>`;
+      h += `<button class="small" ${!Game.can('war')||tr||G.regency?'disabled':''} onclick="Game.act('war','${rid}','${cl.id}')" data-tip="${G.regency?'A regency cannot declare war':''}">⚔ Press ${esc(cl.nm)}’s claim (👑)</button>`;
     }
     let anyP = false;
     for(const cl of [PR(), ...myCourt()]){
       if(!alive(cl) || !cl.pclaims) continue;
       for(const p of cl.pclaims.filter(p=>pv(p).r===rid)){
         anyP = true;
-        h += `<button class="small" ${G.ap<1||tr||G.regency?'disabled':''} onclick="Game.act('pwar','${rid}','${cl.id}|${p}')">⚔ Press claim on ${esc(PROVDATA[p].n)} (1⚡)</button>`;
+        h += `<button class="small" ${!Game.can('pwar')||tr||G.regency?'disabled':''} onclick="Game.act('pwar','${rid}','${cl.id}|${p}')">⚔ Press claim on ${esc(PROVDATA[p].n)} (👑)</button>`;
       }
     }
     if(!claimants.length && !anyP) h += `<span class="hint">No claim on this realm — war without cause costs dearly. A patient ruler fabricates one (select one of their provinces).</span>
-      <button class="small" ${G.ap<1||G.regency?'disabled':''} onclick="Game.act('war','${rid}',null)">⚔ War without cause (1⚡, -20 ✠)</button>`;
+      <button class="small" ${!Game.can('war')||G.regency?'disabled':''} onclick="Game.act('war','${rid}',null)">⚔ War without cause (👑, -20 ✠)</button>`;
     h += `</div>`;
     if(R_.excomm) h += `<div class="hint">☩ This ruler is excommunicate — shunned by all Christendom.</div>`;
     return h;
@@ -3471,19 +3574,19 @@ const UI = {
       if(c.claims.length) h += `<div class="kv"><span>Claims</span><b>${c.claims.map(r=>rl(r)?rl(r).n:r).join(', ')}</b></div>`;
       if(c.pclaims && c.pclaims.length) h += `<div class="kv"><span>Province claims</span><b>${c.pclaims.map(p=>PROVDATA[p].n).join(', ')}</b></div>`;
       h += `<div class="actBtns">`;
-      if(mine && !c.sp && age(c)>=16) h += `<button class="small" ${G.ap<1?'disabled':''} onclick="Game.marryMenuChar('${c.id}')">⚭ Arrange marriage (1⚡)</button>`;
+      if(mine && !c.sp && age(c)>=16) h += `<button class="small" ${!Game.can('marry')?'disabled':''} onclick="Game.marryMenuChar('${c.id}')">⚭ Arrange marriage (👑)</button>`;
       if(mine && c.id!==PR().id){
         if(c.prison){
-          h += `<button class="small" onclick="Game.act('release','${c.id}')">Release (0⚡)</button>
-            <button class="small" ${G.ap<1?'disabled':''} onclick="Game.act('execute','${c.id}')">Execute (1⚡, -✠)</button>`;
+          h += `<button class="small" onclick="Game.act('release','${c.id}')">Release (free)</button>
+            <button class="small" ${!Game.can('execute')?'disabled':''} onclick="Game.act('execute','${c.id}')">Execute (👑, -✠)</button>`;
         } else {
-          h += `<button class="small" ${G.ap<1||PRL().gold<8?'disabled':''} onclick="Game.act('cgift','${c.id}')">Gift (1⚡ 8🪙)</button>`;
-          h += `<button class="small" ${G.ap<1?'disabled':''} onclick="Game.act('imprison','${c.id}')">Imprison (1⚡, -opinion)</button>`;
+          h += `<button class="small" ${!Game.can('cgift')||PRL().gold<8?'disabled':''} onclick="Game.act('cgift','${c.id}')">Gift (👑 8🪙)</button>`;
+          h += `<button class="small" ${!Game.can('imprison')?'disabled':''} onclick="Game.act('imprison','${c.id}')">Imprison (👑, -opinion)</button>`;
         }
       }
       if(c.id!==PR().id && !c.dead){
-        h += `<button class="small" ${G.ap<1?'disabled':''} onclick="Game.act('plotMurder','${c.id}')" data-tip="A season or three of quiet work">🗡 Plot murder (1⚡)</button>
-          <button class="small" ${G.ap<1?'disabled':''} onclick="Game.act('plotSlander','${c.id}')">🐍 Spread slander (1⚡)</button>`;
+        h += `<button class="small" ${!Game.can('plotMurder')?'disabled':''} onclick="Game.act('plotMurder','${c.id}')" data-tip="A season or three of quiet work">🗡 Plot murder (🗡)</button>
+          <button class="small" ${!Game.can('plotSlander')?'disabled':''} onclick="Game.act('plotSlander','${c.id}')">🐍 Spread slander (🗡)</button>`;
       }
       h += `</div>`;
       if(rulerOf && rulerOf.id!==G.player) h += `<div class="hint">Rules ${esc(rulerOf.n)}. Click their lands for diplomacy.</div>`;
@@ -3502,7 +3605,7 @@ const UI = {
       ${a.siege?`<div class="kv"><span>Siege progress</span><b>${Math.min(99,Math.round(a.siege))}%</b></div>`:''}`;
     if(mine){
       h += `<div class="actBtns">
-        <button ${a.moved?'disabled':''} onclick="Game.startMove('${a.id}')">${a.moved?'Already moved':'March / Sail'}</button>
+        <button ${a.moved&&!a.extraMove?'disabled':''} onclick="Game.startMove('${a.id}')">${a.moved?(a.extraMove?'March again (forced)':'Already moved'):'March / Sail'}</button>
         <button class="small" onclick="Game.pickCommander('${a.id}')">Change commander</button>
         <button class="small" onclick="Game.act('disband','${a.id}')">Disband</button>
       </div>`;
@@ -3537,7 +3640,7 @@ const UI = {
   help(){
     this.modal('How to Rule',
     `<h3>The Dynasty</h3>You are a family, not a nation. Lose your last province or your last dynast and the chronicle closes. Heirs, marriages, and legitimacy are life itself.<br><br>
-    <h3>The Season</h3>Each season grants 2–3 actions (⚡) — marriages, buildings, plots and wars all compete for them. Armies march once a season for free. Muster in spring, strike in summer; autumn and winter maul armies left in the field. Buildings take a year of construction.<br><br>
+    <h3>The Season</h3>Each season your crown gives one order of any kind (👑), and each councillor carries out one task of their office: the marshal (⚔) musters, marches and recruits; the steward (🔑) builds, develops and squeezes; the spymaster (🗡) plots and forges; the chaplain (🕊) prays, parleys and sends envoys. When a councillor’s order is spent — or a seat stands empty — the crown may see to it in person, spending its own. A child ruler has no crown order. Armies march once a season for free. Muster in spring, strike in summer; autumn and winter maul armies left in the field. Buildings take a year of construction.<br><br>
     <h3>Sieges</h3>March onto an undefended enemy province and the siege begins by itself: each season it advances by 30 + 2×your commander's ⚔ + fortune, minus 22 if the province has a castle. At 100% the province is occupied, your treasury takes its loot, and your war score climbs. Occupying everything forces even a stubborn enemy to yield.<br><br>
     <h3>The Game of Thrones</h3><b>Marriage</b> buys alliances · <b>claims</b> make war lawful (the monks can forge one) · <b>legitimacy</b> keeps your nobles honest · <b>opinion</b> decides who joins whose plot — and plots run always, including against you. Your spymaster is your shield; Rome can bless you or cast you out.<br><br>
     <h3>Victory</h3>Be crowned Emperor at the province threshold shown in your realm panel · keep the dynasty alive a hundred years · or amass 2500 ☀ prestige.<br><br>
@@ -3591,47 +3694,72 @@ const UI = {
 </script>
 <script>
 /* ============ Actions, turn loop, boot ============ */
+const ORDSEAT = { muster:'marshal', retinue:'marshal', march:'marshal', tourney2:'marshal',
+  build:'steward', develop:'steward', harvest:'steward',
+  plotMurder:'spymaster', plotSlander:'spymaster', fabricate:'spymaster',
+  rome:'chaplain', court:'chaplain', envoy:'chaplain', crowncourt:'chaplain', gift:'chaplain',
+  feast:'ruler', war:'ruler', pwar:'ruler', holywar:'ruler', marry:'ruler',
+  cgift:'ruler', imprison:'ruler', execute:'ruler', law:'ruler' };
+const SEATNAME = {ruler:'Crown', marshal:'Marshal', steward:'Steward', spymaster:'Spymaster', chaplain:'Chaplain'};
+const SEATICO = {ruler:'👑', marshal:'⚔', steward:'🔑', spymaster:'🗡', chaplain:'🕊'};
+function resetOrders(){
+  const R_ = PRL(); if(!R_) return;
+  G.orders = { ruler: !G.regency };
+  for(const s of ['marshal','steward','spymaster','chaplain']){
+    const cid = R_.council[s], c = cid && ch(cid);
+    G.orders[s] = !!(c && alive(c) && !c.prison);
+  }
+}
 const Game = {
   busy(){
     if(G && G.eventQueue.length){ toast('⚑ The court awaits your decision first'); return true; }
     return false;
   },
-  spend(n){ if(G.ap<n) return false; G.ap-=n; return true; },
+  can(kind){ const s = ORDSEAT[kind]||'ruler'; return !!(G.orders && (G.orders[s] || G.orders.ruler)); },
+  order(kind){
+    const s = ORDSEAT[kind]||'ruler';
+    if(!G.orders) return false;
+    if(G.orders[s]){ G.orders[s] = false; return true; }
+    if(G.orders.ruler){ G.orders.ruler = false;
+      if(s!=='ruler') toast(`👑 The ${SEATNAME[s].toLowerCase()}’s hands are full — the crown sees to it in person`);
+      return true; }
+    toast('Every hand at court is busy — end the season');
+    return false; },
   act(type, a, b){
     if(this.busy()) return;
     const R_ = PRL();
     switch(type){
-      case 'feast': if(!this.spend(1)) return; R_.gold-=10; R_.prs+=10;
+      case 'feast': if(!this.order('feast')) return; R_.gold-=10; R_.prs+=10;
         for(const c of myCourt()) addOp(c, PR().id, 6);
         logIt('court','You feast the court; grudges soften under grease and mead.');
         toast('🍖 A feast! <b>+10 prestige</b>, the court warms to you'); break;
-      case 'retinue': if(!this.spend(1)) return; R_.gold-=12; R_.retinue=Math.min(600,R_.retinue+100);
+      case 'retinue': if(!this.order('retinue')) return; R_.gold-=12; R_.retinue=Math.min(600,R_.retinue+100);
         logIt('war','A hundred sworn swords join your standing retinue.');
         toast('⚔ <b>+100 retinue</b> — permanent soldiers, modest upkeep'); break;
-      case 'court': if(!this.spend(1)) return; R_.leg=clamp(R_.leg+4,0,100);
+      case 'court': if(!this.order('court')) return; R_.leg=clamp(R_.leg+4,0,100);
         const c0 = pick(myCourt()); if(c0) addOp(c0, PR().id, 10);
         logIt('court','You hold open court; justice is seen to be done, mostly.');
         toast('✠ <b>+4 legitimacy</b> — justice was seen to be done'); break;
-      case 'build': if(R_.gold<BUILDINGS[b].cost||pv(a).cons||!this.spend(1)) return;
+      case 'build': if(R_.gold<BUILDINGS[b].cost||pv(a).cons||!this.order('build')) return;
         R_.gold-=BUILDINGS[b].cost; pv(a).cons={b, left:4};
         logIt('court',`Masons begin work on a ${BUILDINGS[b].n.toLowerCase()} at ${PROVDATA[a].n}.`);
         toast(`🏗 <b>${BUILDINGS[b].n}</b> under construction at ${esc(PROVDATA[a].n)} — one year`); break;
-      case 'develop': { const cost=30+pv(a).dev*12; if(R_.gold<cost||!this.spend(1)) return;
+      case 'develop': { const cost=30+pv(a).dev*12; if(R_.gold<cost||!this.order('develop')) return;
         R_.gold-=cost; pv(a).dev++; logIt('court',`${PROVDATA[a].n} grows: roads, mills, and men.`);
         toast(`⛏ ${esc(PROVDATA[a].n)} grows to <b>development ${pv(a).dev}</b>`); break; }
-      case 'muster': { if(G.ap<1) return; if(raiseArmy(G.player, a)) G.ap--; break; }
+      case 'muster': { if(!this.can('muster')) return; if(raiseArmy(G.player, a)) this.order('muster'); break; }
       case 'envoy': {
         if(G.flags['env'+a+G.year]){ toast(`🕊 Your envoy has already been received at the court of ${esc(rl(a).n)} this year.`); return; }
-        if(!this.spend(1)) return;
+        if(!this.order('envoy')) return;
         G.flags['env'+a+G.year] = 1;
         addOp(ruler(a), PR().id, 10+skill(PR(),'dip'));
         logIt('court',`Your envoy flatters the court of ${rl(a).n}.`);
         toast(`🕊 Envoy to ${esc(rl(a).n)}: <b>+${10+skill(PR(),'dip')} opinion</b>`); break; }
-      case 'gift': if(R_.gold<10||!this.spend(1)) return; R_.gold-=10;
+      case 'gift': if(R_.gold<10||!this.order('gift')) return; R_.gold-=10;
         addOp(ruler(a), PR().id, 20);
         logIt('court',`Gold and falcons for ${rl(a).n}; their ruler smiles.`);
         toast(`🎁 Gift to ${esc(rl(a).n)}: <b>+20 opinion</b>`); break;
-      case 'cgift': if(R_.gold<8||!this.spend(1)) return; R_.gold-=8;
+      case 'cgift': if(R_.gold<8||!this.order('cgift')) return; R_.gold-=8;
         addOp(ch(a), PR().id, 18); logIt('court',`A gift finds ${fullName(ch(a))}.`);
         toast(`🎁 <b>+18 opinion</b> with ${esc(fullName(ch(a)))}`); break;
       case 'war': { if(G.regency) return;
@@ -3646,24 +3774,24 @@ const Game = {
         const owner = pv(a).r;
         this.confirmWar(owner, {type:'province', target:a, holy:true}, PR().id);
         return; }
-      case 'fabricate': { if(R_.gold<20||!this.spend(1)) return;
+      case 'fabricate': { if(R_.gold<20||!this.order('fabricate')) return;
         R_.gold -= 20;
         const p = startPlot(PR().id, 'fabricate', a, G.player); p.mine = true;
         logIt('plot', `In a quiet scriptorium, work begins on a very old charter concerning ${PROVDATA[a].n}.`);
         toast(`📜 The monks begin their quiet work on <b>${esc(PROVDATA[a].n)}</b>…`);
         break; }
       case 'rome': {
-        if(R_.excomm){ if(R_.gold<40||!this.spend(1)) return;
+        if(R_.excomm){ if(R_.gold<40||!this.order('rome')) return;
           R_.gold -= 40; R_.excomm = false; R_.leg = clamp(R_.leg+10,0,100);
           ach('penitent');
           logIt('court','Barefoot, penitent, and considerably poorer, you are received back into the Church.');
           chron(`In this year the ${PR().sex==='m'?'king':'queen'} was reconciled with Holy Church, having discovered that Hell holds no vassals.`);
-        } else { if(R_.gold<15||G.flags['rome'+G.year]||!this.spend(1)) return;
+        } else { if(R_.gold<15||G.flags['rome'+G.year]||!this.order('rome')) return;
           R_.gold -= 15; G.flags['rome'+G.year]=1; R_.leg = clamp(R_.leg+8,0,100);
           logIt('court','Gold flows to Rome; blessings flow back. The exchange rate is stable.');
         }
         break; }
-      case 'law': { if(R_.prs<50||G.flags['law'+PR().id]||!this.spend(1)) return;
+      case 'law': { if(R_.prs<50||G.flags['law'+PR().id]||!this.order('law')) return;
         R_.prs -= 50; R_.leg = clamp(R_.leg-10,0,100); G.flags['law'+PR().id]=1;
         R_.law = R_.law==='elective' ? 'primo' : 'elective';
         const heirNow = heirOf(G.player);
@@ -3674,23 +3802,46 @@ const Game = {
           if(k.sex==='m' && age(k)>=16 && heirNow && k.id!==heirNow.id){ addOp(k, PR().id, -25); }
         }
         break; }
-      case 'imprison': if(!this.spend(1)) return; imprison(ch(a));
+      case 'imprison': if(!this.order('imprison')) return; imprison(ch(a));
         for(const c of myCourt()) addOp(c, PR().id, -4); break;
       case 'release': { const c=ch(a); c.prison=false; addOp(c,PR().id,25);
         logIt('court',`${fullName(c)} walks free, blinking.`); break; }
-      case 'execute': if(!this.spend(1)) return;
+      case 'execute': if(!this.order('execute')) return;
         killChar(ch(a),'was put to death at the ruler’s command');
         R_.leg=clamp(R_.leg-8,0,100);
         for(const c of myCourt()) addOp(c, PR().id, -8); break;
       case 'plotMurder': { const t=ch(a); if(t.realm===G.player&&t.dyn===PR().dyn){ UI.modal('Kinslaying','Even your spymaster refuses to put this in writing. Plotting the murder of your own dynasty is a step the game of thrones forgives — but this game does not require.',[{t:'Withdraw the thought.',fx:()=>{}}]); return; }
-        if(!this.spend(1)) return;
+        if(!this.order('plotMurder')) return;
         const p=startPlot(PR().id,'murder',a); p.mine=true;
         logIt('plot',`Quiet men begin quiet work regarding ${fullName(t)}.`); break; }
-      case 'plotSlander': { if(!this.spend(1)) return;
+      case 'plotSlander': { if(!this.order('plotSlander')) return;
         const p=startPlot(PR().id,'slander',a); p.mine=true;
         logIt('plot',`Coin changes hands; poets sharpen quills against ${fullName(ch(a))}.`); break; }
       case 'disband': { const ar=G.armies.find(x=>x.id===a); if(ar) disbandArmy(ar);
         G.sel=null; break; }
+      case 'tourney2': { if(G.season!==0||R_.gold<12||G.flags['sa'+G.year]||!this.order('tourney2')) return;
+        R_.gold-=12; R_.prs+=12; G.flags['sa'+G.year]=1;
+        for(const c of myCourt()) addOp(c, PR().id, 4);
+        toast('🏇 The spring tournament: <b>+12 prestige</b>, the court cheers');
+        logIt('court','The spring tournament fills the lists; lances break and reputations are made.'); break; }
+      case 'march': { if(G.season!==1||G.flags['sa'+G.year+'s']) return;
+        const ar = (G.sel&&G.sel.t==='army' && G.armies.find(x=>x.id===G.sel.id&&x.realm===G.player))
+          || G.armies.filter(x=>x.realm===G.player).sort((x,y)=>armySize(y)-armySize(x))[0];
+        if(!ar || !this.order('march')) return;
+        ar.extraMove = true; G.flags['sa'+G.year+'s']=1;
+        toast(`⚔ Forced march — the host at ${esc(PROVDATA[ar.prov].n)} may march twice this season`);
+        break; }
+      case 'harvest': { if(G.season!==2||G.flags['sa'+G.year+'a']||!this.order('harvest')) return;
+        const g = realmProvs(G.player).filter(p=>!pv(p).occ).length;
+        R_.gold += g; R_.leg = clamp(R_.leg-3,0,100); G.flags['sa'+G.year+'a']=1;
+        for(const c of myCourt()) addOp(c, PR().id, -4);
+        toast(`🌾 Harvest levy: <b>+${g} gold</b> — the villages grumble`);
+        logIt('court','The harvest levy is collected to the last sheaf. The villages remember.'); break; }
+      case 'crowncourt': { if(G.season!==3||R_.gold<8||G.flags['sa'+G.year+'w']||!this.order('crowncourt')) return;
+        R_.gold-=8; R_.leg = clamp(R_.leg+8,0,100); G.flags['sa'+G.year+'w']=1;
+        for(const c of myCourt()) addOp(c, PR().id, 6);
+        toast('👑 Crown Court: <b>+8 legitimacy</b>, the great swear their oaths anew');
+        logIt('court','The crown-wearing at Christmas court: oaths, candles, and a realm reminded who rules it.'); break; }
     }
     UI.renderAll();
   },
@@ -3710,7 +3861,7 @@ const Game = {
     body += `<div class="hint">Muster in spring, strike in summer — autumn and winter maul armies in the field.</div>`;
     UI.modal('Declare War on '+rl(tgt).n+'?', body, [
       {t:'⚔ Loose the banners of war.', fx:()=>{
-        if(G.regency||!this.spend(1)) return;
+        if(G.regency||!this.order('war')) return;
         if(cb.type==='none'){ declareWar(G.player, tgt, cb); PRL().leg=clamp(PRL().leg-20,0,100); }
         else declareWar(G.player, tgt, cb, claimantId);
         if(cb.holy){ PRL().leg=clamp(PRL().leg+5,0,100); toast(`${RELICO[PRL().rel]}⚔ <b>Holy war!</b> The clergy proclaim it righteous`); }
@@ -3744,7 +3895,7 @@ const Game = {
     UI.modal('A Marriage with '+rl(rid).n,
       `Choose the match. A wedding binds the realms in alliance — while both spouses draw breath. <em>(Unwed of your house: ${mine.length} · of theirs: ${theirs.length})</em>`,
       combos.map(([m,t])=>({t:`${fullName(m)} (${age(m)}${age(m)<16?', betrothal':''}) ↔ ${fullName(t)} of ${rl(rid).n} (${age(t)}${age(t)<16?', betrothal':''}, ${t.tr.map(cap).join(', ')}) — ${accWord(accP(t))}`,
-        fx:()=>{ if(!this.spend(1)) return;
+        fx:()=>{ if(!this.order('marry')) return;
           if(proposeMarriage(m,t)){ toast(`⚭ <b>Alliance with ${esc(rl(rid).n)}</b> sworn by marriage`); UI.modal('The Banns Are Read', `${rl(rid).n} accepts. The houses are joined, the alliance sworn.`, [{t:'Excellent.',fx:()=>{}}]); }
           else UI.modal('Rebuffed', `${rl(rid).n} declines the match, with courtesy as thin as March ice. <em>(They think too little of you — improve relations with envoys and gifts, or raise your prestige.)</em>`, [{t:'Their loss.',fx:()=>{}}]);
         }})).concat([{t:'— Never mind —', fx:()=>{}}]));
@@ -3758,9 +3909,14 @@ const Game = {
       for(const t of marriageCandidates(r.id)) if(t.sex!==m.sex && options.length<10) options.push(t);
     }
     if(!options.length){ UI.modal('No Match Found','No foreign court offers a marriageable partner this season.',[{t:'Wait, then.',fx:()=>{}}]); return; }
+    const accP2 = t => { const tr2 = ruler(t.realm); if(!tr2) return 50;
+      let acc = opinion(tr2, PR()) + (PRL().prs - rl(t.realm).prs)/8 + (PRL().rank==='kingdom'?15:0) + skill(PR(),'dip')*3;
+      if(t.id===tr2.id) acc -= 20;
+      return clamp(Math.round((acc+10)/50*100), 2, 98); };
+    const accWord2 = p2 => p2>=75?'<span class=pos>near certain</span>':p2>=50?'<span class=pos>likely</span>':p2>=25?'<span class=oddsEven>uncertain</span>':'<span class=neg>unlikely</span>';
     UI.modal('A Match for '+fullName(m), 'Whose hand shall be sought?',
-      options.map(t=>({t:`${fullName(t)} of ${rl(t.realm).n} (${age(t)}${age(t)<16?', betrothal':''}, ${t.tr.map(cap).join(', ')})`,
-        fx:()=>{ if(!this.spend(1)) return;
+      options.map(t=>({t:`${fullName(t)} of ${rl(t.realm).n} (${age(t)}${age(t)<16?', betrothal':''}, ${t.tr.map(cap).join(', ')}) — ${accWord2(accP2(t))}`,
+        fx:()=>{ if(!this.order('marry')) return;
           if(proposeMarriage(m,t)) UI.modal('The Banns Are Read', `${rl(t.realm).n} accepts the match.`, [{t:'Good.',fx:()=>{}}]);
           else UI.modal('Rebuffed', `${rl(t.realm).n} declines. Their opinion of you is too low, or their ambitions too high.`, [{t:'So be it.',fx:()=>{}}]);
         }})).concat([{t:'— Never mind —', fx:()=>{}}]));
@@ -3854,6 +4010,7 @@ const Game = {
   },
   endSeason(){
     if(!G || G.over || G.eventQueue.length) return;
+    const logStart = G.log.length;
     warUpkeep();
     siegeTick();
     for(const rid of Object.keys(G.realms)) aiTurn(rid);
@@ -3886,10 +4043,27 @@ const Game = {
     this.income();
     for(const a of G.armies) a.moved=false;
     G.regency = age(PR())<16;
-    G.ap = G.regency?2:3;
+    resetOrders();
     if(G.alliances.filter(al=>al.a===G.player||al.b===G.player).length>=3) ach('matchmaker');
     if(myKids().filter(k=>alive(k)).length>=5) ach('dynast');
     fireEvents();
+    /* the season report: one composed digest instead of a drip of log lines */
+    if(!G._ff){
+      const fresh = G.log.slice(logStart).filter(e=>e.txt && !/musters |slip away home|claim \d+ of your men/.test(e.txt));
+      if(fresh.length){
+        const meRe = new RegExp((PRL().n+'|'+PR().nm+'|'+(PR().dyn||'@@')).replace(/[.*+?^${}()|[\]\\]/g, m=>'\\'+m), 'i');
+        const big = e => /Battle of|†|conquered|falls to|Peace between|EXCOMMUNICATED|deposed|is extinguished|declares war|with child|is born|are wed|bound by the marriage|Manzikert|joins the war|renounces/i.test(e.txt);
+        const mine = fresh.filter(e=>meRe.test(e.txt));
+        const warsE = fresh.filter(e=>!mine.includes(e) && e.cls==='war' && big(e));
+        const world = fresh.filter(e=>!mine.includes(e) && !warsE.includes(e) && big(e)).slice(0,6);
+        if(mine.length + warsE.length + world.length >= 2){
+          const sec = (t, es) => es.length ? `<h3>${t}</h3>` + es.map(e=>`<div class="repLine">${e.txt}</div>`).join('') : '';
+          G.eventQueue.unshift({ title:`${['🌱','☀️','🍂','❄️'][G.season]} ${SEASONS[G.season]}, ${G.year}`,
+            text: sec('Your Realm', mine.slice(0,7)) + sec('Wars & Battles', warsE.slice(0,6)) + sec('The Wider World', world),
+            choices:[{t:'The chronicle continues.', fx:()=>{}}] });
+        }
+      }
+    }
     this.victoryCheck();
     UI.renderAll();
     seasonBanner();
