@@ -444,6 +444,23 @@ Army manoeuvre that a single-stack model couldn't express.
 - Army panel gains ✂ Split / ⊕ Merge buttons; map already fans
   co-located tokens side by side so both columns stay clickable.
 
+### v2.8 — the treasury (SHIPPED)
+A dedicated economic screen, and one shared finance model behind it.
+- **Treasury tab**: coin on hand and net-per-season up top; a Revenue card
+  (provincial taxes, losses to occupation, steward multiplier, harvest ×2
+  and plague ×0.65 modifiers, gross revenue) and an Expenditure card
+  (retinue upkeep, one line per host in the field); a sortable province
+  ledger (development, building, tax each — click a row to jump to that
+  province); buildings under construction with seasons remaining.
+- **One finance model**: `realmFinances(rid)` is the single source of truth
+  used by the applied season income, the topbar preview tooltip, and the
+  Treasury screen — they can no longer drift apart.
+- **Army upkeep is now real**: the topbar always advertised a per-host cost
+  but the season tick never actually charged it; now it does (levies/350 +
+  mercs/160 per host per season), so the displayed net is truthful and a
+  long war carries a genuine drag on the treasury.
+- The topbar gold box is clickable — it opens the Treasury.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

@@ -150,6 +150,14 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
   border-radius:4px; padding:9px; margin-bottom:10px}
 .advRow{display:flex; align-items:center; gap:8px; padding:5px 0; border-top:1px dotted var(--line)}
 .advWho{color:var(--gold2); font-style:italic}
+.econTbl{border:1px solid var(--line); border-radius:4px; overflow:hidden; margin-top:4px}
+.econHead,.econRow{display:grid; grid-template-columns:1fr 2.4em 2.4em 2.6em; gap:6px; padding:3px 9px; align-items:center; font-size:12.5px}
+.econHead{background:rgba(90,109,140,.16); font-family:var(--disp); font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--gold2)}
+.econRow{border-top:1px dotted var(--line); cursor:pointer}
+.econRow:hover{background:rgba(138,109,31,.10)}
+.econRow.occ{opacity:.55}
+.econHead span, .econRow span{text-align:right; font-variant-numeric:tabular-nums}
+.econHead span:first-child, .econRow .en{text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .advRow:first-of-type{border-top:none}
 .advRow .txt{flex:1; font-size:12.5px; line-height:1.4}
 button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0); font-weight:bold}
@@ -388,6 +396,7 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
       <button id="tabCourt" onclick="UI.tab('court')">Court</button>
       <button id="tabCouncil" onclick="UI.tab('council')">Council</button>
       <button id="tabWars" onclick="UI.tab('wars')">Wars</button>
+      <button id="tabTreasury" onclick="UI.tab('treasury')">Treasury</button>
       <button id="tabPlots" onclick="UI.tab('plots')">Plots</button>
     </div>
     <div id="leftBody"></div>
@@ -830,6 +839,26 @@ function realmStrength(rid){
 }
 function levyOf(p){ const pr=pv(p); return 200 + pr.dev*110 + (pr.bld==='castle'?150:0); }
 function taxOf(p){ const pr=pv(p); return pr.dev + (pr.bld==='market'?2:0); }
+function realmFinances(rid){
+  const R_ = rl(rid);
+  let baseTax = 0, occLost = 0; const rows = [];
+  for(const p of realmProvs(rid)){
+    const t = taxOf(p), occ = !!pv(p).occ;
+    if(occ) occLost += t; else baseTax += t;
+    rows.push({p, tax:t, occ, dev:pv(p).dev, bld:pv(p).bld});
+  }
+  const stewPct = councilBonus(rid,'steward')*.04;
+  const seasonMult = (G.season===2?2:1) * (G.plague?.65:1);
+  const grossTax = baseTax*(1+stewPct)*seasonMult;
+  const retUpkeep = R_.retinue/200;
+  let armyUpkeep = 0; const hosts = [];
+  for(const a of G.armies) if(a.realm===rid){
+    const cost = Math.ceil(a.levies/350) + Math.ceil(a.mercs/160);
+    armyUpkeep += cost; hosts.push({a, cost});
+  }
+  const net = Math.round((grossTax - retUpkeep - armyUpkeep)*10)/10;
+  return {rows, baseTax, occLost, stewPct, seasonMult, grossTax, retUpkeep, armyUpkeep, hosts, net};
+}
 
 let _cid = 0;
 function mkChar(o){
@@ -2932,7 +2961,7 @@ function aiTurn(rid){
 const UI = {
   tabSel:'dyn',
   tab(t){ this.tabSel = t; this.renderLeft();
-    for(const x of ['Dyn','Court','Council','Wars','Plots']) document.getElementById('tab'+x).classList.toggle('on', x.toLowerCase()===t);
+    for(const x of ['Dyn','Court','Council','Treasury','Wars','Plots']) document.getElementById('tab'+x).classList.toggle('on', x.toLowerCase()===t);
   },
   centroid(pts){
     let x=0,y=0; for(const p of pts){x+=p[0];y+=p[1];} return [x/pts.length, y/pts.length];
@@ -3086,22 +3115,14 @@ const UI = {
 
   renderAll(){ this.renderTop(); this.renderMap(); this.renderLeft(); this.renderRight(); this.renderLog(); this.processQueue(); },
   incomePreview(){
-    const R_ = PRL();
-    let tax = 0;
-    for(const p of realmProvs(G.player)) if(!pv(p).occ) tax += taxOf(p);
-    const stew = councilBonus(G.player,'steward')*.04;
-    const taxT = tax*(1+stew)*(G.season===2?2:1)*(G.plague?.65:1);
-    const ret = R_.retinue/200;
-    let army = 0;
-    for(const a of G.armies) if(a.realm===G.player) army += Math.ceil(a.levies/350)+Math.ceil(a.mercs/160);
-    const net = Math.round((taxT - ret - army)*10)/10;
-    let tip = `<b>Season income</b><br>Taxes ${Math.round(tax)} · Steward +${Math.round(stew*100)}%`;
+    const f = realmFinances(G.player);
+    let tip = `<b>Season income</b><br>Taxes ${Math.round(f.baseTax)} · Steward +${Math.round(f.stewPct*100)}%`;
     if(G.season===2) tip += `<br>Harvest season: income doubled`;
     if(G.plague) tip += `<br><span class=neg>Plague: income ×0.65</span>`;
-    if(ret>0) tip += `<br>Retinue upkeep −${ret.toFixed(1)}`;
-    if(army>0) tip += `<br>Armies in the field −${army}`;
-    tip += `<br><b>Net ${net>=0?'+':''}${net} / season</b>`;
-    return {net, tip:tip.replace(/"/g,'&quot;')};
+    if(f.retUpkeep>0) tip += `<br>Retinue upkeep −${f.retUpkeep.toFixed(1)}`;
+    if(f.armyUpkeep>0) tip += `<br>Armies in the field −${f.armyUpkeep}`;
+    tip += `<br><b>Net ${f.net>=0?'+':''}${f.net} / season</b><br><span class=hint style="margin:0">Click for the full ledger</span>`;
+    return {net:f.net, tip:tip.replace(/"/g,'&quot;')};
   },
   renderTop(){
     const sIco = ['🌱','☀️','🍂','❄️'][G.season];
@@ -3111,6 +3132,8 @@ const UI = {
     const inc = this.incomePreview();
     document.getElementById('goldBox').innerHTML = `🪙 <b>${Math.floor(R_.gold)}</b><i class="resLbl"> gold</i> <span class="${inc.net>=0?'':'neg'}" style="font-size:11px">(${inc.net>=0?'+':''}${inc.net})</span>`;
     document.getElementById('goldBox').setAttribute('data-tip', inc.tip);
+    document.getElementById('goldBox').style.cursor = 'pointer';
+    document.getElementById('goldBox').onclick = ()=>UI.tab('treasury');
     document.getElementById('prsBox').innerHTML = `☀ <b>${Math.floor(R_.prs)}</b><i class="resLbl"> prestige</i>`;
     document.getElementById('legBox').innerHTML = `✠ <b>${Math.floor(R_.leg)}</b><i class="resLbl"> legitimacy</i>`;
     document.getElementById('endBtn').innerHTML = `End ${SEASONS[G.season]} ⏵`;
@@ -3296,6 +3319,39 @@ const UI = {
       h += `<div class="hint">Heir: ${heir? esc(fullName(heir))+' ('+age(heir)+')' : '<b>NONE — the line hangs by a thread</b>'}</div>`;
       const others = Object.values(G.chars).filter(c=>alive(c)&&c.dyn===r.dyn&&c.id!==r.id&&c.sp!==r.id&&!kids.includes(c)).slice(0,10);
       if(others.length){ h += `<h3 style="margin-top:8px">Kin</h3>`; for(const k of others) h += this.charRow(k); }
+      el.innerHTML = h;
+    }
+    if(t==='treasury'){
+      const f = realmFinances(G.player), R_ = PRL();
+      const sIco = ['🌱','☀️','🍂','❄️'][G.season];
+      let h = `<h3>The Treasury</h3>`;
+      h += `<div class="kv"><span>Coin on hand</span><b>${Math.floor(R_.gold)} 🪙</b></div>`;
+      h += `<div class="kv"><span>Net this season</span><b class="${f.net>=0?'pos':'neg'}">${f.net>=0?'+':''}${f.net} 🪙</b></div>`;
+      h += `<div class="card" style="margin-top:8px"><div class="eyebrow" style="margin-bottom:4px">Revenue</div>
+        <div class="kv"><span>Provincial taxes${f.occLost?` <span class="neg">(−${Math.round(f.occLost)} under enemy heel)</span>`:''}</span><b>${Math.round(f.baseTax)}</b></div>
+        <div class="kv"><span>Steward’s ledgers</span><b class="${f.stewPct>0?'pos':''}">+${Math.round(f.stewPct*100)}%</b></div>`;
+      if(G.season===2) h += `<div class="kv"><span>${sIco} Harvest season</span><b class="pos">×2</b></div>`;
+      if(G.plague) h += `<div class="kv"><span>☠ Pestilence</span><b class="neg">×0.65</b></div>`;
+      h += `<div class="kv" style="border-top:1px solid var(--line);margin-top:2px;padding-top:4px"><span><b>Gross revenue</b></span><b class="pos">+${Math.round(f.grossTax*10)/10}</b></div></div>`;
+      h += `<div class="card" style="margin-top:8px"><div class="eyebrow" style="margin-bottom:4px">Expenditure</div>
+        <div class="kv"><span>Retinue upkeep${R_.retinue?` (${R_.retinue} sworn swords)`:''}</span><b class="${f.retUpkeep>0?'neg':''}">−${f.retUpkeep.toFixed(1)}</b></div>`;
+      if(f.hosts.length){ for(const {a,cost} of f.hosts)
+        h += `<div class="kv" style="cursor:pointer" onclick="UI.selArmy('${a.id}')"><span>Host at ${esc(PROVDATA[a.prov].n)} (${fmtN(armySize(a))} men)</span><b class="neg">−${cost}</b></div>`;
+      } else h += `<div class="kv"><span>Armies in the field</span><b>—</b></div>`;
+      h += `</div>`;
+      h += `<h3 style="margin-top:10px">Lands &amp; Their Yield</h3>`;
+      h += `<div class="econTbl"><div class="econHead"><span>Province</span><span>${STATICO.dev}</span><span>Bld</span><span>Tax</span></div>`;
+      for(const r of f.rows.slice().sort((a,b)=>b.tax-a.tax)){
+        h += `<div class="econRow${r.occ?' occ':''}" onclick="UI.selProv('${r.p}')">
+          <span class="en">${esc(PROVDATA[r.p].n)}${r.occ?' <span class="neg">⚔</span>':''}</span>
+          <span>${r.dev}</span><span>${r.bld?BUILDINGS[r.bld].ico:'·'}</span>
+          <span>${r.occ?'<span class="neg">0</span>':r.tax}</span></div>`;
+      }
+      h += `</div>`;
+      const cons = f.rows.filter(r=>pv(r.p).cons);
+      if(cons.length){ h += `<h3 style="margin-top:10px">Under Construction</h3>`;
+        for(const r of cons){ const c=pv(r.p).cons; h += `<div class="kv"><span>${BUILDINGS[c.b].ico} ${BUILDINGS[c.b].n} · ${esc(PROVDATA[r.p].n)}</span><b>${c.left} season${c.left>1?'s':''}</b></div>`; } }
+      h += `<div class="hint">Develop provinces (each level adds tax) and raise markets (+2 tax) to grow revenue. Autumn’s harvest doubles the yield — time your spending around it. Retinue and hosts in the field draw pay every season.</div>`;
       el.innerHTML = h;
     }
     if(t==='court'){
@@ -4198,13 +4254,8 @@ const Game = {
   income(){
     for(const R_ of Object.values(G.realms)){
       if(R_.dead) continue;
-      let inc = 0;
-      for(const p of realmProvs(R_.id)) if(!pv(p).occ) inc += taxOf(p);
-      inc *= 1 + councilBonus(R_.id,'steward')*.04;
-      if(G.season===2) inc *= 2; /* harvest */
-      if(G.plague) inc *= .65; /* dead men pay no geld */
-      R_.gold += inc - (R_.retinue/200);
-      R_.gold = Math.max(0, Math.round(R_.gold*10)/10);
+      const f = realmFinances(R_.id);
+      R_.gold = Math.max(0, Math.round((R_.gold + f.net)*10)/10);
       R_.prs += R_.rank==='kingdom'?2:1;
     }
   },
