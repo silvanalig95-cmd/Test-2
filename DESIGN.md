@@ -427,6 +427,23 @@ odd; I'd rather events also fire from what I do."
   still open the season, but the flavor now spreads across the turn as
   you play it.
 
+### v2.7 — columns and captains (SHIPPED)
+Army manoeuvre that a single-stack model couldn't express.
+- **Split**: a host of 100+ divides into two columns via a slider dialog
+  ("Divide the Host") — choose exactly how many men march out. The
+  detachment takes its own captain (the next-ablest courtier), keeps the
+  parent's marching orders (so splitting never conjures a free move), and
+  stands at the same province. Garrison a town with one column and strike
+  with the other in the same season.
+- **Merge**: co-located columns of the same realm fold into one — massing
+  for battle — keeping the better commander, the higher siege progress,
+  and the more-cautious moved-state (can't move again if either had).
+- **Reinforcement**: mustering onto a province where a host already stands
+  adds the fresh levies to that stack, and merge folds one column into
+  another — so reinforcement is simply mustering or merging.
+- Army panel gains ✂ Split / ⊕ Merge buttons; map already fans
+  co-located tokens side by side so both columns stay clickable.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

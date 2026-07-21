@@ -1827,6 +1827,11 @@ function bestCommander(rid){
   return best;
 }
 function armySize(a){ return a.levies + a.retinue + a.mercs; }
+function secondCommander(rid, excludeId){
+  const cands = Object.values(G.chars).filter(c=>alive(c)&&c.realm===rid&&!c.prison&&age(c)>=16&&c.id!==excludeId)
+    .sort((a,b)=>skill(b,'mar')-skill(a,'mar'));
+  return cands.length ? cands[0].id : excludeId;
+}
 function disbandArmy(a){
   rl(a.realm).retinue = Math.min(600, (rl(a.realm).retinue||0) + a.retinue);
   G.armies = G.armies.filter(x=>x!==a);
@@ -3636,13 +3641,18 @@ const UI = {
       <div class="kv"><span>Commander</span><b>${cm?esc(fullName(cm))+' ('+SKILLICO.mar+skill(cm,'mar')+')':'—'}</b></div>
       ${a.siege?`<div class="kv"><span>Siege progress</span><b>${Math.min(99,Math.round(a.siege))}%</b></div>`:''}`;
     if(mine){
+      const size = armySize(a);
+      const others = G.armies.filter(x=>x!==a && x.realm===a.realm && x.prov===a.prov);
       h += `<div class="actBtns">
         <button ${a.moved&&!a.extraMove?'disabled':''} onclick="Game.startMove('${a.id}')">${a.moved?(a.extraMove?'March again (forced)':'Already moved'):'March / Sail'}</button>
+        <button class="small" ${size<100?'disabled':''} onclick="Game.splitMenu('${a.id}')" data-tip="Divide the host into two columns under separate captains — garrison and strike in the same season">✂ Split</button>
+        ${others.length?`<button class="small" onclick="Game.mergeMenu('${a.id}')" data-tip="Fold a co-located host of yours into this one, massing for battle">⊕ Merge</button>`:''}
         <button class="small" onclick="Game.pickCommander('${a.id}')">Change commander</button>
         <button class="small" onclick="Game.act('disband','${a.id}')">Disband</button>
       </div>`;
+      if(others.length) h += `<div class="hint">${others.length===1?'Another column of yours stands here':others.length+' more columns of yours stand here'} — merge to mass, or leave split to hold more ground.</div>`;
       if(G.moveMode) h += `<div class="hint">Click a highlighted province. Dashed = by sea (15🪙, storm risk). Marching into an enemy host gives battle at once.</div>`;
-      h += `<div class="hint">Armies move once a season. Autumn and winter kill the unhoused — bring them home or press hard.</div>`;
+      h += `<div class="hint">Armies move once a season. Split a large host to hold ground while you strike elsewhere; muster or merge to reinforce. Autumn and winter kill the unhoused — bring them home or press hard.</div>`;
     }
     return h;
   },
@@ -3673,6 +3683,7 @@ const UI = {
     this.modal('How to Rule',
     `<h3>The Dynasty</h3>You are a family, not a nation. Lose your last province or your last dynast and the chronicle closes. Heirs, marriages, and legitimacy are life itself.<br><br>
     <h3>The Season</h3>Each season your crown gives one order of any kind (👑), and each councillor carries out one task of their office: the marshal (⚔) musters, marches and recruits; the steward (🔑) builds, develops and squeezes; the spymaster (🗡) plots and forges; the chaplain (🕊) prays, parleys and sends envoys. When a councillor’s order is spent — or a seat stands empty — the crown may see to it in person, spending its own. A child ruler has no crown order. Armies march once a season for free. Muster in spring, strike in summer; autumn and winter maul armies left in the field. Buildings take a year of construction.<br><br>
+    <h3>Hosts in the Field</h3>A large host can be <b>split</b> into two columns under separate captains — garrison a town with one while the other strikes — and co-located columns of yours can be <b>merged</b> to mass for battle. Muster raises fresh levies into a stack that already stands on the muster province, so reinforcement is a matter of mustering or merging.<br><br>
     <h3>Sieges</h3>March onto an undefended enemy province and the siege begins by itself: each season it advances by 30 + 2×your commander's ⚔ + fortune, minus 22 if the province has a castle. At 100% the province is occupied, your treasury takes its loot, and your war score climbs. Occupying everything forces even a stubborn enemy to yield.<br><br>
     <h3>The Game of Thrones</h3><b>Marriage</b> buys alliances · <b>claims</b> make war lawful (the monks can forge one) · <b>legitimacy</b> keeps your nobles honest · <b>opinion</b> decides who joins whose plot — and plots run always, including against you. Your spymaster is your shield; Rome can bless you or cast you out.<br><br>
     <h3>Deeds Have Consequences</h3>The court does not wait for the new year to react. Muster a host and a captain may ride to your banner; endow the Church and a relic-seller appears; set a plot in motion and a conspirator may lose his nerve — events now surface <em>as you act</em>, not just at the season's turn, so a busy season is a lively one.<br><br>
@@ -3994,6 +4005,70 @@ const Game = {
     UI.modal('Who Commands?','A good commander is worth a thousand levies. A brave one is worth two thousand, briefly.',
       cands.map(c=>({t:`${fullName(c)} — ${SKILLICO.mar}${skill(c,'mar')}${c.id===PR().id?' (your ruler — glory and risk)':''}`,
         fx:()=>{ a.cmdr=c.id; }})).concat([{t:'— Keep current —',fx:()=>{}}]));
+  },
+  splitMenu(aid){
+    if(this.busy()) return;
+    const a = G.armies.find(x=>x.id===aid); if(!a || a.realm!==G.player) return;
+    const size = armySize(a);
+    if(size < 100){ toast('⚔ Too few men to divide — each column must keep at least 50'); return; }
+    const half = Math.round(size/2);
+    const host = document.getElementById('modalHost');
+    host.innerHTML = `<div class="modalBack" style="pointer-events:auto"><div class="modal" style="width:min(440px,94vw)">
+      <h2>Divide the Host</h2>
+      <div class="hint" style="margin:-4px 0 12px">Peel off a detachment under its own captain — to garrison a town, screen a border, or besiege two castles at once. Both columns keep this season's marching orders.</div>
+      <div style="text-align:center;margin:6px 0 2px"><b id="splLbl" style="font-size:22px;font-family:var(--disp);color:var(--gold)">${fmtN(half)}</b> <span class="hint" style="margin:0">men march out</span></div>
+      <input id="splRange" type="range" min="50" max="${size-50}" value="${half}" style="width:100%;accent-color:var(--gold)"
+        oninput="var v=+this.value;document.getElementById('splLbl').textContent=fmtN(v);document.getElementById('splKeep').textContent=fmtN(${size}-v)">
+      <div class="hint" style="text-align:center;margin-top:4px">The main host keeps <b id="splKeep">${fmtN(size-half)}</b> of ${fmtN(size)}</div>
+      <div class="choices" style="margin-top:16px">
+        <button onclick="Game.doSplit('${aid}', +document.getElementById('splRange').value)">Divide the host</button>
+        <button class="small" onclick="UI.processQueue()">Keep it whole</button>
+      </div>
+    </div></div>`;
+  },
+  doSplit(aid, n){
+    const a = G.armies.find(x=>x.id===aid); if(!a || a.realm!==G.player) return;
+    const size = armySize(a);
+    n = clamp(Math.round(n), 50, size-50);
+    const frac = n/size;
+    let dL = Math.min(a.levies, Math.round(a.levies*frac));
+    let dR = Math.min(a.retinue, Math.round(a.retinue*frac));
+    let dM = Math.min(a.mercs, Math.round(a.mercs*frac));
+    if(dL+dR+dM < 1) dL = Math.min(a.levies, 50);
+    a.levies-=dL; a.retinue-=dR; a.mercs-=dM;
+    const nb = { id:'a'+(++G.aid), realm:a.realm, prov:a.prov, levies:dL, retinue:dR, mercs:dM,
+      cmdr: secondCommander(a.realm, a.cmdr), siege:0, moved:a.moved, extraMove:!!a.extraMove };
+    G.armies.push(nb);
+    const cap = ch(nb.cmdr);
+    logIt('war', `The ${rl(a.realm).n} host at ${PROVDATA[a.prov].n} divides; ${fmtN(dL+dR+dM)} men form a new column under ${cap?fullName(cap):'a captain'}.`);
+    toast(`✂ Host divided — <b>${fmtN(dL+dR+dM)}</b> march${cap?' under '+esc(fullName(cap)):''}`);
+    G.sel = {t:'army', id:nb.id};
+    UI.processQueue(); UI.renderAll();
+  },
+  mergeMenu(aid){
+    if(this.busy()) return;
+    const a = G.armies.find(x=>x.id===aid); if(!a || a.realm!==G.player) return;
+    const others = G.armies.filter(x=>x!==a && x.realm===a.realm && x.prov===a.prov);
+    if(!others.length){ toast('No other host of yours stands here to join.'); return; }
+    if(others.length===1){ this.doMerge(a.id, others[0].id); return; }
+    UI.modal('Combine Which Column?', `Several of your columns stand at ${esc(PROVDATA[a.prov].n)}. Fold one into this host.`,
+      others.map(o=>({t:`${fmtN(armySize(o))} men${ch(o.cmdr)?' under '+esc(fullName(ch(o.cmdr))):''}`, fx:()=>{ Game.doMerge(a.id, o.id); }}))
+        .concat([{t:'— Keep them apart —', fx:()=>{}}]));
+  },
+  doMerge(aid, bid){
+    const a = G.armies.find(x=>x.id===aid), b = G.armies.find(x=>x.id===bid);
+    if(!a || !b || a===b) return;
+    const [keep, gone] = armySize(a)>=armySize(b) ? [a,b] : [b,a];
+    keep.levies += gone.levies; keep.retinue += gone.retinue; keep.mercs += gone.mercs;
+    keep.siege = Math.max(keep.siege||0, gone.siege||0);
+    keep.moved = keep.moved || gone.moved;
+    keep.extraMove = !!(keep.extraMove && gone.extraMove);
+    if(ch(gone.cmdr) && (!ch(keep.cmdr) || skill(ch(gone.cmdr),'mar') > skill(ch(keep.cmdr),'mar'))) keep.cmdr = gone.cmdr;
+    G.armies = G.armies.filter(x=>x!==gone);
+    logIt('war', `The ${rl(keep.realm).n} columns at ${PROVDATA[keep.prov].n} join into one host of ${fmtN(armySize(keep))}.`);
+    toast(`⊕ Columns combined — <b>${fmtN(armySize(keep))}</b> under one banner`);
+    G.sel = {t:'army', id:keep.id};
+    UI.renderAll();
   },
   startMove(aid){
     if(this.busy()) return; G.moveMode = aid; UI.renderMap(); UI.renderRight(); },
