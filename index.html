@@ -2387,7 +2387,7 @@ const EVENTS = [
     {t:'Put it down in blood. (+order, -legitimacy, province damaged)', fx:()=>{ pv(p).dev=Math.max(1,pv(p).dev-1); PRL().leg=clamp(PRL().leg-5,0,100); chron(`In this year the commons of ${PROVDATA[p].n} rose and were cut down, and the field where they stood is called the Red Furlong.`); }},
     {t:'Hear their grievances and hang only the preacher. (-10 gold, +8 legitimacy)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-10); PRL().leg=clamp(PRL().leg+8,0,100); }},
   ]};}},
-{id:'aioffer', w:6, cond:()=>{
+{id:'aioffer', w:6, trig:['envoy','gift'], cond:()=>{
     return marriageCandidates(G.player).length>0 &&
       Object.values(G.realms).some(r=>!r.dead&&r.id!==G.player&&marriageCandidates(r.id).length&&!allianceBetween(r.id,G.player));
   }, run:()=>{
@@ -2402,14 +2402,14 @@ const EVENTS = [
     {t:'Accept. Bind the houses.', fx:()=>{ doMarriage(mine, theirs); }},
     {t:'Decline, with honeyed words. (small slight)', fx:()=>{ addOp(ruler(R_.id), PR().id, -8); }},
   ]};}},
-{id:'pilgrim', w:4, cond:()=>PR().tr.includes('pious')&&PRL().rel!=='pagan', run:()=>({
+{id:'pilgrim', w:4, trig:['rome'], cond:()=>PR().tr.includes('pious')&&PRL().rel!=='pagan', run:()=>({
   title:'The Road to Rome',
   text:`Your confessor suggests — for the third time — a pilgrimage. Your soul, he implies, could use the exercise.`,
   choices:[
     {t:'Go. (+12 legitimacy, +10 prestige, the realm minds itself a season)', fx:()=>{ PRL().leg=clamp(PRL().leg+12,0,100); PRL().prs+=10; chron('In this year the king went to Rome a pilgrim and returned lighter of purse and heavier of virtue.'); }},
     {t:'The realm cannot spare me. (confessor sighs)', fx:()=>{}},
   ]})},
-{id:'tourney', w:5, cond:()=>G.season===1&&PRL().gold>=15, run:()=>({
+{id:'tourney', w:5, trig:['muster'], cond:()=>G.season===1&&PRL().gold>=15, run:()=>({
   title:'A Tournament Proposed',
   text:`Your marshal proposes a grand tournament: lances, wagers, and the flower of chivalry drinking your cellars dry.`,
   choices:[
@@ -2431,14 +2431,14 @@ const EVENTS = [
     {t:'Burn her. (clergy pleased: +5 legitimacy; the village remembers)', fx:()=>{ PRL().leg=clamp(PRL().leg+5,0,100); }},
     {t:'An ordeal of water, rigged to acquit. (+5 prestige, chaplain suspicious)', fx:()=>{ PRL().prs+=5; }},
   ]})},
-{id:'monastery', w:4, cond:()=>PRL().gold>=20, run:()=>({
+{id:'monastery', w:4, trig:['rome'], cond:()=>PRL().gold>=20, run:()=>({
   title:'The Abbot’s Ledger',
   text:`The abbot of a great house comes with plans for a new choir, drawn beautifully, priced outrageously. He mentions, in passing, who writes the chronicles.`,
   choices:[
     {t:'Endow it. (-20 gold, +10 legitimacy, +10 prestige)', fx:()=>{ PRL().gold-=20; PRL().leg=clamp(PRL().leg+10,0,100); PRL().prs+=10; chron('In this year the king endowed our house most generously, being wise, just, handsome, and much maligned by lesser chroniclers.'); }},
     {t:'Send him home with a blessing. (chronicles grow colder)', fx:()=>{ PRL().leg=clamp(PRL().leg-3,0,100); }},
   ]})},
-{id:'windfall', w:5, cond:()=>realmProvs(G.player).some(p=>pv(p).bld==='market'), run:()=>({
+{id:'windfall', w:5, trig:['build','develop'], cond:()=>realmProvs(G.player).some(p=>pv(p).bld==='market'), run:()=>({
   title:'A Fat Convoy',
   text:`Wool out, wine in, and the tolls collected on both. Your market towns have had a golden season. <em>(+12 gold)</em>`,
   choices:[{t:'The best sound in the world is other men’s money arriving.', fx:()=>{ PRL().gold+=12; }}]})},
@@ -2480,14 +2480,14 @@ const EVENTS = [
     {t:'Back the Steward.', fx:()=>{ addOp(s,PR().id,15); addOp(m,PR().id,-20); }},
     {t:'Bang the table: serve or go. (both cowed, both sour)', fx:()=>{ addOp(m,PR().id,-8); addOp(s,PR().id,-8); PRL().prs+=5; }},
   ]};}},
-{id:'relic', w:3, cond:()=>PRL().gold>=25, run:()=>({
+{id:'relic', w:3, trig:['rome'], cond:()=>PRL().gold>=25, run:()=>({
   title:'A Relic for Sale',
   text:`A monk of doubtful provenance offers the finger-bone of a saint of impeccable provenance. Such a relic would dignify your chapel — and its owner.`,
   choices:[
     {t:'Buy it. (-25 gold, +12 legitimacy, +8 prestige)', fx:()=>{ PRL().gold-=25; PRL().leg=clamp(PRL().leg+12,0,100); PRL().prs+=8; }},
     {t:'Count his fingers and send him off.', fx:()=>{}},
   ]})},
-{id:'mercs', w:8, cond:()=>atWar(G.player).length>0&&PRL().gold>=15, run:()=>({
+{id:'mercs', w:8, trig:['muster','war','retinue'], cond:()=>atWar(G.player).length>0&&PRL().gold>=15, run:()=>({
   title:'Swords for Hire',
   text:`A free company — Flemish, mostly, with some men too disreputable to be Flemish — offers its services cheap. Their captain has honest eyes, which in a mercenary is itself dishonest.`,
   choices:[
@@ -2496,12 +2496,12 @@ const EVENTS = [
       if(a) a.mercs+=600; else G.armies.push({id:'a'+(++G.aid), realm:G.player, prov:PRL().cap, levies:0, retinue:0, mercs:600, cmdr:bestCommander(G.player), siege:0, moved:false}); }},
     {t:'War is expensive enough already.', fx:()=>{}},
   ]})},
-{id:'oldwarrior', w:3, cond:()=>true, run:()=>{
+{id:'oldwarrior', w:3, trig:['muster','retinue'], cond:()=>true, run:()=>{
   const c = mkCourtier(G.player); c.sk.mar = ri(6,9); c.tr = ['brave', pick(['honest','wrathful','content'])];
   return { title:'A Grey Wolf at the Door',
   text:`${fullName(c)}, a scarred veteran of three kings' wars, offers his sword and his experience to your house. He asks only bread, beer, and someone worth dying for.`,
   choices:[{t:'Welcome him. (a skilled commander joins your court)', fx:()=>{}}]};}},
-{id:'suitor', w:5, cond:()=>myKids().some(k=>k.sex==='f'&&age(k)>=16&&!k.sp), run:()=>{
+{id:'suitor', w:5, trig:['feast','court'], cond:()=>myKids().some(k=>k.sex==='f'&&age(k)>=16&&!k.sp), run:()=>{
   const d = myKids().find(k=>k.sex==='f'&&age(k)>=16&&!k.sp);
   return { who:d.id, title:'A Suitor for '+d.nm,
   text:`A wealthy local magnate asks for your daughter ${fullName(d)}'s hand. No crown, no alliance — but gold, gratitude, and a friend inside your own nobility.`,
@@ -2509,7 +2509,7 @@ const EVENTS = [
     {t:'Grant it. (+15 gold, nobles pleased)', fx:()=>{ const husband = mkCourtier(G.player); husband.by = G.year - ri(20,35); wed(d.id, husband.id); PRL().gold+=15; for(const c of myCourt()) addOp(c,PR().id,4); }},
     {t:'She is meant for a crown, not a coffer. (keep her for a royal match)', fx:()=>{}},
   ]};}},
-{id:'taxes', w:5, cond:()=>true, run:()=>({
+{id:'taxes', w:5, trig:['harvest','develop'], cond:()=>true, run:()=>({
   title:'The Geld Grumbles',
   text:`Your steward proposes squeezing the geld harder. The nobles propose, through gritted teeth, that you not.`,
   choices:[
@@ -2524,7 +2524,7 @@ const EVENTS = [
     {t:'The physician — bleed the fever out.', fx:()=>{ if(chance(.3)) killChar(k,'died of a fever, despite the physicians'); }},
     {t:'The saint’s shrine — carry the child there yourself. (-5 gold)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-5); if(chance(.22)) killChar(k,'died of a fever on the pilgrim road'); else PRL().leg=clamp(PRL().leg+2,0,100); }},
   ]};}},
-{id:'eagle', w:2, cond:()=>true, run:()=>({
+{id:'eagle', w:2, trig:['muster','retinue'], cond:()=>true, run:()=>({
   title:'The Eagle on the Standard',
   text:`During the muster, an eagle settled on your standard and would not be shooed. The men are calling it an omen. The eagle is calling it a comfortable perch.`,
   choices:[{t:'An omen it is, then. (+8 prestige)', fx:()=>{ PRL().prs+=8; }}]})},
@@ -2535,14 +2535,14 @@ const EVENTS = [
     {t:'Open the storehouses. (-10 gold, +6 legitimacy)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-10); PRL().leg=clamp(PRL().leg+6,0,100); }},
     {t:'Winter cannot be legislated. (some of the weak do not see spring)', fx:()=>{ PRL().leg=clamp(PRL().leg-4,0,100); }},
   ]})},
-{id:'spynetwork', w:4, cond:()=>PRL().council.spymaster&&PRL().gold>=10, run:()=>({
+{id:'spynetwork', w:4, trig:['plotMurder','plotSlander','fabricate'], cond:()=>PRL().council.spymaster&&PRL().gold>=10, run:()=>({
   title:'The Spymaster’s Price',
   text:`Your spymaster requests funds for "friends" in foreign courts — servants, clerks, a bishop's laundress. Information, like fish, is freshest when paid for.`,
   choices:[
     {t:'Fund the network. (-10 gold, plots against you easier to catch)', fx:()=>{ PRL().gold-=10; G.flags.spyBoost = (G.flags.spyBoost||0)+2; }},
     {t:'He can listen at doors for free.', fx:()=>{}},
   ]})},
-{id:'oath', w:4, cond:()=>myCourt().some(c=>opinion(c,PR())<-30&&!c.prison), run:()=>{
+{id:'oath', w:4, trig:['imprison','execute'], cond:()=>myCourt().some(c=>opinion(c,PR())<-30&&!c.prison), run:()=>{
   const c = myCourt().find(x=>opinion(x,PR())<-30&&!x.prison);
   return { who:c.id, title:'A Cold Bow from '+c.nm,
   text:`${fullName(c)} barely bends the knee at court these days, and men notice such arithmetic. (Opinion of you: ${opinion(c,PR())})`,
@@ -2550,7 +2550,7 @@ const EVENTS = [
     {t:'Win them back with a gift. (-8 gold, +20 opinion)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-8); addOp(c,PR().id,20); }},
     {t:'Let them sulk. Watch them, though.', fx:()=>{}},
   ]};}},
-{id:'investiture', w:4, cond:()=>PRL().rel==='catholic'&&G.year>=1070&&PRL().leg<65&&!PRL().excomm, run:()=>({
+{id:'investiture', w:4, trig:['rome'], cond:()=>PRL().rel==='catholic'&&G.year>=1070&&PRL().leg<65&&!PRL().excomm, run:()=>({
   title:'The Investiture Question',
   text:`A legate arrives with soft hands and hard parchment: who names your bishops — you, or Rome? Your grandfather named them. The reformed Papacy has opinions about your grandfather.`,
   choices:[
@@ -2578,7 +2578,7 @@ const EVENTS = [
     {t:'Send the clerks. (+20 gold, +8 legitimacy, your subjects shudder)', fx:()=>{ PRL().gold+=20; PRL().leg=clamp(PRL().leg+8,0,100); for(const c of myCourt()) addOp(c,PR().id,-4); chron('In this year the king caused all the land to be written in a great book, and there was no hide of land unrecorded, which men thought shameful and efficient.'); }},
     {t:'Rule by custom, not by ledger.', fx:()=>{}},
   ]})},
-{id:'silkroad', w:5, cond:()=>['byzantium','venice','sicily'].includes(G.player), run:()=>({
+{id:'silkroad', w:5, trig:['develop','build'], cond:()=>['byzantium','venice','sicily'].includes(G.player), run:()=>({
   title:'The Eastern Convoy',
   text:`Silk, pepper, alum and dyes — a rich convoy has paid its customs in your ports, and the customs were not modest. <em>(+14 gold)</em>`,
   choices:[{t:'The wealth of two worlds flows through us.', fx:()=>{ PRL().gold+=14; }}]})},
@@ -2606,7 +2606,7 @@ const EVENTS = [
       else toast('The trail goes cold in a port town.'); }},
     {t:'Quietly substitute a new bone. God will understand. (-4 legitimacy if it ever surfaces)', fx:()=>{ if(chance(.3)) PRL().leg=clamp(PRL().leg-4,0,100); }},
   ]})},
-{id:'scholar', w:3, cond:()=>PRL().gold>=8, run:()=>({
+{id:'scholar', w:3, trig:['court','feast'], cond:()=>PRL().gold>=8, run:()=>({
   title:'A Scholar at the Gate',
   text:`A wandering master — Bologna, Toledo, Constantinople, the man has eaten in every famous kitchen of learning — offers a season of instruction for bed and board.`,
   choices:[
@@ -2614,7 +2614,7 @@ const EVENTS = [
     {t:'Letters and ciphers. (-8 gold, +1 Intrigue)', fx:()=>{ PRL().gold-=8; PR().sk.int=Math.min(10,PR().sk.int+1); }},
     {t:'We have priests for reading.', fx:()=>{}},
   ]})},
-{id:'assassin', w:4, cond:()=>atWar(G.player).length>0&&PRL().gold>=15, run:()=>{
+{id:'assassin', w:4, trig:['war'], cond:()=>atWar(G.player).length>0&&PRL().gold>=15, run:()=>{
   const w = atWar(G.player)[0];
   const foe = w.sides.a.includes(G.player) ? w.def : w.att;
   const t = ruler(foe);
@@ -2639,7 +2639,7 @@ const EVENTS = [
     {t:'Pay the tithe. (-15 gold, +8 legitimacy)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-15); PRL().leg=clamp(PRL().leg+8,0,100); }},
     {t:'Jerusalem is far and my roof leaks. (-6 legitimacy)', fx:()=>{ PRL().leg=clamp(PRL().leg-6,0,100); }},
   ]})},
-{id:'minstrels', w:4, cond:()=>PRL().gold>=6, run:()=>({
+{id:'minstrels', w:4, trig:['feast','crowncourt'], cond:()=>PRL().gold>=6, run:()=>({
   title:'A Troupe at the Gate',
   text:`Jongleurs, a lute, a girl who swallows fire, and a man who claims to know three hundred songs and forgets the middles of most. Winter is long.`,
   choices:[
@@ -2704,6 +2704,38 @@ const EVENTS = [
       chron('In this year the king refused his son the succession, and the son went to the king’s enemy, and the father read Absalom with new attention.'); }},
     {t:'"When you have earned it." Stall him. (both sons resent the scales still swinging)', fx:()=>{ addOp(ch('richard'),'henry2',-15); addOp(ch('johnl'),'henry2',-10); }},
   ]})},
+{id:'buildruins', w:6, trig:['build','develop'], cond:()=>true, run:()=>{
+  const p = pick(realmProvs(G.player).filter(x=>!pv(x).occ)) || PRL().cap;
+  return { title:'Old Stones at '+PROVDATA[p].n,
+  text:`Digging foundations at ${PROVDATA[p].n}, the workmen strike dressed stone — a buried Roman villa, its floors bright with pagan gods. The masons want it blessed; the peasants want the lead; an antiquary you did not hire wants a word.`,
+  choices:[
+    {t:'Strip it for coin and cut stone. (+10 gold)', fx:()=>{ PRL().gold+=10; }},
+    {t:'Consecrate the ground and raise a chapel over it. (+5 legitimacy)', fx:()=>{ PRL().leg=clamp(PRL().leg+5,0,100); }},
+  ]};}},
+{id:'envoyreturn', w:6, trig:['envoy','gift'], cond:()=>Object.values(G.realms).some(r=>!r.dead&&r.id!==G.player&&!warBetween(r.id,G.player)), run:()=>{
+  const r = pick(Object.values(G.realms).filter(x=>!x.dead&&x.id!==G.player&&!warBetween(x.id,G.player)));
+  return { title:'A Return Embassy',
+  text:`Hard on the heels of your own envoy, ${esc(r.n)} sends one back — with gifts, flattery, and a proposal folded inside the courtesy: a common cause, if you are minded to it.`,
+  choices:[
+    {t:`Warm the friendship. (+15 opinion with ${esc(r.n)})`, fx:()=>{ addOp(ruler(r.id), PR().id, 15); }},
+    {t:'Take the gifts, promise nothing. (+6 gold)', fx:()=>{ PRL().gold+=6; }},
+  ]};}},
+{id:'plotwaver', w:6, trig:['plotMurder','plotSlander'], cond:()=>G.plots.some(p=>p.mine&&(p.type==='murder'||p.type==='slander')), run:()=>{
+  const p = pick(G.plots.filter(x=>x.mine&&(x.type==='murder'||x.type==='slander')));
+  return { title:'A Conspirator’s Cold Feet',
+  text:`One of your quiet men in the ${p.type} against ${esc(plotTargetName(p))} has grown loud in his silences. He wants more coin, or a way out — and a frightened man is a leak with legs.`,
+  choices:[
+    {t:'Pay him to hold his nerve. (-8 gold, the plot advances)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-8); p.progress=Math.min(95,p.progress+20); }},
+    {t:'Silence him for good. (-4 legitimacy, the secret keeps)', fx:()=>{ PRL().leg=clamp(PRL().leg-4,0,100); }},
+    {t:'Let him run. (the plot slows; discovery looms)', fx:()=>{ p.progress=Math.max(0,p.progress-15); if(chance(.3)) p.exposed=1; }},
+  ]};}},
+{id:'warvolunteers', w:6, trig:['war'], cond:()=>atWar(G.player).length>0, run:()=>({
+  title:'The Banner Draws Swords',
+  text:`War has a way of emptying halls. Landless younger sons, hedge-knights, and second cousins with debts and grudges come riding to your muster, smelling plunder and a place in the chronicle.`,
+  choices:[
+    {t:'Take the best of them. (+150 retinue)', fx:()=>{ PRL().retinue=Math.min(900,PRL().retinue+150); }},
+    {t:'Feast them and send the rabble home. (-4 gold, court +4 opinion)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-4); for(const c of myCourt()) addOp(c,PR().id,4); }},
+  ]})},
 ];
 function fireEvents(scriptedOnly){
   const eligible = EVENTS.filter(e=>{
@@ -2712,9 +2744,9 @@ function fireEvents(scriptedOnly){
   });
   /* scripted (w=99) always fire; then up to 2 random others */
   const scripted = eligible.filter(e=>e.w===99);
-  const rest = scriptedOnly ? [] : eligible.filter(e=>e.w<99);
+  const rest = scriptedOnly ? [] : eligible.filter(e=>e.w<99 && !e.trig);
   const chosen = [...scripted.slice(0,2)];
-  let budget = chance(.75) ? 1 : 2;
+  let budget = chance(.5) ? 1 : 0;  /* the rest now arrive mid-turn, triggered by your actions */
   while(budget-- > 0 && rest.length){
     const tot = rest.reduce((s,e)=>s+e.w,0);
     let roll = R()*tot;
@@ -3643,6 +3675,7 @@ const UI = {
     <h3>The Season</h3>Each season your crown gives one order of any kind (👑), and each councillor carries out one task of their office: the marshal (⚔) musters, marches and recruits; the steward (🔑) builds, develops and squeezes; the spymaster (🗡) plots and forges; the chaplain (🕊) prays, parleys and sends envoys. When a councillor’s order is spent — or a seat stands empty — the crown may see to it in person, spending its own. A child ruler has no crown order. Armies march once a season for free. Muster in spring, strike in summer; autumn and winter maul armies left in the field. Buildings take a year of construction.<br><br>
     <h3>Sieges</h3>March onto an undefended enemy province and the siege begins by itself: each season it advances by 30 + 2×your commander's ⚔ + fortune, minus 22 if the province has a castle. At 100% the province is occupied, your treasury takes its loot, and your war score climbs. Occupying everything forces even a stubborn enemy to yield.<br><br>
     <h3>The Game of Thrones</h3><b>Marriage</b> buys alliances · <b>claims</b> make war lawful (the monks can forge one) · <b>legitimacy</b> keeps your nobles honest · <b>opinion</b> decides who joins whose plot — and plots run always, including against you. Your spymaster is your shield; Rome can bless you or cast you out.<br><br>
+    <h3>Deeds Have Consequences</h3>The court does not wait for the new year to react. Muster a host and a captain may ride to your banner; endow the Church and a relic-seller appears; set a plot in motion and a conspirator may lose his nerve — events now surface <em>as you act</em>, not just at the season's turn, so a busy season is a lively one.<br><br>
     <h3>Victory</h3>Be crowned Emperor at the province threshold shown in your realm panel · keep the dynasty alive a hundred years · or amass 2500 ☀ prestige.<br><br>
     <h3>The Hand on the Reins</h3><b>Space</b> ends the season · <b>F</b> hurries quiet seasons · <b>Esc</b> deselects · hover anything for detail · the Council Advises panel always suggests a sensible next move. Save often; die well.`,
     [{t:'To the throne room.', fx:()=>{}}]);
@@ -3725,6 +3758,23 @@ const Game = {
       return true; }
     toast('Every hand at court is busy — end the season');
     return false; },
+  react(kind){
+    /* an action can spark a consequence in the same season, thematically tied to it */
+    if(!G || G.over || G._ff) return;
+    if(G.eventQueue.length) return;
+    if(!chance(.28)) return;
+    const pool = EVENTS.filter(e=>{
+      if(!e.trig || !e.trig.includes(kind)) return false;
+      if(e.once && G.flags['ev_'+e.id]) return false;
+      try{ return e.cond(); }catch(_){ return false; }
+    });
+    if(!pool.length) return;
+    const tot = pool.reduce((s,e)=>s+e.w,0);
+    let roll = R()*tot, e = pool[0];
+    for(const x of pool){ roll -= x.w; if(roll<=0){ e=x; break; } }
+    G.flags['ev_'+e.id]=1;
+    try{ const ev=e.run(); if(ev) queueEvent(ev); }catch(err){ console.error('react',e.id,err); }
+  },
   act(type, a, b){
     if(this.busy()) return;
     const R_ = PRL();
@@ -3843,6 +3893,7 @@ const Game = {
         toast('👑 Crown Court: <b>+8 legitimacy</b>, the great swear their oaths anew');
         logIt('court','The crown-wearing at Christmas court: oaths, candles, and a realm reminded who rules it.'); break; }
     }
+    this.react(type);
     UI.renderAll();
   },
   confirmWar(tgt, cb, claimantId){
@@ -3866,6 +3917,7 @@ const Game = {
         else declareWar(G.player, tgt, cb, claimantId);
         if(cb.holy){ PRL().leg=clamp(PRL().leg+5,0,100); toast(`${RELICO[PRL().rel]}⚔ <b>Holy war!</b> The clergy proclaim it righteous`); }
         else toast(`⚔ <b>War!</b> ${esc(rl(tgt).n)} is the enemy`);
+        Game.react('war');
       }},
       {t:'— Hold. Not yet. —', fx:()=>{}},
     ]);

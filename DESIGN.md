@@ -408,6 +408,25 @@ a payoff, a calendar identity, and put people behind the actions.
   seat-holder by name, and marriage-match pickers show acceptance odds for
   every candidate.
 
+### v2.6 — the reactive court (SHIPPED)
+Answer to "getting several events at once at the start of a turn feels
+odd; I'd rather events also fire from what I do."
+- **Action-triggered events**: ~22 flavor events are now tagged with the
+  action(s) that can spark them (`trig`), and each player action rolls a
+  ~28% chance to fire a thematically matched one immediately — muster
+  draws captains, eagles and free companies; building uncovers Roman
+  ruins or fills a convoy; endowing Rome brings relics and legates;
+  plotting brings a wavering conspirator; declaring war draws volunteers
+  and offers of assassination.
+- **Four new reaction events**: buried Roman stones (build/develop), a
+  return embassy (envoy/gift), a conspirator's cold feet (plots), the
+  banner drawing swords (war).
+- **Thinner season starts**: reactive events are pulled out of the
+  season-opening random pool, and that pool's budget is cut so a new
+  season no longer dumps a stack of modals — scripted historical beats
+  still open the season, but the flavor now spreads across the turn as
+  you play it.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
