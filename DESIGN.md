@@ -461,6 +461,23 @@ A dedicated economic screen, and one shared finance model behind it.
   long war carries a genuine drag on the treasury.
 - The topbar gold box is clickable — it opens the Treasury.
 
+### v2.9 — allies & rivals (SHIPPED)
+Diplomacy was only legible one court at a time; now the whole web is.
+- **Relations tab**: a "Sworn Allies" section (each with the marriage that
+  binds the realms, combined levy, and a warning if the ally is already at
+  war), a "Rivals" section (ranked by threat, each with its reason — claim
+  on your crown, claim on your land, active war, or deep enmity — its
+  relative strength, and whether one of your allies shares the grudge), and
+  a full "Every Court's Disposition" list ranking all living realms by their
+  ruler's opinion of you. Every row jumps the map to that realm.
+- **Formal rivalry**: `relationReasons(rid)` derives ally/rival status and
+  the human-readable factors behind it (faith, marriage, truce, claims,
+  excommunication) from existing state — no parallel bookkeeping. A realm is
+  a rival if it wars you, claims your crown or land, or its ruler's opinion
+  falls below −35. At the 1066 start this correctly names Denmark and Norway,
+  both pressing claims on England.
+- **Overview** gains an Allies / Rivals tally that links to the tab.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

@@ -118,8 +118,8 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 #log .war::before{content:"⚔ "; opacity:.7} #log .plot::before{content:"🗡 "; opacity:.7} #log .court::before{content:"❧ "; opacity:.7}
 
 /* ---------- tabs & rows ---------- */
-.tabs{display:flex; gap:4px; margin-bottom:9px}
-.tabs button{flex:1; font-size:11px; padding:4px 2px; font-family:var(--disp); letter-spacing:.5px; text-transform:uppercase}
+.tabs{display:flex; flex-wrap:wrap; gap:4px; margin-bottom:9px}
+.tabs button{flex:1 1 21%; min-width:58px; font-size:11px; padding:4px 2px; font-family:var(--disp); letter-spacing:.5px; text-transform:uppercase}
 .tabs button.on{background:linear-gradient(#8c3a31,#6d251f); color:#f3e6c8; border-color:#4c1712}
 .charRow{display:flex; align-items:center; gap:8px; padding:5px 4px; border-bottom:1px dotted var(--line);
   cursor:pointer; border-radius:3px; transition:background .12s}
@@ -158,6 +158,21 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 .econRow.occ{opacity:.55}
 .econHead span, .econRow span{text-align:right; font-variant-numeric:tabular-nums}
 .econHead span:first-child, .econRow .en{text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.relCard{border:1px solid var(--line); border-left:3px solid var(--line); border-radius:4px; padding:6px 9px; margin:5px 0; cursor:pointer; transition:background .12s}
+.relCard:hover{background:rgba(138,109,31,.10)}
+.relCard.ally{border-left-color:#5b8a4e}
+.relCard.rival{border-left-color:#8c3a31}
+.relTop{display:flex; justify-content:space-between; align-items:baseline; gap:8px}
+.relTop b{font-family:var(--disp); font-size:14px}
+.relCard .tag{font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; white-space:nowrap}
+.relSub{font-size:12px; color:var(--ink2,#6b5a3c); margin-top:2px; line-height:1.35}
+.relList{border:1px solid var(--line); border-radius:4px; overflow:hidden; margin-top:4px}
+.relRow{display:grid; grid-template-columns:1fr 3em 3.4em; gap:6px; align-items:center; padding:3px 9px; border-top:1px dotted var(--line); cursor:pointer; font-size:12.5px}
+.relRow:first-child{border-top:none}
+.relRow:hover{background:rgba(138,109,31,.10)}
+.relRow .rn{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.relRow .ro{text-align:right; font-variant-numeric:tabular-nums; font-weight:bold}
+.relRow .rtag{text-align:right; font-size:10.5px; text-transform:uppercase; letter-spacing:.5px}
 .advRow:first-of-type{border-top:none}
 .advRow .txt{flex:1; font-size:12.5px; line-height:1.4}
 button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0); font-weight:bold}
@@ -397,6 +412,7 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
       <button id="tabCouncil" onclick="UI.tab('council')">Council</button>
       <button id="tabWars" onclick="UI.tab('wars')">Wars</button>
       <button id="tabTreasury" onclick="UI.tab('treasury')">Treasury</button>
+      <button id="tabRelations" onclick="UI.tab('relations')">Relations</button>
       <button id="tabPlots" onclick="UI.tab('plots')">Plots</button>
     </div>
     <div id="leftBody"></div>
@@ -1398,6 +1414,34 @@ function allianceBetween(ra, rb){
 function breakAlliance(ra, rb){
   G.alliances = G.alliances.filter(x=>!((x.a===ra&&x.b===rb)||(x.a===rb&&x.b===ra)));
 }
+function relationReasons(rid){
+  const R_ = rl(rid), rul = ruler(rid), me = PR();
+  const op = rul ? opinion(rul, me) : 0;
+  const al = allianceBetween(rid, G.player);
+  const w = warBetween(rid, G.player);
+  const tr = truceBetween(rid, G.player);
+  const sameF = R_.rel === PRL().rel;
+  const theirChars = Object.values(G.chars).filter(c=>alive(c)&&c.realm===rid);
+  const crownClaim = theirChars.some(c=>c.claims.includes(G.player));
+  const landClaims = [];
+  for(const c of theirChars) for(const p of c.pclaims) if(pv(p)&&pv(p).r===G.player) landClaims.push(p);
+  const myClaims = [];
+  for(const c of [PR(), ...myCourt()]){ if(!alive(c)) continue;
+    if(c.claims.includes(rid)) myClaims.push('throne');
+    for(const p of c.pclaims) if(pv(p)&&pv(p).r===rid) myClaims.push(p); }
+  const factors = [];
+  if(w) factors.push({ico:'⚔', txt:'at war with you', good:false});
+  else if(al) factors.push({ico:'⚭', txt:'bound to you by marriage', good:true});
+  else if(tr) factors.push({ico:'🕊', txt:'under truce until '+tr.until, good:true});
+  factors.push(sameF ? {ico:RELICO[R_.rel], txt:'shares your faith', good:true} : {ico:RELICO[R_.rel], txt:'of another faith', good:false});
+  if(crownClaim) factors.push({ico:'👑', txt:'claims your crown', good:false});
+  if(landClaims.length) factors.push({ico:'📜', txt:'claims '+landClaims.map(p=>PROVDATA[p].n).join(', '), good:false});
+  if(R_.excomm) factors.push({ico:'☩', txt:'lies excommunicate', good:false});
+  const rival = !al && !!(w || crownClaim || landClaims.length || op <= -35);
+  const threat = realmStrength(rid)/Math.max(1, realmStrength(G.player));
+  return {realm:R_, rul, op, al, w, tr, sameF, crownClaim, landClaims, myClaims, factors, rival, threat};
+}
+function isRival(rid){ return relationReasons(rid).rival; }
 function aiFillCouncil(rid){
   const R_ = rl(rid);
   const court = Object.values(G.chars).filter(c=>alive(c)&&c.realm===rid&&c.id!==R_.ruler&&age(c)>=16);
@@ -2961,7 +3005,7 @@ function aiTurn(rid){
 const UI = {
   tabSel:'dyn',
   tab(t){ this.tabSel = t; this.renderLeft();
-    for(const x of ['Dyn','Court','Council','Treasury','Wars','Plots']) document.getElementById('tab'+x).classList.toggle('on', x.toLowerCase()===t);
+    for(const x of ['Dyn','Court','Council','Treasury','Relations','Wars','Plots']) document.getElementById('tab'+x).classList.toggle('on', x.toLowerCase()===t);
   },
   centroid(pts){
     let x=0,y=0; for(const p of pts){x+=p[0];y+=p[1];} return [x/pts.length, y/pts.length];
@@ -3354,6 +3398,45 @@ const UI = {
       h += `<div class="hint">Develop provinces (each level adds tax) and raise markets (+2 tax) to grow revenue. Autumn’s harvest doubles the yield — time your spending around it. Retinue and hosts in the field draw pay every season.</div>`;
       el.innerHTML = h;
     }
+    if(t==='relations'){
+      const others = Object.values(G.realms).filter(r=>!r.dead && r.id!==G.player && ruler(r.id));
+      const info = others.map(r=>relationReasons(r.id)).sort((a,b)=>b.op-a.op);
+      const allies = info.filter(x=>x.al);
+      const rivals = info.filter(x=>x.rival).sort((a,b)=>b.threat-a.threat);
+      let h = `<h3>Foreign Relations</h3>`;
+      h += `<div class="eyebrow" style="margin-top:2px">Sworn Allies · ${allies.length}</div>`;
+      if(!allies.length) h += `<div class="hint">No sworn allies. A marriage between your house and another’s binds the realms while both spouses live — arrange matches through a foreign court’s diplomacy panel.</div>`;
+      for(const x of allies){
+        const via = x.al.via && ch(x.al.via), spouse = via && via.sp && ch(via.sp);
+        const bond = via && spouse ? `${esc(fullName(via))} ⚭ ${esc(fullName(spouse))}` : 'a royal marriage';
+        const theirWar = atWar(x.realm.id);
+        h += `<div class="relCard ally" onclick="UI.focusRealm('${x.realm.id}')">
+          <div class="relTop"><b>${RELICO[x.realm.rel]} ${esc(x.realm.n)}</b><span class="tag pos">ally</span></div>
+          <div class="relSub">${esc(fullName(x.rul))} · ~${fmtN(realmStrength(x.realm.id))} levy · bound by ${bond}${theirWar.length?` · <span class="neg">already at war — your call would embroil you</span>`:''}</div></div>`;
+      }
+      h += `<div class="eyebrow" style="margin-top:13px">Rivals · ${rivals.length}</div>`;
+      if(!rivals.length) h += `<div class="hint">No open rivals — for now. A claim on your crown or your land, an active war, or a ruler who despises you (opinion below −35) marks a realm as your rival.</div>`;
+      for(const x of rivals){
+        const reason = x.w ? 'at war' : x.crownClaim ? 'claims your crown' : x.landClaims.length ? 'claims '+x.landClaims.map(p=>PROVDATA[p].n).join(', ') : 'bears you deep enmity';
+        const th = x.threat>=1.3?'<span class="neg">stronger than you</span>':x.threat>=0.7?'a near match':'<span class="pos">weaker than you</span>';
+        const shared = allies.filter(a=>warBetween(a.realm.id, x.realm.id) || (ruler(a.realm.id)&&opinion(ruler(a.realm.id), x.rul)<=-20)).map(a=>a.realm.n);
+        h += `<div class="relCard rival" onclick="UI.focusRealm('${x.realm.id}')">
+          <div class="relTop"><b>${RELICO[x.realm.rel]} ${esc(x.realm.n)}</b><span class="tag neg">${reason}</span></div>
+          <div class="relSub">${esc(fullName(x.rul))} · ~${fmtN(realmStrength(x.realm.id))} levy · ${th} · opinion <span class="${x.op>=0?'pos':'neg'}">${x.op>0?'+':''}${x.op}</span>${shared.length?` · <span class="pos">shares enmity with your ally ${esc(shared[0])}</span>`:''}</div></div>`;
+      }
+      h += `<h3 style="margin-top:13px">Every Court’s Disposition</h3>`;
+      h += `<div class="relList">`;
+      for(const x of info){
+        const tag = x.al?'<span class="pos">ally</span>':x.w?'<span class="neg">war</span>':x.rival?'<span class="neg">rival</span>':x.tr?'<span class="hint" style="margin:0">truce</span>':'';
+        h += `<div class="relRow" onclick="UI.focusRealm('${x.realm.id}')">
+          <span class="rn">${RELICO[x.realm.rel]} ${esc(x.realm.n)}</span>
+          <span class="ro ${x.op>=0?'pos':'neg'}">${x.op>0?'+':''}${x.op}</span>
+          <span class="rtag">${tag}</span></div>`;
+      }
+      h += `</div>`;
+      h += `<div class="hint">Opinion is your ruler’s standing in each foreign court: it decides who accepts your marriages, who answers a call to arms, and who joins plots against you. Envoys and gifts raise it; shared faith and marriage bind; claims and a foreign faith divide.</div>`;
+      el.innerHTML = h;
+    }
     if(t==='court'){
       const court = myCourt().filter(c=>c.id!==PR().id).sort((a,b)=>opinion(b,PR())-opinion(a,PR()));
       el.innerHTML = `<h3>The Court</h3>` + court.map(c=>{
@@ -3549,6 +3632,10 @@ const UI = {
       <div class="kv"><span>Steward bonus</span><b>+${Math.round(councilBonus(G.player,'steward')*4)}%</b></div>`;
     h += `<div class="kv"><span>Succession law</span><b>${R_.law==='elective'?'Elective':'Primogeniture'}</b></div>`;
     h += `<div class="kv"><span>Faith</span><b>${RELICO[R_.rel]} ${RELNAME[R_.rel]}</b></div>`;
+    { const others = Object.values(G.realms).filter(r=>!r.dead && r.id!==G.player && ruler(r.id));
+      const nAl = others.filter(r=>allianceBetween(r.id,G.player)).length;
+      const nRiv = others.filter(r=>isRival(r.id)).length;
+      h += `<div class="kv" style="cursor:pointer" onclick="UI.tab('relations')"><span>Allies / Rivals</span><b><span class="${nAl?'pos':''}">${nAl}</span> / <span class="${nRiv?'neg':''}">${nRiv}</span></b></div>`; }
     if(R_.excomm) h += `<div class="kv"><span>Standing with Rome</span><b class="neg">EXCOMMUNICATE</b></div>`;
     h += `<div class="actBtns">
       <button onclick="Game.act('feast')" ${!Game.can('feast')||R_.gold<10?'disabled':''} data-tip="+10 prestige and +6 opinion with everyone at court">Host a feast (👑 10🪙)</button>
