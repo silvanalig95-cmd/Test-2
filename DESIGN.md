@@ -583,6 +583,32 @@ last sparse quarter of the map (268 provinces).
   a Hålogaland–Trøndelag coastal link. The whole map now reads at one
   density from Ireland to the Volga and Norway to Mecca.
 
+### v3.5 — clearer orders, faster map (SHIPPED)
+Three fixes from playtesting feedback.
+- **Orders are one pool again (Option C).** The embodied per-councillor
+  gating was hard to read — you had to learn which action belonged to which
+  seat. Now you have a single pool of orders (⚡) spent on *anything*, sized
+  by your council: **one for the crown plus one for each seated councillor**
+  (five at a full council, fewer with an empty seat or a child's regency).
+  This keeps the one good idea of the embodied model — a fuller, abler
+  council literally lets you do more, a regency cripples you — while
+  restoring the old "spend a point on whatever" clarity. Every button now
+  shows a single ⚡ cost; the top bar shows the pool with a tooltip that
+  explains where the number comes from. The council still gives its skill
+  bonuses and voices the advice, so staffing it well matters twice over.
+- **No double-fabrication.** You can no longer start forging a claim on a
+  province where your monks are already at work — the action is refused and
+  the button reads "Claim being forged…".
+- **The map is much faster.** The renderer used to tear down and rebuild the
+  entire SVG (268 provinces, labels, rivers, two turbulence filters) on
+  every action and every click. It now builds that static geometry once and,
+  thereafter, only repaints what actually moves — fills, the realm
+  spotlight, marks and army tokens — via direct attribute updates. A
+  selection/repaint dropped from a full rebuild to ~2.5 ms, so clicking
+  around the map is smooth again. No rewrite or new language needed — the
+  bottleneck was DOM churn, not computation, and the game stays one portable
+  self-contained HTML file.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

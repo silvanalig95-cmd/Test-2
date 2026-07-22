@@ -3084,12 +3084,11 @@ const UI = {
     document.getElementById('prsBox').innerHTML = `☀ <b>${Math.floor(R_.prs)}</b><i class="resLbl"> prestige</i>`;
     document.getElementById('legBox').innerHTML = `✠ <b>${Math.floor(R_.leg)}</b><i class="resLbl"> legitimacy</i>`;
     document.getElementById('endBtn').innerHTML = `End ${SEASONS[G.season]} ⏵`;
-    const seatTip = s => { if(s==='ruler') return G.regency ? 'Regency — a child cannot command; the crown’s own order is lost' : 'The crown’s own order: spend it on any action, or to stand in for a busy councillor';
-      const cid = R_.council[s], c2 = cid&&ch(cid);
-      return c2&&alive(c2) ? `${SEATNAME[s]} ${fullName(c2)}${G.orders&&G.orders[s]?' — awaits your order':' — has done this season’s work'}` : `No ${SEATNAME[s].toLowerCase()} — appoint one in the Council tab`; };
-    document.getElementById('apBox').innerHTML = `<span class="apLbl">Orders</span> ` +
-      ['ruler','marshal','steward','spymaster','chaplain'].map(s=>`<span class="apPip${G.orders&&G.orders[s]?' on':''}" data-tip="${esc(seatTip(s))}">${SEATICO[s]}</span>`).join('') +
-      (G.orders && !Object.values(G.orders).some(x=>x) ? ` <span class="apNone">all spent — end the season</span>`:'');
+    const oMax = G.ordersMax||0, oLeft = G.ordersLeft||0, seats = councilSize(G.player);
+    const otip = `Orders you may give this season: <b>${oLeft} of ${oMax}</b>. Spend any of them on any action.<br>The pool is your crown${G.regency?' <i>(empty — a child cannot command)</i>':''} plus one for each of your ${seats} seated councillor${seats===1?'':'s'} — a fuller, abler council lets you do more; an empty seat or a regency, less.`;
+    document.getElementById('apBox').innerHTML = `<span class="apLbl" data-tip="${esc(otip)}">Orders</span> ` +
+      Array.from({length:oMax},(_,i)=>`<span class="apPip${i<oLeft?' on':''}" data-tip="${esc(otip)}">⚡</span>`).join('') +
+      (oLeft===0?` <span class="apNone">all spent — end the season</span>`:'');
     document.getElementById('endBtn').disabled = !!G.over;
   },
   provTip(pid){
@@ -3119,7 +3118,16 @@ const UI = {
     return t.replace(/"/g,'&quot;');
   },
   renderMap(){
-    const svg = document.getElementById('mapSvg');
+    /* the map geometry never changes at runtime, so build the heavy static SVG
+       (coastlines, fills, rivers, labels, filters) once and thereafter only
+       repaint the parts that move — fills, spotlight, marks and army tokens. */
+    if(!document.getElementById('fillLayer')) this.renderMapBase();
+    this.renderMapDynamic();
+  },
+  renderMapBase(){
+    const svg = document.getElementById('mapSvg'); if(!svg) return;
+    const dOf = {};
+    for(const [pid, pd] of Object.entries(PROVDATA)) dOf[pid] = pd.polys.map(r=>'M'+r.map(pt=>pt.join(' ')).join('L')+'Z').join('');
     let h = `<defs>
       <filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" seed="7" result="n"/>
         <feDisplacementMap in="SourceGraphic" in2="n" scale="7"/></filter>
@@ -3130,15 +3138,8 @@ const UI = {
       <filter id="parchtex"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" result="n"/>
         <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.42 0 0 0 0 0.33 0 0 0 0 0.18 0 0 0 0.06 0"/>
         <feComposite in2="SourceGraphic" operator="over"/></filter>
-    </defs>`;
-    /* striped pattern per occupier */
-    const occCols = new Set();
-    for(const p of Object.keys(G.provinces)) if(pv(p).occ) occCols.add(pv(p).occ);
-    for(const o of occCols){
-      h += `<pattern id="occ_${o}" width="9" height="9" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
-        <rect width="9" height="9" fill="${rl(o).col}"/><rect width="9" height="4" fill="rgba(20,12,4,.35)"/></pattern>`;
-    }
-    /* the sea: labels, rhumb lines, compass, cartouche */
+    </defs>
+    <defs id="occDefs"></defs>`;
     h += `<g class="seaDeco">
       <text class="seaLbl" x="430" y="332" style="font-size:13px;letter-spacing:3px">Mare Germanicum</text>
       <text class="seaLbl" x="580" y="368" style="font-size:10px;letter-spacing:2px">Mare Balticum</text>
@@ -3157,53 +3158,22 @@ const UI = {
       <g class="cartouche">
         <rect x="24" y="20" width="272" height="56" rx="5"/>
         <text x="160" y="44">CROWN &amp; REALM</text>
-        <text class="cartSub" x="160" y="62">Europa Septentrionalis · anno ${G.year}</text>
+        <text class="cartSub" x="160" y="62">Europa Septentrionalis · anno <tspan id="cartYear"></tspan></text>
       </g>
     </g>`;
-    const selProv = G.sel && G.sel.t==='prov' ? G.sel.id : null;
-    const moveTargets = G.moveMode ? Game.moveTargets() : {land:[],sea:[]};
-    /* which realm to spotlight: the one behind the current selection */
-    let hlRealm = null;
-    if(!G.moveMode && G.sel){
-      if(G.sel.t==='prov') hlRealm = pv(G.sel.id) ? pv(G.sel.id).r : null;
-      else if(G.sel.t==='char'){ const c = ch(G.sel.id); hlRealm = c ? c.realm : null; }
-      else if(G.sel.t==='army'){ const a = G.armies.find(x=>x.id===G.sel.id); hlRealm = a ? a.realm : null; }
-    }
-    /* cache each province's path string once */
-    const dOf = {};
-    for(const [pid, pd] of Object.entries(PROVDATA)) dOf[pid] = pd.polys.map(r=>'M'+r.map(pt=>pt.join(' ')).join('L')+'Z').join('');
     h += `<g style="filter:drop-shadow(2px 5px 6px rgba(30,20,5,.45))"><g filter="url(#rough)">`;
-    /* underlay: thick dark stroke on every landmass — interiors are covered by fills,
-       so only the coast (where sea lies beyond the fill) keeps its bold outline */
     h += `<g class="coastUnder">`;
     for(const [pid, pd] of Object.entries(PROVDATA)) h += `<path d="${dOf[pid]}" fill-rule="evenodd"/>`;
-    h += `</g>`;
-    /* fills + faint interior borders */
+    h += `</g><g id="fillLayer">`;
     for(const [pid, pd] of Object.entries(PROVDATA)){
-      const st = pv(pid);
-      if(pd.waste){
-        h += `<path class="provPath waste${hlRealm?' dimmed':''}" d="${dOf[pid]}" fill-rule="evenodd" fill="url(#${pd.t==='desert'?'desertPat':'wastePat'})" data-tip="<b>${esc(pd.n)}</b><br>${pd.t==='desert'?'Trackless desert — no host crosses it':'Impassable high mountains'}"></path>`;
-        continue;
-      }
-      let fill;
-      if(st.occ) fill = `url(#occ_${st.occ})`;
-      else if(st.r && rl(st.r)){
-        const f = [0.9,0.95,1.0,1.05,1.1][this.dynHash(pid)%5]; /* same realm reads as shades of one hue */
-        fill = this.shade(rl(st.r).col, f);
-      } else fill = '#8a8a80';
-      const inHl = hlRealm && st.r===hlRealm;
-      const cls = 'provPath' + (selProv===pid?' sel':'') + (inHl&&selProv!==pid?' hlRealm':'') + (hlRealm&&!inHl?' dimmed':'') + (moveTargets.land.includes(pid)||moveTargets.sea.includes(pid)?' moveTarget':'');
-      h += `<path class="${cls}" d="${dOf[pid]}" fill-rule="evenodd" fill="${fill}" data-tip="${this.provTip(pid)}" onclick="UI.selProv('${pid}')"></path>`;
+      if(pd.waste) h += `<path id="p_${pid}" class="provPath waste" d="${dOf[pid]}" fill-rule="evenodd" fill="url(#${pd.t==='desert'?'desertPat':'wastePat'})"></path>`;
+      else h += `<path id="p_${pid}" class="provPath" d="${dOf[pid]}" fill-rule="evenodd" onclick="UI.selProv('${pid}')"></path>`;
     }
-    h += `</g></g>`;
-    /* rivers (crisp, above land, below labels) */
+    h += `</g></g></g>`;
     h += `<g class="rivers">`;
     for(const [nm, pts] of Object.entries(RIVERS)){
       let d = `M${pts[0][0]} ${pts[0][1]}`;
-      for(let i=1;i<pts.length;i++){
-        const a=pts[i-1], b=pts[i];
-        d += ` Q${a[0]} ${a[1]} ${(a[0]+b[0])/2} ${(a[1]+b[1])/2}`;
-      }
+      for(let i=1;i<pts.length;i++){ const a=pts[i-1], b=pts[i]; d += ` Q${a[0]} ${a[1]} ${(a[0]+b[0])/2} ${(a[1]+b[1])/2}`; }
       d += ` L${pts[pts.length-1][0]} ${pts[pts.length-1][1]}`;
       h += `<path class="river" d="${d}"><title>${nm}</title></path>`;
     }
@@ -3213,21 +3183,65 @@ const UI = {
       forest:(x,y)=>`<path class="tglyphF" d="M${x-8} ${y} l4 -8 l4 8 z M${x+1} ${y} l4 -8 l4 8 z"/>`,
       marsh:(x,y)=>`<path class="tglyph" d="M${x-8} ${y-3} h7 M${x+1} ${y-3} h7 M${x-4} ${y+1} h8"/>`,
     };
+    h += `<g id="labelLayer">`;
     for(const [pid, pd] of Object.entries(PROVDATA)){
       const [cx, cy] = pd.lbl;
       if(pd.waste){ if(!{alps2:1,sahara_w:1}[pid]) h += `<text class="provName waste" x="${cx}" y="${cy+3}" text-anchor="middle">${esc(pd.n)}</text>`; continue; }
       h += `<text class="provName${pd.area<430?' small':''}" x="${cx}" y="${cy+3}">${esc(pd.n)}</text>`;
       if(TG[pd.t] && pd.area>500) h += TG[pd.t](cx, cy-11);
-      if(pv(pid).bld) h += `<text class="bldIco small" x="${cx-16}" y="${cy+4}">${BUILDINGS[pv(pid).bld].ico}</text>`;
-      else if(pv(pid).cons) h += `<text class="bldIco small" x="${cx-16}" y="${cy+4}">🏗</text>`;
-      if(rl(pv(pid).r) && rl(pv(pid).r).cap===pid && !rl(pv(pid).r).dead)
-        h += `<text class="capStar" x="${cx}" y="${cy-10}" text-anchor="middle" font-size="11" fill="#ffe9a0" style="paint-order:stroke" stroke="rgba(30,20,8,.7)" stroke-width="2">♛</text>`;
-      if(G.armies.some(a=>a.prov===pid && a.siege>0))
-        h += `<text class="siegeIco" x="${cx+22}" y="${cy-8}" font-size="13">🔥</text>`;
     }
+    h += `</g><g id="markLayer"></g><g id="armyLayer"></g>`;
+    svg.innerHTML = h;
+  },
+  renderMapDynamic(){
+    const svg = document.getElementById('mapSvg'); if(!svg) return;
+    /* occupation stripe patterns for whoever currently holds foreign ground */
+    const occCols = new Set();
+    for(const p of Object.keys(G.provinces)) if(pv(p).occ) occCols.add(pv(p).occ);
+    let od = '';
+    for(const o of occCols) od += `<pattern id="occ_${o}" width="9" height="9" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="9" height="9" fill="${rl(o).col}"/><rect width="9" height="4" fill="rgba(20,12,4,.35)"/></pattern>`;
+    const occEl = document.getElementById('occDefs'); if(occEl) occEl.innerHTML = od;
+    const yrEl = document.getElementById('cartYear'); if(yrEl && yrEl.textContent!=String(G.year)) yrEl.textContent = G.year;
+    const selProv = G.sel && G.sel.t==='prov' ? G.sel.id : null;
+    const moveTargets = G.moveMode ? Game.moveTargets() : {land:[],sea:[]};
+    const mtSet = new Set([...moveTargets.land, ...moveTargets.sea]);
+    let hlRealm = null;
+    if(!G.moveMode && G.sel){
+      if(G.sel.t==='prov') hlRealm = pv(G.sel.id) ? pv(G.sel.id).r : null;
+      else if(G.sel.t==='char'){ const c = ch(G.sel.id); hlRealm = c ? c.realm : null; }
+      else if(G.sel.t==='army'){ const a = G.armies.find(x=>x.id===G.sel.id); hlRealm = a ? a.realm : null; }
+    }
+    for(const [pid, pd] of Object.entries(PROVDATA)){
+      const el = document.getElementById('p_'+pid); if(!el) continue;
+      const st = pv(pid);
+      if(pd.waste){ el.setAttribute('class', 'provPath waste' + (hlRealm?' dimmed':'')); continue; }
+      let fill;
+      if(st.occ) fill = `url(#occ_${st.occ})`;
+      else if(st.r && rl(st.r)){ const f = [0.9,0.95,1.0,1.05,1.1][this.dynHash(pid)%5]; fill = this.shade(rl(st.r).col, f); }
+      else fill = '#8a8a80';
+      const inHl = hlRealm && st.r===hlRealm;
+      const cls = 'provPath' + (selProv===pid?' sel':'') + (inHl&&selProv!==pid?' hlRealm':'') + (hlRealm&&!inHl?' dimmed':'') + (mtSet.has(pid)?' moveTarget':'');
+      el.setAttribute('fill', fill);
+      el.setAttribute('class', cls);
+      el.setAttribute('data-tip', this.provTip(pid));
+    }
+    /* marks: buildings, capitals, sieges */
+    let m = '';
+    for(const [pid, pd] of Object.entries(PROVDATA)){
+      if(pd.waste) continue;
+      const [cx, cy] = pd.lbl;
+      if(pv(pid).bld) m += `<text class="bldIco small" x="${cx-16}" y="${cy+4}">${BUILDINGS[pv(pid).bld].ico}</text>`;
+      else if(pv(pid).cons) m += `<text class="bldIco small" x="${cx-16}" y="${cy+4}">🏗</text>`;
+      if(rl(pv(pid).r) && rl(pv(pid).r).cap===pid && !rl(pv(pid).r).dead)
+        m += `<text class="capStar" x="${cx}" y="${cy-10}" text-anchor="middle" font-size="11" fill="#ffe9a0" style="paint-order:stroke" stroke="rgba(30,20,8,.7)" stroke-width="2">♛</text>`;
+      if(G.armies.some(a=>a.prov===pid && a.siege>0))
+        m += `<text class="siegeIco" x="${cx+22}" y="${cy-8}" font-size="13">🔥</text>`;
+    }
+    const markEl = document.getElementById('markLayer'); if(markEl) markEl.innerHTML = m;
     /* army tokens */
     const byProv = {};
     for(const a of G.armies){ (byProv[a.prov]=byProv[a.prov]||[]).push(a); }
+    let am = '';
     for(const [pid, list] of Object.entries(byProv)){
       const [cx, cy] = PROVDATA[pid].lbl;
       list.forEach((a,i)=>{
@@ -3237,14 +3251,14 @@ const UI = {
         const col = rl(a.realm).col;
         const dk = UI.shade(col, .6);
         const tipTxt = `<b>${esc(rl(a.realm).n)} host</b><br>${fmtN(a.levies)} levies · ${fmtN(a.retinue)} retinue · ${fmtN(a.mercs)} mercs<br>Commander: ${cm?esc(fullName(cm))+' ('+SKILLICO.mar+skill(cm,'mar')+')':'—'}${a.siege?`<br>Siege ${Math.min(99,Math.round(a.siege))}%`:''}`.replace(/"/g,'&quot;');
-        h += `<g class="armyTok" onclick="UI.selArmy('${a.id}')" data-tip="${tipTxt}"${seld?' style="filter:drop-shadow(0 0 5px rgba(255,233,138,.85))"':''}>
+        am += `<g class="armyTok" onclick="UI.selArmy('${a.id}')" data-tip="${tipTxt}"${seld?' style="filter:drop-shadow(0 0 5px rgba(255,233,138,.85))"':''}>
           <line x1="${x}" y1="${y+7}" x2="${x}" y2="${y-17}" stroke="${seld?'#ffe98a':'#241a0c'}" stroke-width="1.6"/>
           <path d="M${x+.8} ${y-16.5} h11.5 q4 2.2 0 4.4 q-4 2.2 0 4.4 h-11.5 z" fill="${col}" stroke="${dk}" stroke-width=".9"/>
           <rect x="${x-8.5}" y="${y+1}" width="17" height="9.5" rx="2.5" fill="#241a0c" stroke="${seld?'#ffe98a':dk}" stroke-width="1"/>
           <text x="${x}" y="${y+8}">${(armySize(a)/1000).toFixed(1)}</text></g>`;
       });
     }
-    svg.innerHTML = h;
+    const armyEl = document.getElementById('armyLayer'); if(armyEl) armyEl.innerHTML = am;
     svg.classList.toggle('zoomedOut', this.view.w > 620);
   },
   renderLog(){
@@ -3543,19 +3557,19 @@ const UI = {
       h += `<div class="kv" style="cursor:pointer" onclick="UI.tab('relations')"><span>Allies / Rivals</span><b><span class="${nAl?'pos':''}">${nAl}</span> / <span class="${nRiv?'neg':''}">${nRiv}</span></b></div>`; }
     if(R_.excomm) h += `<div class="kv"><span>Standing with Rome</span><b class="neg">EXCOMMUNICATE</b></div>`;
     h += `<div class="actBtns">
-      <button onclick="Game.act('feast')" ${!Game.can('feast')||R_.gold<10?'disabled':''} data-tip="+10 prestige and +6 opinion with everyone at court">Host a feast (👑 10🪙)</button>
-      <button onclick="Game.act('retinue')" ${!Game.can('retinue')||R_.gold<12?'disabled':''} data-tip="+100 permanent soldiers who fight year-round. Upkeep 0.5🪙/season; they join your next muster">Recruit retinue +100 (⚔ 12🪙)</button>
-      <button onclick="Game.act('court')" ${!Game.can('court')?'disabled':''} data-tip="+4 legitimacy; a random courtier warms to you">Convene court (🕊)</button>
+      <button onclick="Game.act('feast')" ${!Game.can('feast')||R_.gold<10?'disabled':''} data-tip="+10 prestige and +6 opinion with everyone at court">Host a feast (⚡ 10🪙)</button>
+      <button onclick="Game.act('retinue')" ${!Game.can('retinue')||R_.gold<12?'disabled':''} data-tip="+100 permanent soldiers who fight year-round. Upkeep 0.5🪙/season; they join your next muster">Recruit retinue +100 (⚡ 12🪙)</button>
+      <button onclick="Game.act('court')" ${!Game.can('court')?'disabled':''} data-tip="+4 legitimacy; a random courtier warms to you">Convene court (⚡)</button>
       ${[
-        `<button class="seasonal" onclick="Game.act('tourney2')" ${!Game.can('tourney2')||R_.gold<12||G.flags['sa'+G.year]?'disabled':''} data-tip="Spring only: lances, wagers and glory. +12 prestige, court +4 opinion">🏇 Spring tournament (⚔ 12🪙)</button>`,
-        `<button class="seasonal" onclick="Game.act('march')" ${!Game.can('march')||G.flags['sa'+G.year+'s']||!G.armies.some(a=>a.realm===G.player)?'disabled':''} data-tip="Summer only: drive the men hard — one host may march twice this season">⚔ Forced march (⚔)</button>`,
-        `<button class="seasonal" onclick="Game.act('harvest')" ${!Game.can('harvest')||G.flags['sa'+G.year+'a']?'disabled':''} data-tip="Autumn only: squeeze the harvest. +${realmProvs(G.player).filter(p=>!pv(p).occ).length} gold now; court -4 opinion, -3 legitimacy">🌾 Harvest levy (🔑)</button>`,
-        `<button class="seasonal" onclick="Game.act('crowncourt')" ${!Game.can('crowncourt')||R_.gold<8||G.flags['sa'+G.year+'w']?'disabled':''} data-tip="Winter only: the solemn crown-wearing. +8 legitimacy, court +6 opinion">👑 Crown Court (🕊 8🪙)</button>`,
+        `<button class="seasonal" onclick="Game.act('tourney2')" ${!Game.can('tourney2')||R_.gold<12||G.flags['sa'+G.year]?'disabled':''} data-tip="Spring only: lances, wagers and glory. +12 prestige, court +4 opinion">🏇 Spring tournament (⚡ 12🪙)</button>`,
+        `<button class="seasonal" onclick="Game.act('march')" ${!Game.can('march')||G.flags['sa'+G.year+'s']||!G.armies.some(a=>a.realm===G.player)?'disabled':''} data-tip="Summer only: drive the men hard — one host may march twice this season">⚔ Forced march (⚡)</button>`,
+        `<button class="seasonal" onclick="Game.act('harvest')" ${!Game.can('harvest')||G.flags['sa'+G.year+'a']?'disabled':''} data-tip="Autumn only: squeeze the harvest. +${realmProvs(G.player).filter(p=>!pv(p).occ).length} gold now; court -4 opinion, -3 legitimacy">🌾 Harvest levy (⚡)</button>`,
+        `<button class="seasonal" onclick="Game.act('crowncourt')" ${!Game.can('crowncourt')||R_.gold<8||G.flags['sa'+G.year+'w']?'disabled':''} data-tip="Winter only: the solemn crown-wearing. +8 legitimacy, court +6 opinion">👑 Crown Court (⚡ 8🪙)</button>`,
       ][G.season]}
       ${R_.rel==='catholic' && R_.excomm
-        ? `<button onclick="Game.act('rome')" ${!Game.can('rome')||R_.gold<40?'disabled':''} data-tip="Barefoot in the snow if need be">☩ Reconcile with Rome (🕊 40🪙)</button>`
-        : `<button onclick="Game.act('rome')" ${!Game.can('rome')||R_.gold<15||G.flags['rome'+G.year]?'disabled':''} data-tip="Once a year; +8 legitimacy">${RELICO[R_.rel]} ${R_.rel==='catholic'?'Petition Rome':R_.rel==='orthodox'?'Endow the Patriarchate':R_.rel==='muslim'?'Endow the madrasas':'Hold the great blót'} (🕊 15🪙)</button>`}
-      <button onclick="Game.act('law')" ${!Game.can('law')||R_.prs<50||G.flags['law'+PR().id]?'disabled':''} data-tip="Once per ruler. Elective: magnates crown the ablest adult of the blood — no child regencies, but your sons may be passed over. Costs 50 ☀ and 10 ✠.">⚖ Adopt ${R_.law==='elective'?'primogeniture':'elective succession'} (👑 50☀)</button>
+        ? `<button onclick="Game.act('rome')" ${!Game.can('rome')||R_.gold<40?'disabled':''} data-tip="Barefoot in the snow if need be">☩ Reconcile with Rome (⚡ 40🪙)</button>`
+        : `<button onclick="Game.act('rome')" ${!Game.can('rome')||R_.gold<15||G.flags['rome'+G.year]?'disabled':''} data-tip="Once a year; +8 legitimacy">${RELICO[R_.rel]} ${R_.rel==='catholic'?'Petition Rome':R_.rel==='orthodox'?'Endow the Patriarchate':R_.rel==='muslim'?'Endow the madrasas':'Hold the great blót'} (⚡ 15🪙)</button>`}
+      <button onclick="Game.act('law')" ${!Game.can('law')||R_.prs<50||G.flags['law'+PR().id]?'disabled':''} data-tip="Once per ruler. Elective: magnates crown the ablest adult of the blood — no child regencies, but your sons may be passed over. Costs 50 ☀ and 10 ✠.">⚖ Adopt ${R_.law==='elective'?'primogeniture':'elective succession'} (⚡ 50☀)</button>
     </div>`;
     if(provs.length>=G.impThresh && !G.over){
       h += `<div class="card" style="margin-top:9px"><b>An Empire Beckons.</b> You hold ${provs.length} provinces. For 200 prestige the bishops will anoint you Emperor — and the game is won.
@@ -3563,7 +3577,7 @@ const UI = {
     } else if(!G.over){
       h += `<div class="hint">Empire at ${G.impThresh} provinces · survive to ${G.endYear} · or 2500 ☀ prestige.</div>`;
     }
-    h += `<div class="hint">One order each a season: 👑 crown (anything) · ⚔ marshal · 🔑 steward · 🗡 spymaster · 🕊 chaplain. The crown can stand in for a busy councillor.</div>`;
+    h += `<div class="hint">Your orders (⚡) are a shared pool — spend them on anything. You hold one for the crown and one for each seated councillor, so a full council lets you do more each season; an empty seat or a child's regency, less.</div>`;
     return h;
   },
   provHtml(pid){
@@ -3581,16 +3595,17 @@ const UI = {
     if(mine){
       h += `<div class="actBtns">`;
       if(!st.bld && !st.cons) for(const [bid,b] of Object.entries(BUILDINGS))
-        h += `<button class="small" ${!Game.can('build')||PRL().gold<b.cost?'disabled':''} onclick="Game.act('build','${pid}','${bid}')" data-tip="${b.desc}">${b.ico} ${b.n} (🔑 ${b.cost}🪙)</button>`;
-      if(st.dev<5) h += `<button class="small" ${!Game.can('develop')||PRL().gold<30+st.dev*12?'disabled':''} onclick="Game.act('develop','${pid}')">Develop (🔑 ${30+st.dev*12}🪙)</button>`;
-      h += `<button class="small" ${!Game.can('muster')?'disabled':''} onclick="Game.act('muster','${pid}')" data-tip="Raise all realm levies here">Muster levies (⚔)</button>`;
+        h += `<button class="small" ${!Game.can('build')||PRL().gold<b.cost?'disabled':''} onclick="Game.act('build','${pid}','${bid}')" data-tip="${b.desc}">${b.ico} ${b.n} (⚡ ${b.cost}🪙)</button>`;
+      if(st.dev<5) h += `<button class="small" ${!Game.can('develop')||PRL().gold<30+st.dev*12?'disabled':''} onclick="Game.act('develop','${pid}')">Develop (⚡ ${30+st.dev*12}🪙)</button>`;
+      h += `<button class="small" ${!Game.can('muster')?'disabled':''} onclick="Game.act('muster','${pid}')" data-tip="Raise all realm levies here">Muster levies (⚡)</button>`;
       h += `</div>`;
     } else if(R_ && !R_.dead){
       let xb = '';
+      const forging = G.plots.some(pl=>pl.mine && pl.type==='fabricate' && pl.target===pid);
       if(!PR().pclaims.includes(pid) && !warBetween(st.r, G.player) && R_.rel===PRL().rel)
-        xb += `<button class="small" ${!Game.can('fabricate')||PRL().gold<20?'disabled':''} onclick="Game.act('fabricate','${pid}')" data-tip="Set the monks forging. Takes seasons; discovery costs prestige.">📜 Fabricate claim (🗡 20🪙)</button>`;
+        xb += `<button class="small" ${!Game.can('fabricate')||PRL().gold<20||forging?'disabled':''} onclick="Game.act('fabricate','${pid}')" data-tip="${forging?'Your monks are already forging a claim here':'Set the monks forging. Takes seasons; discovery costs prestige.'}">📜 ${forging?'Claim being forged…':'Fabricate claim (⚡ 20🪙)'}</button>`;
       if(R_.rel !== PRL().rel && !warBetween(st.r, G.player) && !truceBetween(st.r, G.player))
-        xb += `<button class="small" ${!Game.can('holywar')||G.regency?'disabled':''} onclick="Game.act('holywar','${pid}')" data-tip="War for the faith needs no charter: +5 legitimacy on declaration, and this province as the prize.">${RELICO[PRL().rel]}⚔ Holy war for ${esc(pd.n)} (👑)</button>`;
+        xb += `<button class="small" ${!Game.can('holywar')||G.regency?'disabled':''} onclick="Game.act('holywar','${pid}')" data-tip="War for the faith needs no charter: +5 legitimacy on declaration, and this province as the prize.">${RELICO[PRL().rel]}⚔ Holy war for ${esc(pd.n)} (⚡)</button>`;
       if(xb) h += `<div class="actBtns">${xb}</div>`;
       h += this.diploHtml(st.r);
     }
@@ -3618,22 +3633,22 @@ const UI = {
     }
     const claimants = [PR(), ...myCourt()].filter(c=>alive(c)&&c.claims.includes(rid));
     h += `<div class="actBtns">
-      <button class="small" ${!Game.can('envoy')||G.flags['env'+rid+G.year]?'disabled':''} onclick="Game.act('envoy','${rid}')" data-tip="${G.flags['env'+rid+G.year]?'Already received this year — courts tire of flattery':'Improve their ruler’s opinion of you. One embassy per court per year.'}">Send envoy (🕊)</button>
-      <button class="small" ${!Game.can('gift')||PRL().gold<10?'disabled':''} onclick="Game.act('gift','${rid}')">Send gift (🕊 10🪙)</button>
-      <button class="small" ${!Game.can('marry')?'disabled':''} onclick="Game.marryMenu('${rid}')" data-tip="${(()=>{ const o2=rul?opinion(rul,PR()):0; const est=clamp(Math.round((o2+(PRL().prs-R_.prs)/8+(PRL().rank==='kingdom'?15:0)+skill(PR(),'dip')*3+10)/50*100),2,98); return 'Their disposition: roughly '+est+'% likely to accept a fair match'; })()}">Arrange marriage (👑)</button>`;
+      <button class="small" ${!Game.can('envoy')||G.flags['env'+rid+G.year]?'disabled':''} onclick="Game.act('envoy','${rid}')" data-tip="${G.flags['env'+rid+G.year]?'Already received this year — courts tire of flattery':'Improve their ruler’s opinion of you. One embassy per court per year.'}">Send envoy (⚡)</button>
+      <button class="small" ${!Game.can('gift')||PRL().gold<10?'disabled':''} onclick="Game.act('gift','${rid}')">Send gift (⚡ 10🪙)</button>
+      <button class="small" ${!Game.can('marry')?'disabled':''} onclick="Game.marryMenu('${rid}')" data-tip="${(()=>{ const o2=rul?opinion(rul,PR()):0; const est=clamp(Math.round((o2+(PRL().prs-R_.prs)/8+(PRL().rank==='kingdom'?15:0)+skill(PR(),'dip')*3+10)/50*100),2,98); return 'Their disposition: roughly '+est+'% likely to accept a fair match'; })()}">Arrange marriage (⚡)</button>`;
     for(const cl of claimants){
-      h += `<button class="small" ${!Game.can('war')||tr||G.regency?'disabled':''} onclick="Game.act('war','${rid}','${cl.id}')" data-tip="${G.regency?'A regency cannot declare war':''}">⚔ Press ${esc(cl.nm)}’s claim (👑)</button>`;
+      h += `<button class="small" ${!Game.can('war')||tr||G.regency?'disabled':''} onclick="Game.act('war','${rid}','${cl.id}')" data-tip="${G.regency?'A regency cannot declare war':''}">⚔ Press ${esc(cl.nm)}’s claim (⚡)</button>`;
     }
     let anyP = false;
     for(const cl of [PR(), ...myCourt()]){
       if(!alive(cl) || !cl.pclaims) continue;
       for(const p of cl.pclaims.filter(p=>pv(p).r===rid)){
         anyP = true;
-        h += `<button class="small" ${!Game.can('pwar')||tr||G.regency?'disabled':''} onclick="Game.act('pwar','${rid}','${cl.id}|${p}')">⚔ Press claim on ${esc(PROVDATA[p].n)} (👑)</button>`;
+        h += `<button class="small" ${!Game.can('pwar')||tr||G.regency?'disabled':''} onclick="Game.act('pwar','${rid}','${cl.id}|${p}')">⚔ Press claim on ${esc(PROVDATA[p].n)} (⚡)</button>`;
       }
     }
     if(!claimants.length && !anyP) h += `<span class="hint">No claim on this realm — war without cause costs dearly. A patient ruler fabricates one (select one of their provinces).</span>
-      <button class="small" ${!Game.can('war')||G.regency?'disabled':''} onclick="Game.act('war','${rid}',null)">⚔ War without cause (👑, -20 ✠)</button>`;
+      <button class="small" ${!Game.can('war')||G.regency?'disabled':''} onclick="Game.act('war','${rid}',null)">⚔ War without cause (⚡, -20 ✠)</button>`;
     h += `</div>`;
     if(R_.excomm) h += `<div class="hint">☩ This ruler is excommunicate — shunned by all Christendom.</div>`;
     return h;
@@ -3659,19 +3674,19 @@ const UI = {
       if(c.claims.length) h += `<div class="kv"><span>Claims</span><b>${c.claims.map(r=>rl(r)?rl(r).n:r).join(', ')}</b></div>`;
       if(c.pclaims && c.pclaims.length) h += `<div class="kv"><span>Province claims</span><b>${c.pclaims.map(p=>PROVDATA[p].n).join(', ')}</b></div>`;
       h += `<div class="actBtns">`;
-      if(mine && !c.sp && age(c)>=16) h += `<button class="small" ${!Game.can('marry')?'disabled':''} onclick="Game.marryMenuChar('${c.id}')">⚭ Arrange marriage (👑)</button>`;
+      if(mine && !c.sp && age(c)>=16) h += `<button class="small" ${!Game.can('marry')?'disabled':''} onclick="Game.marryMenuChar('${c.id}')">⚭ Arrange marriage (⚡)</button>`;
       if(mine && c.id!==PR().id){
         if(c.prison){
           h += `<button class="small" onclick="Game.act('release','${c.id}')">Release (free)</button>
-            <button class="small" ${!Game.can('execute')?'disabled':''} onclick="Game.act('execute','${c.id}')">Execute (👑, -✠)</button>`;
+            <button class="small" ${!Game.can('execute')?'disabled':''} onclick="Game.act('execute','${c.id}')">Execute (⚡, -✠)</button>`;
         } else {
-          h += `<button class="small" ${!Game.can('cgift')||PRL().gold<8?'disabled':''} onclick="Game.act('cgift','${c.id}')">Gift (👑 8🪙)</button>`;
-          h += `<button class="small" ${!Game.can('imprison')?'disabled':''} onclick="Game.act('imprison','${c.id}')">Imprison (👑, -opinion)</button>`;
+          h += `<button class="small" ${!Game.can('cgift')||PRL().gold<8?'disabled':''} onclick="Game.act('cgift','${c.id}')">Gift (⚡ 8🪙)</button>`;
+          h += `<button class="small" ${!Game.can('imprison')?'disabled':''} onclick="Game.act('imprison','${c.id}')">Imprison (⚡, -opinion)</button>`;
         }
       }
       if(c.id!==PR().id && !c.dead){
-        h += `<button class="small" ${!Game.can('plotMurder')?'disabled':''} onclick="Game.act('plotMurder','${c.id}')" data-tip="A season or three of quiet work">🗡 Plot murder (🗡)</button>
-          <button class="small" ${!Game.can('plotSlander')?'disabled':''} onclick="Game.act('plotSlander','${c.id}')">🐍 Spread slander (🗡)</button>`;
+        h += `<button class="small" ${!Game.can('plotMurder')?'disabled':''} onclick="Game.act('plotMurder','${c.id}')" data-tip="A season or three of quiet work">🗡 Plot murder (⚡)</button>
+          <button class="small" ${!Game.can('plotSlander')?'disabled':''} onclick="Game.act('plotSlander','${c.id}')">🐍 Spread slander (⚡)</button>`;
       }
       h += `</div>`;
       if(rulerOf && rulerOf.id!==G.player) h += `<div class="hint">Rules ${esc(rulerOf.n)}. Click their lands for diplomacy.</div>`;
@@ -3730,7 +3745,7 @@ const UI = {
   help(){
     this.modal('How to Rule',
     `<h3>The Dynasty</h3>You are a family, not a nation. Lose your last province or your last dynast and the chronicle closes. Heirs, marriages, and legitimacy are life itself.<br><br>
-    <h3>The Season</h3>Each season your crown gives one order of any kind (👑), and each councillor carries out one task of their office: the marshal (⚔) musters, marches and recruits; the steward (🔑) builds, develops and squeezes; the spymaster (🗡) plots and forges; the chaplain (🕊) prays, parleys and sends envoys. When a councillor’s order is spent — or a seat stands empty — the crown may see to it in person, spending its own. A child ruler has no crown order. Armies march once a season for free. Muster in spring, strike in summer; autumn and winter maul armies left in the field. Buildings take a year of construction.<br><br>
+    <h3>The Season</h3>Each season you have a pool of <b>orders</b> (⚡) to spend on anything — marriages, buildings, wars, plots, envoys. The pool is <b>one for the crown, plus one for every seated councillor</b>: a full council of four gives you five orders, an empty seat or a child's regency fewer. So keeping the council staffed with able people is not just about their skill bonuses — it is your capacity to act. Armies march once a season for free. Muster in spring, strike in summer; autumn and winter maul armies left in the field. Buildings take a year of construction.<br><br>
     <h3>Hosts in the Field</h3>A large host can be <b>split</b> into two columns under separate captains — garrison a town with one while the other strikes — and co-located columns of yours can be <b>merged</b> to mass for battle. Muster raises fresh levies into a stack that already stands on the muster province, so reinforcement is a matter of mustering or merging.<br><br>
     <h3>Sieges</h3>March onto an undefended enemy province and the siege begins by itself: each season it advances by 30 + 2×your commander's ⚔ + fortune, minus 22 if the province has a castle. At 100% the province is occupied, your treasury takes its loot, and your war score climbs. Occupying everything forces even a stubborn enemy to yield.<br><br>
     <h3>The Game of Thrones</h3><b>Marriage</b> buys alliances · <b>claims</b> make war lawful (the monks can forge one) · <b>legitimacy</b> keeps your nobles honest · <b>opinion</b> decides who joins whose plot — and plots run always, including against you. Your spymaster is your shield; Rome can bless you or cast you out.<br><br>
@@ -3794,28 +3809,29 @@ const ORDSEAT = { muster:'marshal', retinue:'marshal', march:'marshal', tourney2
   cgift:'ruler', imprison:'ruler', execute:'ruler', law:'ruler' };
 const SEATNAME = {ruler:'Crown', marshal:'Marshal', steward:'Steward', spymaster:'Spymaster', chaplain:'Chaplain'};
 const SEATICO = {ruler:'👑', marshal:'⚔', steward:'🔑', spymaster:'🗡', chaplain:'🕊'};
-function resetOrders(){
-  const R_ = PRL(); if(!R_) return;
-  G.orders = { ruler: !G.regency };
+function councilSize(rid){
+  const R_ = rl(rid); let n = 0;
   for(const s of ['marshal','steward','spymaster','chaplain']){
     const cid = R_.council[s], c = cid && ch(cid);
-    G.orders[s] = !!(c && alive(c) && !c.prison);
+    if(c && alive(c) && !c.prison) n++;
   }
+  return n;
+}
+function resetOrders(){
+  const R_ = PRL(); if(!R_) return;
+  /* one order for the crown (none in a regency) plus one for each seated councillor */
+  G.ordersMax = Math.max(2, (G.regency?0:1) + councilSize(G.player));
+  G.ordersLeft = G.ordersMax;
 }
 const Game = {
   busy(){
     if(G && G.eventQueue.length){ toast('⚑ The court awaits your decision first'); return true; }
     return false;
   },
-  can(kind){ const s = ORDSEAT[kind]||'ruler'; return !!(G.orders && (G.orders[s] || G.orders.ruler)); },
-  order(kind){
-    const s = ORDSEAT[kind]||'ruler';
-    if(!G.orders) return false;
-    if(G.orders[s]){ G.orders[s] = false; return true; }
-    if(G.orders.ruler){ G.orders.ruler = false;
-      if(s!=='ruler') toast(`👑 The ${SEATNAME[s].toLowerCase()}’s hands are full — the crown sees to it in person`);
-      return true; }
-    toast('Every hand at court is busy — end the season');
+  can(){ return !!(G && G.ordersLeft > 0); },
+  order(){
+    if(G && G.ordersLeft > 0){ G.ordersLeft--; return true; }
+    toast('No orders left this season — end it, and the new year brings more.');
     return false; },
   react(kind){
     /* an action can spark a consequence in the same season, thematically tied to it */
@@ -3883,7 +3899,9 @@ const Game = {
         const owner = pv(a).r;
         this.confirmWar(owner, {type:'province', target:a, holy:true}, PR().id);
         return; }
-      case 'fabricate': { if(R_.gold<20||!this.order('fabricate')) return;
+      case 'fabricate': {
+        if(G.plots.some(pl=>pl.mine && pl.type==='fabricate' && pl.target===a)){ toast(`📜 Your monks are already forging a claim to ${esc(PROVDATA[a].n)}.`); return; }
+        if(R_.gold<20||!this.order('fabricate')) return;
         R_.gold -= 20;
         const p = startPlot(PR().id, 'fabricate', a, G.player); p.mine = true;
         logIt('plot', `In a quiet scriptorium, work begins on a very old charter concerning ${PROVDATA[a].n}.`);
