@@ -609,6 +609,28 @@ Three fixes from playtesting feedback.
   bottleneck was DOM churn, not computation, and the game stays one portable
   self-contained HTML file.
 
+### v3.6 — claims, a marriage fix, and values that matter (SHIPPED)
+More playtest feedback.
+- **Claims of Your House.** The Dynasty tab now lists every casus belli your
+  house holds — throne claims and province claims, whose they are, who holds
+  the land, and a Press button to make war on the spot — plus any claims your
+  monks are still forging, with progress. (Fixed a latent double-count:
+  `myCourt()` already includes the ruler, so several places listed the ruler's
+  claims twice.)
+- **Marriage confirmation bug.** Proposing a match as a male ruler read the
+  bride's realm *after* she'd joined your court, so the confirmation said your
+  own country had "accepted." It now names the correct foreign house.
+- **Prestige and legitimacy made legible and consequential.** Both top-bar
+  values now carry rich tooltips explaining what they currently *do* and the
+  thresholds in play. The realm overview shows the crown's standing
+  (Secure / Accepted / Uneasy / Precarious) and the house's renown
+  (minor → respected → illustrious → legendary), and the victory line shows
+  live progress (provinces toward empire, prestige toward 2500). Tidings warns
+  when legitimacy falls below 40. Most importantly, **low legitimacy now
+  tangibly shrinks your levies** — below ~45 your disrespected vassals withhold
+  their spears (down to −30% at zero), so the number you watch in the overview
+  and the army you can raise are one and the same. Above 45 it costs nothing.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

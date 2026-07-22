@@ -173,6 +173,8 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 .relRow .rn{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .relRow .ro{text-align:right; font-variant-numeric:tabular-nums; font-weight:bold}
 .relRow .rtag{text-align:right; font-size:10.5px; text-transform:uppercase; letter-spacing:.5px}
+.claimRow{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:12.5px; line-height:1.35; padding:4px 0; border-top:1px dotted var(--line)}
+.claimRow button{flex:0 0 auto}
 .advRow:first-of-type{border-top:none}
 .advRow .txt{flex:1; font-size:12.5px; line-height:1.4}
 button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0); font-weight:bold}
@@ -686,7 +688,8 @@ function realmStrength(rid){
   s += rl(rid).retinue||0;
   return s;
 }
-function levyOf(p){ const pr=pv(p); return 200 + pr.dev*110 + (pr.bld==='castle'?150:0); }
+function legFactor(rid){ const r = rl(rid); return r ? Math.min(1, 0.7 + r.leg/150) : 1; } /* below ~45 legitimacy, vassals withhold spears */
+function levyOf(p){ const pr=pv(p); return Math.round((200 + pr.dev*110 + (pr.bld==='castle'?150:0)) * legFactor(pr.r)); }
 function taxOf(p){ const pr=pv(p); return pr.dev + (pr.bld==='market'?2:0); }
 function realmFinances(rid){
   const R_ = rl(rid);
@@ -1287,7 +1290,7 @@ function relationReasons(rid){
   const landClaims = [];
   for(const c of theirChars) for(const p of c.pclaims) if(pv(p)&&pv(p).r===G.player) landClaims.push(p);
   const myClaims = [];
-  for(const c of [PR(), ...myCourt()]){ if(!alive(c)) continue;
+  for(const c of myCourt()){ if(!alive(c)) continue;
     if(c.claims.includes(rid)) myClaims.push('throne');
     for(const p of c.pclaims) if(pv(p)&&pv(p).r===rid) myClaims.push(p); }
   const factors = [];
@@ -3083,6 +3086,14 @@ const UI = {
     document.getElementById('goldBox').onclick = ()=>UI.tab('treasury');
     document.getElementById('prsBox').innerHTML = `☀ <b>${Math.floor(R_.prs)}</b><i class="resLbl"> prestige</i>`;
     document.getElementById('legBox').innerHTML = `✠ <b>${Math.floor(R_.leg)}</b><i class="resLbl"> legitimacy</i>`;
+    { const pen = Math.round((1-legFactor(G.player))*100);
+      const w = R_.leg>=70?'<span class=pos>Your crown sits secure; the nobles are content.</span>':R_.leg>=50?'Your rule is accepted, if not beloved.':R_.leg>=35?'<span class=neg>Discontent stirs — plotters find willing hands.</span>':'<span class=neg>Your grip is failing — revolt and deposition loom.</span>';
+      const tip = `<b>Legitimacy ${Math.floor(R_.leg)}</b> — how rightful men hold your rule.<br>${w}<br><br>It stiffens your defence against rebellion and deposition. ${pen>0?`<span class=neg>Disrespected vassals withhold their spears — your levies are cut ${pen}% right now.</span>`:'Your vassals answer the muster in full.'}<br>Below 40 the commons may revolt; below 30 Rome may cast you out. It drifts toward 50 yearly — cathedrals, a strong chaplain, crown-courts and just rule raise it.`;
+      document.getElementById('legBox').setAttribute('data-tip', tip.replace(/"/g,'&quot;')); }
+    { const liv = Object.values(G.realms).filter(x=>!x.dead && ruler(x.id));
+      const rank = liv.filter(x=>x.prs > R_.prs).length + 1;
+      const tip = `<b>Prestige ${Math.floor(R_.prs)}</b> — the renown of your house (rank <b>${rank} of ${liv.length}</b> in the known world).<br>Renowned houses win better marriages and alliances, cow plotters, and awe their neighbours.<br><br>At <b>200</b> prestige (and ${G.impThresh} provinces) the bishops will crown you Emperor — a victory. At <b>2500</b> your name alone wins the age. Feasts, tournaments, victories, relics and holy deeds raise it.`;
+      document.getElementById('prsBox').setAttribute('data-tip', tip.replace(/"/g,'&quot;')); }
     document.getElementById('endBtn').innerHTML = `End ${SEASONS[G.season]} ⏵`;
     const oMax = G.ordersMax||0, oLeft = G.ordersLeft||0, seats = councilSize(G.player);
     const otip = `Orders you may give this season: <b>${oLeft} of ${oMax}</b>. Spend any of them on any action.<br>The pool is your crown${G.regency?' <i>(empty — a child cannot command)</i>':''} plus one for each of your ${seats} seated councillor${seats===1?'':'s'} — a fuller, abler council lets you do more; an empty seat or a regency, less.`;
@@ -3282,6 +3293,29 @@ const UI = {
       h += `<div class="hint">Heir: ${heir? esc(fullName(heir))+' ('+age(heir)+')' : '<b>NONE — the line hangs by a thread</b>'}</div>`;
       const others = Object.values(G.chars).filter(c=>alive(c)&&c.dyn===r.dyn&&c.id!==r.id&&c.sp!==r.id&&!kids.includes(c)).slice(0,10);
       if(others.length){ h += `<h3 style="margin-top:8px">Kin</h3>`; for(const k of others) h += this.charRow(k); }
+      /* claims your house holds — a lawful road to war */
+      const claimants = myCourt().filter(c=>alive(c) && (c.claims.length || c.pclaims.length));
+      const throneClaims = [], provClaims = [];
+      for(const c of claimants){
+        for(const rid of c.claims) if(rl(rid) && !rl(rid).dead && rid!==G.player) throneClaims.push([c, rid]);
+        for(const p of c.pclaims) if(pv(p) && pv(p).r && pv(p).r!==G.player) provClaims.push([c, p]);
+      }
+      const forging = G.plots.filter(pl=>pl.mine && pl.type==='fabricate');
+      if(throneClaims.length || provClaims.length || forging.length){
+        h += `<h3 style="margin-top:10px">Claims of Your House</h3><div class="hint" style="margin-top:0">A claim is a lawful road to war — press one to take what is yours by right.</div>`;
+        for(const [c, rid] of throneClaims){
+          const w = warBetween(rid, G.player), tr = truceBetween(rid, G.player);
+          h += `<div class="claimRow"><span>👑 <b>${esc(fullName(c))}</b> claims the throne of <b>${esc(rl(rid).n)}</b>${c!==PR()?' <span class="hint" style="margin:0">(a courtier)</span>':''}</span>`
+            + (w?'<span class="neg">at war</span>':tr?`<span class="hint" style="margin:0">truce to ${tr.until}</span>`:G.regency?'<span class="hint" style="margin:0">regency</span>':`<button class="small" onclick="Game.act('war','${rid}','${c.id}')">⚔ Press</button>`) + `</div>`;
+        }
+        for(const [c, p] of provClaims){
+          const owner = pv(p).r, w = warBetween(owner, G.player), tr = truceBetween(owner, G.player);
+          h += `<div class="claimRow"><span>📜 <b>${esc(fullName(c))}</b> claims <b>${esc(PROVDATA[p].n)}</b> <span class="hint" style="margin:0">(${esc(rl(owner).n)})</span></span>`
+            + (w?'<span class="neg">at war</span>':tr?`<span class="hint" style="margin:0">truce to ${tr.until}</span>`:G.regency?'<span class="hint" style="margin:0">regency</span>':`<button class="small" onclick="Game.act('pwar','${owner}','${c.id}|${p}')">⚔ Press</button>`) + `</div>`;
+        }
+        for(const pl of forging)
+          h += `<div class="claimRow"><span>✍ <span class="hint" style="margin:0">forging a claim to</span> <b>${esc(PROVDATA[pl.target].n)}</b></span><span class="hint" style="margin:0">${Math.min(99,Math.round(pl.progress))}%</span></div>`;
+      }
       el.innerHTML = h;
     }
     if(t==='treasury'){
@@ -3461,7 +3495,7 @@ const UI = {
       const slot = realmProvs(G.player).filter(p=>!pv(p).bld&&!pv(p).cons&&!pv(p).occ).sort((a,b)=>pv(b).dev-pv(a).dev)[0];
       if(slot) add(`The treasury is fat (${Math.floor(R_.gold)}🪙). Stone remembers longer than feasts.`, `🏗 Market at ${PROVDATA[slot].n}`, `Game.act('build','${slot}','market')`, 'steward');
     }
-    if(out.length<3 && !wars.length && Game.can('fabricate') && R_.gold>=20 && ![PR(),...myCourt()].some(c=>alive(c)&&(c.claims.length||c.pclaims.length))){
+    if(out.length<3 && !wars.length && Game.can('fabricate') && R_.gold>=20 && !myCourt().some(c=>alive(c)&&(c.claims.length||c.pclaims.length))){
       const border = Object.keys(G.provinces).filter(p=>{ const o=pv(p).r;
         return o && o!==G.player && rl(o) && !rl(o).dead &&
           ((PROVDATA[p].adj||[]).some(q=>pv(q).r===G.player) || (PROVDATA[p].coast && PROVDATA[rl(G.player).cap].coast));
@@ -3522,7 +3556,8 @@ const UI = {
     if(G.season===1 && abroad) out.push({i:'🍂', t:'Autumn next — attrition begins for hosts on foreign soil'});
     if(G.season===2 && abroad) out.push({i:'❄', t:'<b class="neg">Winter next</b> — hosts still abroad will bleed badly'});
     if(G.plague) out.push({i:'☠', t:`The Great Mortality rages — ${G.plague} season${G.plague>1?'s':''} yet to run`});
-    return out.slice(0,7);
+    if(PRL().leg < 40) out.push({i:'⚖', t:`<b class="neg">Legitimacy is low (${Math.floor(PRL().leg)})</b> — vassals withhold levies, plotters take heart, and the commons mutter of revolt`, click:`UI.tab('dyn')`});
+    return out.slice(0,8);
   },
   overviewHtml(){
     const R_ = PRL();
@@ -3551,6 +3586,11 @@ const UI = {
       <div class="kv"><span>Steward bonus</span><b>+${Math.round(councilBonus(G.player,'steward')*4)}%</b></div>`;
     h += `<div class="kv"><span>Succession law</span><b>${R_.law==='elective'?'Elective':'Primogeniture'}</b></div>`;
     h += `<div class="kv"><span>Faith</span><b>${RELICO[R_.rel]} ${RELNAME[R_.rel]}</b></div>`;
+    { const s = R_.leg>=70?['Secure','pos']:R_.leg>=50?['Accepted','']:R_.leg>=35?['Uneasy','neg']:['Precarious','neg'];
+      const pen = Math.round((1-legFactor(G.player))*100);
+      h += `<div class="kv" data-tip="Hover the ✠ legitimacy in the top bar for what it governs${pen>0?'. Low legitimacy is cutting your levies '+pen+'% right now':''}"><span>Crown’s standing</span><b class="${s[1]}">${s[0]} <span class="hint" style="margin:0">✠${Math.floor(R_.leg)}${pen>0?' · levies −'+pen+'%':''}</span></b></div>`;
+      const rn = R_.prs>=2500?'legendary':R_.prs>=200?'illustrious':R_.prs>=100?'respected':'minor';
+      h += `<div class="kv" data-tip="Hover the ☀ prestige in the top bar for what renown buys"><span>House renown</span><b>${rn.charAt(0).toUpperCase()+rn.slice(1)} <span class="hint" style="margin:0">☀${Math.floor(R_.prs)}</span></b></div>`; }
     { const others = Object.values(G.realms).filter(r=>!r.dead && r.id!==G.player && ruler(r.id));
       const nAl = others.filter(r=>allianceBetween(r.id,G.player)).length;
       const nRiv = others.filter(r=>isRival(r.id)).length;
@@ -3575,7 +3615,7 @@ const UI = {
       h += `<div class="card" style="margin-top:9px"><b>An Empire Beckons.</b> You hold ${provs.length} provinces. For 200 prestige the bishops will anoint you Emperor — and the game is won.
       <div class="actBtns"><button class="primary" ${R_.prs<200?'disabled':''} onclick="Game.coronation()">Imperial Coronation (200 ☀)</button></div></div>`;
     } else if(!G.over){
-      h += `<div class="hint">Empire at ${G.impThresh} provinces · survive to ${G.endYear} · or 2500 ☀ prestige.</div>`;
+      h += `<div class="hint">Toward victory — empire: <b>${provs.length}/${G.impThresh}</b> provinces (and 200 ☀) · endure to <b>${G.endYear}</b> · renown: <b>${Math.floor(R_.prs)}/2500</b> ☀.</div>`;
     }
     h += `<div class="hint">Your orders (⚡) are a shared pool — spend them on anything. You hold one for the crown and one for each seated councillor, so a full council lets you do more each season; an empty seat or a child's regency, less.</div>`;
     return h;
@@ -3631,7 +3671,7 @@ const UI = {
       h += `<div class="actBtns"><button onclick="Game.offerPeace('${w.id}')">Negotiate peace</button></div>`;
       return h;
     }
-    const claimants = [PR(), ...myCourt()].filter(c=>alive(c)&&c.claims.includes(rid));
+    const claimants = myCourt().filter(c=>alive(c)&&c.claims.includes(rid));
     h += `<div class="actBtns">
       <button class="small" ${!Game.can('envoy')||G.flags['env'+rid+G.year]?'disabled':''} onclick="Game.act('envoy','${rid}')" data-tip="${G.flags['env'+rid+G.year]?'Already received this year — courts tire of flattery':'Improve their ruler’s opinion of you. One embassy per court per year.'}">Send envoy (⚡)</button>
       <button class="small" ${!Game.can('gift')||PRL().gold<10?'disabled':''} onclick="Game.act('gift','${rid}')">Send gift (⚡ 10🪙)</button>
@@ -3640,7 +3680,7 @@ const UI = {
       h += `<button class="small" ${!Game.can('war')||tr||G.regency?'disabled':''} onclick="Game.act('war','${rid}','${cl.id}')" data-tip="${G.regency?'A regency cannot declare war':''}">⚔ Press ${esc(cl.nm)}’s claim (⚡)</button>`;
     }
     let anyP = false;
-    for(const cl of [PR(), ...myCourt()]){
+    for(const cl of myCourt()){
       if(!alive(cl) || !cl.pclaims) continue;
       for(const p of cl.pclaims.filter(p=>pv(p).r===rid)){
         anyP = true;
@@ -4046,8 +4086,9 @@ const Game = {
     UI.modal('A Match for '+fullName(m), 'Whose hand shall be sought?',
       options.map(t=>({t:`${fullName(t)} of ${rl(t.realm).n} (${age(t)}${age(t)<16?', betrothal':''}, ${t.tr.map(cap).join(', ')}) — ${accWord2(accP2(t))}`,
         fx:()=>{ if(!this.order('marry')) return;
-          if(proposeMarriage(m,t)) UI.modal('The Banns Are Read', `${rl(t.realm).n} accepts the match.`, [{t:'Good.',fx:()=>{}}]);
-          else UI.modal('Rebuffed', `${rl(t.realm).n} declines. Their opinion of you is too low, or their ambitions too high.`, [{t:'So be it.',fx:()=>{}}]);
+          const tn = rl(t.realm).n; /* capture before the bride joins the groom's realm */
+          if(proposeMarriage(m,t)) UI.modal('The Banns Are Read', `${tn} accepts the match.`, [{t:'Good.',fx:()=>{}}]);
+          else UI.modal('Rebuffed', `${tn} declines. Their opinion of you is too low, or their ambitions too high.`, [{t:'So be it.',fx:()=>{}}]);
         }})).concat([{t:'— Never mind —', fx:()=>{}}]));
   },
   pickCouncil(seat){
