@@ -544,6 +544,27 @@ The new map becomes playable from the other side of the sea.
   died and al-Afdal inherited cleanly. Made playable simply by giving each a
   scenario card; the auto-ruler fallback covers every other landed realm.
 
+### v3.3 — densifying the south (SHIPPED)
+The North African, Levantine, Mesopotamian and Arabian provinces were far
+sparser than Europe; this brings them to the same grain (246 provinces).
+- **28 new southern provinces** in the settled zones: the Maghreb coast
+  (Tangier, Sijilmasa, Oran, Constantine, Sfax, Gabès, Tozeur, Marmarica),
+  the Nile (Fayyum, Sinai, Asyut, Aswan), the Levant (Latakia, Homs,
+  Baalbek, Hauran, Ascalon, Edessa), Mesopotamia (Sinjar, Samarra, Kufa,
+  Wasit) and Arabia (Taima, Ha'il, Khaybar, Jedda, Yamama, Qatif) — the
+  deserts stay large and impassable, which is how these lands actually sat.
+- **Two more desert wastes** (the Great Nafud, the Empty Quarter) plus a
+  third Sahara cell break up the southern interior; finer coastline
+  simplification (DP ε 1.1 → 0.85) sharpens every shore.
+- **All assigned in both eras**: the new lands slot into the Almoravids,
+  Hammadids, Zirids, Fatimids and Abbasids (1066, with Byzantium taking
+  Latakia and Edessa) and into the Almohads, Ayyubids, Crusader Outremer
+  and Abbasids (1187).
+- **Opens on your realm**: a new game now frames the map on the player's
+  own capital at a comfortable zoom instead of the whole world — so a
+  European lord starts looking at Europe and Saladin at the Levant, and
+  the larger map never feels cramped.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

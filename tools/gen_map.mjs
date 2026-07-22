@@ -8,7 +8,7 @@ const W = 1000, PAD = 8;
 let H = 800; // recomputed from the fitted projection below
 
 // ---- province seeds: id, display name, lon, lat, terrain, dev ----
-const WASTE = new Set(['alps','alps2','sahara_w','sahara_c','libyan','nafud','syriandes']);
+const WASTE = new Set(['alps','alps2','sahara_w','sahara_m','sahara_c','libyan','nafud','rubalkhali','syriandes']);
 const SEEDS = [
  ['alps','The Alps',7.9,46.35,'hills',1], ['alps2','The Alps',10.3,46.55,'hills',1],
  // England
@@ -124,29 +124,44 @@ const SEEDS = [
  ['halland','Halland',12.90,56.90,'plains',1], ['finland','Finland',23.80,60.90,'forest',1],
  // ===== North Africa: the Maghreb (Berber) =====
  ['marrakesh','Marrakesh',-8.00,31.63,'plains',3], ['fez','Fez',-5.00,34.03,'hills',3],
- ['sus','Sus',-9.20,30.42,'hills',1], ['tlemcen','Tlemcen',-1.32,34.88,'hills',2],
- ['tahert','Tahert',1.32,35.37,'hills',1], ['algiers','Algiers',3.06,36.75,'hills',2],
- ['bejaia','Bejaïa',5.08,36.75,'hills',2], ['tunis','Tunis',10.17,36.80,'plains',3],
- ['kairouan','Kairouan',10.10,35.68,'plains',2], ['tripoli','Tripoli',13.18,32.89,'plains',2],
- ['barca','Barca',20.07,32.11,'hills',1],
- // ===== Egypt =====
- ['alexandria','Alexandria',29.92,31.20,'plains',4], ['cairo','Cairo',31.25,30.05,'plains',5],
- ['damietta','Damietta',31.81,31.42,'marsh',3], ['said','Upper Egypt',32.70,26.20,'plains',2],
+ ['sus','Sus',-9.20,30.42,'hills',1], ['tangier','Tangier',-5.80,35.55,'hills',2],
+ ['sijilmasa','Sijilmasa',-4.30,31.35,'plains',2], ['tlemcen','Tlemcen',-1.32,34.88,'hills',2],
+ ['oran','Oran',-0.60,35.60,'plains',2], ['tahert','Tahert',1.32,35.37,'hills',1],
+ ['algiers','Algiers',3.06,36.60,'hills',2], ['bejaia','Bejaïa',5.08,36.65,'hills',2],
+ ['constantine','Constantine',6.61,36.30,'hills',2], ['tunis','Tunis',10.17,36.80,'plains',3],
+ ['kairouan','Kairouan',10.10,35.55,'plains',2], ['sfax','Sfax',10.70,34.74,'plains',2],
+ ['tozeur','Tozeur',8.13,33.92,'plains',1], ['gabes','Gabès',9.90,33.90,'plains',1],
+ ['tripoli','Tripoli',13.18,32.89,'plains',2], ['barca','Barca',20.07,32.11,'hills',1],
+ ['tobruk','Marmarica',23.60,31.60,'hills',1],
+ // ===== Egypt (the Nile) =====
+ ['alexandria','Alexandria',29.72,31.05,'plains',4], ['damietta','Damietta',31.81,31.42,'marsh',3],
+ ['cairo','Cairo',31.25,30.05,'plains',5], ['fayyum','Fayyum',30.80,29.30,'plains',3],
+ ['sinai','Sinai',33.80,29.90,'hills',1], ['asyut','Asyut',31.20,27.20,'plains',2],
+ ['said','Upper Egypt',32.55,25.70,'plains',2], ['aswan','Aswan',32.90,24.09,'hills',1],
  // ===== The Levant =====
- ['antioch','Antioch',36.16,36.20,'hills',3], ['aleppo','Aleppo',37.16,36.20,'plains',3],
- ['tripolis','Tripoli',35.85,34.44,'hills',2], ['damascus','Damascus',36.30,33.51,'plains',4],
- ['acre','Acre',35.07,32.92,'plains',3], ['jerusalem','Jerusalem',35.22,31.78,'hills',3],
- ['kerak','Kerak',35.70,31.18,'hills',1],
- // ===== Mesopotamia (Abbasid) =====
- ['jazira','Jazira',40.20,37.15,'plains',2], ['mosul','Mosul',43.13,36.34,'plains',3],
- ['baghdad','Baghdad',44.36,33.31,'plains',5], ['basra','Basra',47.80,30.50,'marsh',3],
+ ['antioch','Antioch',36.16,36.20,'hills',3], ['aleppo','Aleppo',37.16,36.10,'plains',3],
+ ['latakia','Latakia',35.90,35.52,'hills',2], ['tripolis','Tripoli',35.85,34.44,'hills',2],
+ ['homs','Homs',36.72,34.73,'plains',2], ['baalbek','Baalbek',36.21,33.99,'hills',1],
+ ['damascus','Damascus',36.30,33.51,'plains',4], ['acre','Acre',35.07,32.92,'plains',3],
+ ['hauran','Hauran',36.30,32.62,'plains',1], ['jerusalem','Jerusalem',35.22,31.78,'hills',3],
+ ['ascalon','Ascalon',34.57,31.62,'plains',2], ['kerak','Kerak',35.70,31.18,'hills',1],
+ // ===== Mesopotamia (the Jazira & Iraq) =====
+ ['edessa','Edessa',38.80,37.15,'hills',2], ['jazira','Jazira',40.20,37.00,'plains',2],
+ ['sinjar','Sinjar',41.86,36.32,'hills',1], ['mosul','Mosul',43.13,36.34,'plains',3],
+ ['samarra','Samarra',43.70,34.40,'plains',2], ['baghdad','Baghdad',44.36,33.31,'plains',5],
+ ['kufa','Kufa',44.40,32.03,'plains',2], ['wasit','Wasit',45.90,32.30,'marsh',2],
+ ['basra','Basra',47.80,30.50,'marsh',3],
  // ===== Arabia =====
- ['medina','Medina',39.60,24.47,'plains',2], ['mecca','Mecca',39.83,21.43,'hills',3],
- ['nejd','Nejd',45.00,25.00,'plains',1], ['hasa','al-Hasa',49.60,25.40,'plains',2],
+ ['taima','Taima',38.55,27.63,'hills',1], ['medina','Medina',39.60,24.47,'plains',2],
+ ['khaybar','Khaybar',39.29,25.70,'hills',1], ['jedda','Jedda',39.20,21.60,'plains',2],
+ ['mecca','Mecca',39.83,21.43,'hills',3], ['hail','Ha’il',41.70,27.30,'hills',1],
+ ['nejd','Nejd',45.00,25.30,'plains',1], ['yamama','Yamama',46.60,24.60,'plains',1],
+ ['hasa','al-Hasa',49.30,25.40,'plains',2], ['qatif','Qatif',49.90,26.80,'plains',1],
  // ===== impassable deserts =====
- ['sahara_w','The Sahara',-3.00,27.50,'desert',0], ['sahara_c','The Sahara',13.00,26.50,'desert',0],
- ['libyan','The Libyan Desert',24.50,25.60,'desert',0], ['nafud','The Nejd Waste',43.50,21.30,'desert',0],
- ['syriandes','The Syrian Waste',38.50,32.20,'desert',0],
+ ['sahara_w','The Sahara',-3.00,27.20,'desert',0], ['sahara_m','The Sahara',7.00,26.00,'desert',0],
+ ['sahara_c','The Sahara',15.50,25.50,'desert',0], ['libyan','The Libyan Desert',25.50,25.20,'desert',0],
+ ['nafud','The Great Nafud',42.00,28.60,'desert',0], ['rubalkhali','The Empty Quarter',46.00,21.20,'desert',0],
+ ['syriandes','The Syrian Waste',38.80,32.30,'desert',0],
 ];
 const DUMMIES_NEW = [
  [13.5,64.3],[16.5,65.2],[19.5,64.8],[35.5,53.5],[38.5,50.5],[36.5,51.8],[40.0,48.5],[41.5,52.0],
@@ -259,7 +274,7 @@ for(let i=0;i<SEEDS.length;i++){
       if(a < 40) continue;
       landArea += a;
       for(const p of ring) keys.add(Math.round(p[0]*2)+','+Math.round(p[1]*2));
-      let r = dpSimplify(ring, 1.1).map(p=>[Math.round(p[0]*10)/10, Math.round(p[1]*10)/10]);
+      let r = dpSimplify(ring, 0.85).map(p=>[Math.round(p[0]*10)/10, Math.round(p[1]*10)/10]);
       if(r.length>=4) rings.push(r);
     }
   }
@@ -288,8 +303,14 @@ for(let i=0;i<SEEDS.length;i++){
 for(const [a,b] of [['jylland','fyn'],['slesvig','fyn'],['fyn','sjaelland'],['sjaelland','skane'],['sicily','calabria'],['thrace','nicaea'],['crete','hellas'],['cyprus','cilicia'],['mallorca','barcelona'],['mallorca','valencia'],
   // the new south: straits & desert-margin crossings
   ['andalusia','fez'],['granada','fez'],['sicily','tunis'],['tunis','kairouan'],['cyprus','acre'],['cyprus','antioch'],
-  ['said','medina'],['acre','jerusalem'],['jerusalem','kerak'],['kerak','medina'],['basra','hasa'],['hasa','nejd'],['nejd','medina'],['barca','alexandria'],
-  ['tripoli','barca'],['jazira','mosul'],['aleppo','damascus']]){
+  ['acre','jerusalem'],['jerusalem','kerak'],['basra','hasa'],['nejd','medina'],
+  ['tripoli','barca'],['jazira','mosul'],['aleppo','damascus'],
+  // densified south: coastal chains & desert-margin crossings
+  ['tangier','fez'],['tangier','andalusia'],['tangier','granada'],['sfax','tripoli'],['gabes','sfax'],['tobruk','barca'],['tobruk','alexandria'],
+  ['sinai','ascalon'],['sinai','damietta'],['sinai','cairo'],['aswan','said'],['said','medina'],['jedda','mecca'],['mecca','medina'],
+  ['ascalon','jerusalem'],['kerak','medina'],['hauran','kerak'],['latakia','antioch'],['latakia','tripolis'],
+  ['edessa','antioch'],['edessa','jazira'],['kufa','baghdad'],['wasit','baghdad'],['wasit','basra'],['qatif','hasa'],
+  ['hasa','yamama'],['yamama','nejd'],['taima','medina'],['taima','hail'],['hail','nejd'],['khaybar','medina']]){
   if(out[a]&&out[b]&&!out[a].adj.includes(b)){ out[a].adj.push(b); out[b].adj.push(a); }
 }
 const sizeKB = Math.round(JSON.stringify(out).length/1024);
