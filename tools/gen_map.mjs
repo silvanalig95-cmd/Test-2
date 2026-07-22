@@ -122,6 +122,26 @@ const SEEDS = [
  ['polotsk','Polotsk',28.80,55.50,'forest',1], ['prussia','Prussia',20.50,54.20,'forest',1],
  ['lithuania','Lithuania',24.30,54.90,'forest',1], ['livonia','Livonia',24.80,57.10,'forest',1],
  ['halland','Halland',12.90,56.90,'plains',1], ['finland','Finland',23.80,60.90,'forest',1],
+ // ===== densified North & East =====
+ // Norway
+ ['telemark','Telemark',8.60,59.40,'hills',1], ['oppland','Oppland',9.90,61.30,'hills',1],
+ ['halogaland','Hålogaland',15.00,64.30,'hills',1],
+ // Sweden & Finland
+ ['varmland','Värmland',13.40,59.70,'forest',1], ['norrland','Norrland',16.80,63.00,'forest',1],
+ ['gotland','Gotland',18.50,57.50,'plains',1], ['tavastia','Tavastia',24.80,61.40,'forest',1],
+ ['karelia','Karelia',30.50,62.20,'forest',1],
+ // The Baltic
+ ['estonia','Estonia',25.80,58.90,'forest',1], ['semgallia','Semgallia',23.80,56.60,'forest',1],
+ ['samogitia','Samogitia',22.00,55.60,'forest',1],
+ // Poland
+ ['silesia','Silesia',17.00,51.10,'plains',2], ['sandomierz','Sandomierz',21.70,50.70,'plains',1],
+ // The Rus
+ ['pskov','Pskov',28.50,57.80,'forest',1], ['turov','Turov',27.50,52.00,'marsh',1],
+ ['pereyaslavl','Pereyaslavl',31.80,50.00,'plains',1], ['ryazan','Ryazan',40.00,54.50,'forest',1],
+ ['vladimir','Vladimir',40.30,56.10,'forest',2], ['rostov','Rostov',39.30,57.30,'forest',1],
+ ['murom','Murom',42.20,55.60,'forest',1], ['beloozero','Beloozero',37.80,60.00,'forest',1],
+ // the Pontic steppe
+ ['cumans','the Cuman Steppe',34.00,48.00,'plains',1],
  // ===== North Africa: the Maghreb (Berber) =====
  ['marrakesh','Marrakesh',-8.00,31.63,'plains',3], ['fez','Fez',-5.00,34.03,'hills',3],
  ['sus','Sus',-9.20,30.42,'hills',1], ['tangier','Tangier',-5.80,35.55,'hills',2],
@@ -164,10 +184,15 @@ const SEEDS = [
  ['syriandes','The Syrian Waste',38.80,32.30,'desert',0],
 ];
 const DUMMIES_NEW = [
- [13.5,64.3],[16.5,65.2],[19.5,64.8],[35.5,53.5],[38.5,50.5],[36.5,51.8],[40.0,48.5],[41.5,52.0],
+ // Iberia / Africa fringe & the eastern Mediterranean
  [-7.0,38.5],[-2.5,36.9],[35.5,34.0],[36.2,33.5],[38.5,35.5],[40.5,37.0],[41.5,42.0],[44.0,40.0],
- [34.0,44.6],[36.5,45.3],[34.5,47.5],[35.5,48.8],[39.0,47.2],[37.5,55.7],[10.0,36.8],[3.0,36.7],
- [-6.8,34.0],[13.2,32.9],[22.6,32.1],[28.5,62.8],[33.5,60.5],[35.0,57.5],[30.5,54.0],
+ [10.0,36.8],[3.0,36.7],[-6.8,34.0],[13.2,32.9],[22.6,32.1],
+ // Crimea, the Caucasus and the deep Pontic–Caspian steppe (east of the Cumans)
+ [34.0,44.6],[36.5,45.3],[35.8,48.8],[39.0,47.2],[37.0,49.3],[40.0,49.6],[43.0,48.2],[46.0,49.0],
+ // deep Russia beyond the Volga–Oka lands, toward the Urals
+ [45.0,57.0],[47.0,54.0],[48.0,58.0],[46.0,61.0],[44.0,63.0],[47.5,51.0],
+ // the Arctic fringe above the northern provinces
+ [22.0,64.6],[28.0,64.5],[34.0,64.3],[40.0,63.8],[45.0,63.0],
 ];
 // absorb out-of-scope land at the new southern/eastern frontier (Persia, the Sudan, the deep desert edge)
 const DUMMIES_SE = [
@@ -175,9 +200,7 @@ const DUMMIES_SE = [
  [50.5,26.0],[50.7,23.0],[48.0,20.5],[44.0,19.5],[40.0,19.3],[36.0,19.4],[32.0,20.2],[27.0,21.0],
  [22.0,20.3],[16.0,20.4],[9.0,20.6],[2.0,21.2],[-4.0,22.0],[-9.0,25.0],[-10.2,29.0],
 ];
-const DUMMIES = [...DUMMIES_NEW, ...DUMMIES_SE,
- [15.5,62.8],[19.5,63.5],[26.5,61.5],
-];
+const DUMMIES = [...DUMMIES_NEW, ...DUMMIES_SE];
 // ---- major rivers: geographic polylines, projected at build ----
 const RIVERS = {
  Rhine:[[9.5,46.5],[8.3,47.6],[7.6,48.6],[8.2,49.0],[7.3,50.0],[6.9,50.9],[6.1,51.8],[6.0,51.95]],
@@ -310,7 +333,9 @@ for(const [a,b] of [['jylland','fyn'],['slesvig','fyn'],['fyn','sjaelland'],['sj
   ['sinai','ascalon'],['sinai','damietta'],['sinai','cairo'],['aswan','said'],['said','medina'],['jedda','mecca'],['mecca','medina'],
   ['ascalon','jerusalem'],['kerak','medina'],['hauran','kerak'],['latakia','antioch'],['latakia','tripolis'],
   ['edessa','antioch'],['edessa','jazira'],['kufa','baghdad'],['wasit','baghdad'],['wasit','basra'],['qatif','hasa'],
-  ['hasa','yamama'],['yamama','nejd'],['taima','medina'],['taima','hail'],['hail','nejd'],['khaybar','medina']]){
+  ['hasa','yamama'],['yamama','nejd'],['taima','medina'],['taima','hail'],['hail','nejd'],['khaybar','medina'],
+  // northern & eastern isles/crossings
+  ['gotland','gotaland'],['gotland','ostergotland'],['halogaland','trondelag'],['estonia','livonia']]){
   if(out[a]&&out[b]&&!out[a].adj.includes(b)){ out[a].adj.push(b); out[b].adj.push(a); }
 }
 const sizeKB = Math.round(JSON.stringify(out).length/1024);

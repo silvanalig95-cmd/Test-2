@@ -565,6 +565,24 @@ sparser than Europe; this brings them to the same grain (246 provinces).
   European lord starts looking at Europe and Saladin at the Levant, and
   the larger map never feels cramped.
 
+### v3.4 — densifying the north & east (SHIPPED)
+The same treatment for Scandinavia, the Baltic and the Rus, which were the
+last sparse quarter of the map (268 provinces).
+- **22 new provinces**: Norway (Telemark, Oppland, Hålogaland), Sweden
+  (Värmland, Norrland, Gotland), Finland (Tavastia, Karelia), the Baltic
+  (Estonia, Semgallia, Samogitia), Poland (Silesia, Sandomierz), the Rus
+  (Pskov, Turov, Pereyaslavl, Ryazan, Vladimir, Rostov, Murom, Beloozero)
+  and the Pontic steppe (the Cuman Steppe).
+- **Reworked frontier dummies**: the points that used to absorb the
+  Russian northeast and Arctic fringe were pulled back to the true edges
+  (deep Russia toward the Urals, the steppe toward the Caspian, the coast
+  above lat 64.8), letting real provinces claim the land.
+- Assigned to their historical realms in both eras — the Rus to the
+  Kievan realm, the Baltic to pagan Lithuania, the new Nordic lands to
+  Norway and Sweden, the steppe to the Cumans — with a Gotland strait and
+  a Hålogaland–Trøndelag coastal link. The whole map now reads at one
+  density from Ireland to the Volga and Norway to Mecca.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
