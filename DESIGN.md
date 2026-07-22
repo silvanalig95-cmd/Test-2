@@ -631,6 +631,29 @@ More playtest feedback.
   their spears (down to −30% at zero), so the number you watch in the overview
   and the army you can raise are one and the same. Above 45 it costs nothing.
 
+### v3.7 — bounding the repeatable actions (SHIPPED)
+With one pool of up to five orders a season, the "safe" repeatable actions
+let you grind a win — feasting to 2500 prestige, or holding free court for
+endless legitimacy. Reviewed every action and bounded the ones that should be:
+- **Feast → once a year** (was unlimited): the direct fix for
+  prestige-spam-to-victory. A grand feast is an annual event.
+- **Convene court → once a year** (was unlimited and free): free legitimacy
+  should not stack.
+- **Send gift → once a year per court**, and **gift a courtier → once a year
+  per person** (was unlimited): mirrors the envoy; no buying opinion to the cap
+  in a single season.
+- **Plots → one per target**: `startPlot` didn't dedupe, so you could stack
+  identical murder or slander plots on the same person. Now refused, and the
+  button reads "Murder plot afoot…".
+- Everything else was left repeatable on purpose because it is already bounded
+  by its own cost or state — buildings (one per province), development (dev
+  cap), muster (levy pool), fabricate (one per province, already guarded),
+  retinue (gold + hard cap), marriage (available kin), and wars (each a real
+  commitment). The already-annual ceremonies (Rome, the seasonal actions) and
+  once-per-ruler law are unchanged.
+Buttons now disable with a plain reason when a per-year action is spent, so the
+limits read at a glance.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

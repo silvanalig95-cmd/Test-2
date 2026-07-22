@@ -3597,9 +3597,9 @@ const UI = {
       h += `<div class="kv" style="cursor:pointer" onclick="UI.tab('relations')"><span>Allies / Rivals</span><b><span class="${nAl?'pos':''}">${nAl}</span> / <span class="${nRiv?'neg':''}">${nRiv}</span></b></div>`; }
     if(R_.excomm) h += `<div class="kv"><span>Standing with Rome</span><b class="neg">EXCOMMUNICATE</b></div>`;
     h += `<div class="actBtns">
-      <button onclick="Game.act('feast')" ${!Game.can('feast')||R_.gold<10?'disabled':''} data-tip="+10 prestige and +6 opinion with everyone at court">Host a feast (⚡ 10🪙)</button>
+      <button onclick="Game.act('feast')" ${!Game.can('feast')||R_.gold<10||G.flags['feast'+G.year]?'disabled':''} data-tip="${G.flags['feast'+G.year]?'You have already held your great feast this year':'+10 prestige, +6 opinion with all the court · once a year'}">Host a feast (⚡ 10🪙)</button>
       <button onclick="Game.act('retinue')" ${!Game.can('retinue')||R_.gold<12?'disabled':''} data-tip="+100 permanent soldiers who fight year-round. Upkeep 0.5🪙/season; they join your next muster">Recruit retinue +100 (⚡ 12🪙)</button>
-      <button onclick="Game.act('court')" ${!Game.can('court')?'disabled':''} data-tip="+4 legitimacy; a random courtier warms to you">Convene court (⚡)</button>
+      <button onclick="Game.act('court')" ${!Game.can('court')||G.flags['court'+G.year]?'disabled':''} data-tip="${G.flags['court'+G.year]?'You have already convened the court this year':'+4 legitimacy, a courtier warms to you · once a year'}">Convene court (⚡)</button>
       ${[
         `<button class="seasonal" onclick="Game.act('tourney2')" ${!Game.can('tourney2')||R_.gold<12||G.flags['sa'+G.year]?'disabled':''} data-tip="Spring only: lances, wagers and glory. +12 prestige, court +4 opinion">🏇 Spring tournament (⚡ 12🪙)</button>`,
         `<button class="seasonal" onclick="Game.act('march')" ${!Game.can('march')||G.flags['sa'+G.year+'s']||!G.armies.some(a=>a.realm===G.player)?'disabled':''} data-tip="Summer only: drive the men hard — one host may march twice this season">⚔ Forced march (⚡)</button>`,
@@ -3674,7 +3674,7 @@ const UI = {
     const claimants = myCourt().filter(c=>alive(c)&&c.claims.includes(rid));
     h += `<div class="actBtns">
       <button class="small" ${!Game.can('envoy')||G.flags['env'+rid+G.year]?'disabled':''} onclick="Game.act('envoy','${rid}')" data-tip="${G.flags['env'+rid+G.year]?'Already received this year — courts tire of flattery':'Improve their ruler’s opinion of you. One embassy per court per year.'}">Send envoy (⚡)</button>
-      <button class="small" ${!Game.can('gift')||PRL().gold<10?'disabled':''} onclick="Game.act('gift','${rid}')">Send gift (⚡ 10🪙)</button>
+      <button class="small" ${!Game.can('gift')||PRL().gold<10||G.flags['gift'+rid+G.year]?'disabled':''} onclick="Game.act('gift','${rid}')" data-tip="${G.flags['gift'+rid+G.year]?'Already sent gifts to this court this year':'+20 opinion with their ruler · once a year per court'}">Send gift (⚡ 10🪙)</button>
       <button class="small" ${!Game.can('marry')?'disabled':''} onclick="Game.marryMenu('${rid}')" data-tip="${(()=>{ const o2=rul?opinion(rul,PR()):0; const est=clamp(Math.round((o2+(PRL().prs-R_.prs)/8+(PRL().rank==='kingdom'?15:0)+skill(PR(),'dip')*3+10)/50*100),2,98); return 'Their disposition: roughly '+est+'% likely to accept a fair match'; })()}">Arrange marriage (⚡)</button>`;
     for(const cl of claimants){
       h += `<button class="small" ${!Game.can('war')||tr||G.regency?'disabled':''} onclick="Game.act('war','${rid}','${cl.id}')" data-tip="${G.regency?'A regency cannot declare war':''}">⚔ Press ${esc(cl.nm)}’s claim (⚡)</button>`;
@@ -3720,13 +3720,15 @@ const UI = {
           h += `<button class="small" onclick="Game.act('release','${c.id}')">Release (free)</button>
             <button class="small" ${!Game.can('execute')?'disabled':''} onclick="Game.act('execute','${c.id}')">Execute (⚡, -✠)</button>`;
         } else {
-          h += `<button class="small" ${!Game.can('cgift')||PRL().gold<8?'disabled':''} onclick="Game.act('cgift','${c.id}')">Gift (⚡ 8🪙)</button>`;
+          h += `<button class="small" ${!Game.can('cgift')||PRL().gold<8||G.flags['cgift'+c.id+G.year]?'disabled':''} onclick="Game.act('cgift','${c.id}')" data-tip="${G.flags['cgift'+c.id+G.year]?'Already gifted them this year':'+18 opinion · once a year'}">Gift (⚡ 8🪙)</button>`;
           h += `<button class="small" ${!Game.can('imprison')?'disabled':''} onclick="Game.act('imprison','${c.id}')">Imprison (⚡, -opinion)</button>`;
         }
       }
       if(c.id!==PR().id && !c.dead){
-        h += `<button class="small" ${!Game.can('plotMurder')?'disabled':''} onclick="Game.act('plotMurder','${c.id}')" data-tip="A season or three of quiet work">🗡 Plot murder (⚡)</button>
-          <button class="small" ${!Game.can('plotSlander')?'disabled':''} onclick="Game.act('plotSlander','${c.id}')">🐍 Spread slander (⚡)</button>`;
+        const murdering = G.plots.some(pl=>pl.mine&&pl.type==='murder'&&pl.target===c.id);
+        const slandering = G.plots.some(pl=>pl.mine&&pl.type==='slander'&&pl.target===c.id);
+        h += `<button class="small" ${!Game.can('plotMurder')||murdering?'disabled':''} onclick="Game.act('plotMurder','${c.id}')" data-tip="${murdering?'Your men are already at work against them':'A season or three of quiet work'}">🗡 ${murdering?'Murder plot afoot…':'Plot murder (⚡)'}</button>
+          <button class="small" ${!Game.can('plotSlander')||slandering?'disabled':''} onclick="Game.act('plotSlander','${c.id}')">🐍 ${slandering?'Slander spreading…':'Spread slander (⚡)'}</button>`;
       }
       h += `</div>`;
       if(rulerOf && rulerOf.id!==G.player) h += `<div class="hint">Rules ${esc(rulerOf.n)}. Click their lands for diplomacy.</div>`;
@@ -3894,14 +3896,16 @@ const Game = {
     if(this.busy()) return;
     const R_ = PRL();
     switch(type){
-      case 'feast': if(!this.order('feast')) return; R_.gold-=10; R_.prs+=10;
+      case 'feast': if(G.flags['feast'+G.year]){ toast('🍖 You have already held your great feast this year.'); return; }
+        if(R_.gold<10||!this.order('feast')) return; G.flags['feast'+G.year]=1; R_.gold-=10; R_.prs+=10;
         for(const c of myCourt()) addOp(c, PR().id, 6);
         logIt('court','You feast the court; grudges soften under grease and mead.');
         toast('🍖 A feast! <b>+10 prestige</b>, the court warms to you'); break;
       case 'retinue': if(!this.order('retinue')) return; R_.gold-=12; R_.retinue=Math.min(600,R_.retinue+100);
         logIt('war','A hundred sworn swords join your standing retinue.');
         toast('⚔ <b>+100 retinue</b> — permanent soldiers, modest upkeep'); break;
-      case 'court': if(!this.order('court')) return; R_.leg=clamp(R_.leg+4,0,100);
+      case 'court': if(G.flags['court'+G.year]){ toast('✠ You have already convened the court this year.'); return; }
+        if(!this.order('court')) return; G.flags['court'+G.year]=1; R_.leg=clamp(R_.leg+4,0,100);
         const c0 = pick(myCourt()); if(c0) addOp(c0, PR().id, 10);
         logIt('court','You hold open court; justice is seen to be done, mostly.');
         toast('✠ <b>+4 legitimacy</b> — justice was seen to be done'); break;
@@ -3920,11 +3924,13 @@ const Game = {
         addOp(ruler(a), PR().id, 10+skill(PR(),'dip'));
         logIt('court',`Your envoy flatters the court of ${rl(a).n}.`);
         toast(`🕊 Envoy to ${esc(rl(a).n)}: <b>+${10+skill(PR(),'dip')} opinion</b>`); break; }
-      case 'gift': if(R_.gold<10||!this.order('gift')) return; R_.gold-=10;
+      case 'gift': if(G.flags['gift'+a+G.year]){ toast(`🎁 You have already sent gifts to ${esc(rl(a).n)} this year.`); return; }
+        if(R_.gold<10||!this.order('gift')) return; G.flags['gift'+a+G.year]=1; R_.gold-=10;
         addOp(ruler(a), PR().id, 20);
         logIt('court',`Gold and falcons for ${rl(a).n}; their ruler smiles.`);
         toast(`🎁 Gift to ${esc(rl(a).n)}: <b>+20 opinion</b>`); break;
-      case 'cgift': if(R_.gold<8||!this.order('cgift')) return; R_.gold-=8;
+      case 'cgift': if(G.flags['cgift'+a+G.year]){ toast(`🎁 You have already gifted ${esc(fullName(ch(a)))} this year.`); return; }
+        if(R_.gold<8||!this.order('cgift')) return; G.flags['cgift'+a+G.year]=1; R_.gold-=8;
         addOp(ch(a), PR().id, 18); logIt('court',`A gift finds ${fullName(ch(a))}.`);
         toast(`🎁 <b>+18 opinion</b> with ${esc(fullName(ch(a)))}`); break;
       case 'war': { if(G.regency) return;
@@ -3978,10 +3984,12 @@ const Game = {
         R_.leg=clamp(R_.leg-8,0,100);
         for(const c of myCourt()) addOp(c, PR().id, -8); break;
       case 'plotMurder': { const t=ch(a); if(t.realm===G.player&&t.dyn===PR().dyn){ UI.modal('Kinslaying','Even your spymaster refuses to put this in writing. Plotting the murder of your own dynasty is a step the game of thrones forgives — but this game does not require.',[{t:'Withdraw the thought.',fx:()=>{}}]); return; }
+        if(G.plots.some(pl=>pl.mine&&pl.type==='murder'&&pl.target===a)){ toast(`🗡 Your men are already at their quiet work against ${esc(fullName(t))}.`); return; }
         if(!this.order('plotMurder')) return;
         const p=startPlot(PR().id,'murder',a); p.mine=true;
         logIt('plot',`Quiet men begin quiet work regarding ${fullName(t)}.`); break; }
-      case 'plotSlander': { if(!this.order('plotSlander')) return;
+      case 'plotSlander': { if(G.plots.some(pl=>pl.mine&&pl.type==='slander'&&pl.target===a)){ toast(`🐍 The whispers against ${esc(fullName(ch(a)))} already spread.`); return; }
+        if(!this.order('plotSlander')) return;
         const p=startPlot(PR().id,'slander',a); p.mine=true;
         logIt('plot',`Coin changes hands; poets sharpen quills against ${fullName(ch(a))}.`); break; }
       case 'disband': { const ar=G.armies.find(x=>x.id===a); if(ar) disbandArmy(ar);
