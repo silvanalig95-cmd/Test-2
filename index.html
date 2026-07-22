@@ -560,6 +560,8 @@ const SCENARIOS = {
         brief:'You are Harald Sigurdsson — Hardrada, the hard ruler — last of the great Northmen. Byzantium remembers you; England will learn. Your claim is thin, your host is not, and Tostig Godwinson sits at your table promising the north will rise for you. It will not, but York may fall anyway. Strike fast: your kingdom is poor and long wars favor the rich. Every season your army winters abroad, it shrinks.'},
       byzantium:{diff:'Difficulty: Hard', blurb:'The Empire is the richest realm in the world — ruled by a bookkeeper, advised by schemers, and watched from the East by a Sultan who does not read books.',
         brief:'You are Konstantinos Doukas, tenth of that name, Emperor of the Romans. The Empire is vast and rich and its armies have been left to rot to pay for it. Psellos flatters and plots; Romanos Diogenes despises you and can actually fight; and in the East the Seljuk Sultan gathers horsemen like a storm gathers clouds. History gives you until 1071. Rebuild the eastern themes, keep the schemers closer than the soldiers — or lose Anatolia in an afternoon.'},
+      fatimid:{diff:'Difficulty: Hard', blurb:'The Fatimid Caliph rules the richest land in Islam from Cairo — Nile gold, the holy cities, and a court where real power belongs to whoever holds the vizier’s seal. The Turks are surging out of the east.',
+        brief:'You are al-Mustansir, Fatimid Caliph in Cairo, Commander of the Faithful — and, in the plain truth of it, a jewel that viziers guard and quarrel over. Egypt is the wealthiest realm on the map: the Nile pays for everything. You hold the Levantine coast to Jerusalem and the Hejaz with Mecca and Medina. But the Seljuk Turks are pouring west and will reach for Syria and Palestine within the decade. Guard the holy cities, bind your generals to you before they bind themselves, and remember that in this court the knife comes from the next room, not the far horizon.'},
     },
     provs:null /* REALMDATA defaults */ },
   y1187:{ n:'1187 · The Devil’s Brood', year:1187, sub:'Henry II rules an empire from Scotland’s border to the Loire — and his own sons circle him like wolves, with the young King of France holding their leashes. Meanwhile, word comes from the East: Jerusalem is in peril.',
@@ -572,6 +574,8 @@ const SCENARIOS = {
         brief:'You are William, King of Scots, called the Lion — though Henry of England once made you kneel like a lamb. The treaty that freed you expires with Henry’s life, and your claim to Northumbria has not aged a day. You cannot beat the Angevin empire in the field. You will not need to: it is eating itself. Grow your legitimacy, marry well, keep your host home in winter — and when the Devil’s Brood tears the south apart, the Lion hunts.'},
       byzantium:{diff:'Difficulty: Very Hard', blurb:'Isaac Angelos took the throne in a riot and rules like it. Bulgaria is in revolt, the Seljuks hold Anatolia, his own brother plots — and now a crusade wants passage.',
         brief:'You are Isaakios Angelos, Emperor because a mob liked you better than the last one. Bulgaria has risen under Asen; the Seljuks sit an arrow’s flight from Nicaea; your brother Alexios measures your throne with his eyes; and the treasury leaks like an old ship. The Empire has survived a thousand years by being richer, subtler, and more patient than its enemies. Be all three, quickly.'},
+      ayyubid:{diff:'Difficulty: Hard', blurb:'Salah al-Din has forged Egypt and Syria into one realm and, this very year, taken Jerusalem back from the Franks after eighty-eight years. Now all Christendom takes the cross — and Richard of England is coming.',
+        brief:'You are Salah al-Din Yusuf — Saladin — Sultan of Egypt and Syria, and this year the man who won Jerusalem back from the Franks. Your realm runs from the Nile to the Euphrates and your name is spoken with awe from Baghdad to Paris. But awe garrisons no walls: the fall of the Holy City has set every Christian king reaching for the cross, and the greatest of them, Richard of England, is worth an army alone. The Crusader coast — Antioch, Tripoli, Acre — is a dagger at your flank. Consolidate, keep your emirs loyal to you and not merely to victory, and meet the storm from the sea when it breaks.'},
     },
     provs:{ england:["cornwall","devon","wessex","sussex","kent","essex","oxford","hereford","eastanglia","lincoln","mercia","chester","lancaster","york","northumbria","cumbria","rouen","caen","maine","anjou","touraine","poitou","limousin","aquitaine","gascony","angouleme","perigord"], france:["idf","orleans","berry","vermandois","ponthieu","nevers"], blois:["champagne","bloisp"], bourgogne:["burgundy","dauphine"], toulouse:["toulouse","provence","auvergne","foix"], scotland:["lothian","alba","strathclyde","argyll","moray"], wales:["gwynedd","powys","deheubarth"], ireland:["leinster","meath"], munster:["munster","connacht"], ulaid:["ulster"], brittany:["brittany","leon"], flanders:["flanders"], norway:["viken","vestland","agder","trondelag"], sweden:["svealand","gotaland","ostergotland","smaland","finland"], denmark:["jylland","slesvig","fyn","sjaelland","skane","halland"], germany:["frisia","holland","brabant","westphalia","cologne","saxony","thuringia","lorraine","franconia","swabia","bavaria","austria","carinthia","savoy","lyonnais","lombardy","verona","genoa","pisa","tuscany","alsace","luxembourg","hainaut","meissen","brandenburg","lusatia","salzburg","styria","carniola","tyrol","montferrat","modena"], castile:["galicia","leonp","castile","toledo","coimbra"], portugal:["portugal","lisbon"], navarre:["navarre"], aragon:["aragon","barcelona"], andalus:["andalusia","cordoba","badajoz","valencia","murcia","granada","mallorca"], sicily:["sicily","apulia","calabria","naples","abruzzo","salerno"], papacy:["latium","romagna","spoleto","ancona","benevento"], venice:["venice"], byzantium:["thrace","adrianople","macedonia","hellas","crete","epirus","dyrrachion","nicaea","smyrna","attaleia","trebizond","cyprus","thessaly","morea"], bulgaria:["bulgaria","vidin","dobruja"], seljuk:["paphlagonia","cappadocia","armeniakon","cilicia","ankyra","ikonion","melitene"], hungary:["hungary","transylvania","croatia","bosnia"], serbia:["serbia","zeta","rascia"], cumania:["wallachia"], kiev:["kiev","volhynia","halych","chernigov","smolensk","novgorod","polotsk"], poland:["poland","masovia","pomerania"], bohemia:["bohemia"], lithuania:["lithuania","prussia","livonia"], almohad:["marrakesh","sus","fez","tlemcen","tahert","algiers","bejaia","tunis","kairouan","tripoli"], ayyubid:["barca","alexandria","cairo","damietta","said","damascus","aleppo","jazira","mosul","jerusalem","kerak","medina","mecca"], crusaders:["antioch","tripolis","acre"], abbasid:["baghdad","basra","nejd","hasa"] } },
 };
@@ -1054,6 +1058,16 @@ function seedCast1066(){
   addOp(ch('philip'), 'william', -30);
   addOp(ch('malcolm'), 'morcar', -25);
   addOp(ch('sweyn'), 'hardrada', -40);
+  /* --- Fatimid Egypt (playable) --- */
+  mk({id:'mustansir', nm:'al-Mustansir', dyn:'Fatimid', realm:'fatimid', cult:'arabic', sex:'m', by:1029,
+    tr:['patient','pious','content'], sk:{dip:6,mar:3,int:5,ste:6}});
+  mk({id:'rasad', nm:'Rasad', dyn:'', realm:'fatimid', cult:'arabic', sex:'f', by:1035, tr:['ambitious','deceitful'], sk:{dip:5,mar:2,int:6,ste:4}});
+  wed('mustansir','rasad', true);
+  mk({id:'nizar', nm:'Nizar', dyn:'Fatimid', realm:'fatimid', cult:'arabic', sex:'m', by:1045, fa:'mustansir', tr:['ambitious','brave'], sk:{dip:4,mar:5,int:4,ste:3}});
+  mk({id:'mustali', nm:'al-Mustali', dyn:'Fatimid', realm:'fatimid', cult:'arabic', sex:'m', by:1050, fa:'mustansir', tr:['patient','cynical'], sk:{dip:5,mar:3,int:5,ste:4}});
+  mk({id:'badr', nm:'Badr al-Jamali', dyn:'', realm:'fatimid', cult:'arabic', sex:'m', by:1020, tr:['ambitious','brave','deceitful'], sk:{dip:5,mar:8,int:7,ste:6}});
+  G.realms.fatimid.ruler = 'mustansir'; G.realms.fatimid.prs = 110; G.realms.fatimid.retinue = 400;
+  addOp(ch('badr'), 'mustansir', -10); /* the over-mighty vizier */
 }
 
 function seedCast1187(){
@@ -1205,6 +1219,12 @@ function seedCast1187(){
 
   mk({id:'saladin', nm:'Saladin', dyn:'Ayyubid', realm:'ayyubid', cult:'arabic', sex:'m', by:1137,
     tr:['genius','brave','pious'], sk:{dip:8,mar:9,int:7,ste:7}});
+  mk({id:'ismat', nm:'Ismat', dyn:'', realm:'ayyubid', cult:'arabic', sex:'f', by:1150, tr:['kind','patient'], sk:{dip:5,mar:2,int:4,ste:4}});
+  wed('saladin','ismat', true);
+  mk({id:'afdal', nm:'al-Afdal', dyn:'Ayyubid', realm:'ayyubid', cult:'arabic', sex:'m', by:1170, fa:'saladin', tr:['brave','wrathful'], sk:{dip:4,mar:6,int:3,ste:3}});
+  mk({id:'aziz', nm:'al-Aziz', dyn:'Ayyubid', realm:'ayyubid', cult:'arabic', sex:'m', by:1172, fa:'saladin', tr:['ambitious','brave'], sk:{dip:5,mar:6,int:4,ste:4}});
+  mk({id:'zahir', nm:'az-Zahir', dyn:'Ayyubid', realm:'ayyubid', cult:'arabic', sex:'m', by:1173, fa:'saladin', tr:['patient','content'], sk:{dip:5,mar:5,int:5,ste:5}});
+  mk({id:'aladil', nm:'al-Adil', dyn:'Ayyubid', realm:'ayyubid', cult:'arabic', sex:'m', by:1145, tr:['genius','patient','deceitful'], sk:{dip:8,mar:7,int:8,ste:7}});
   G.realms.ayyubid.ruler = 'saladin'; G.realms.ayyubid.prs = 150; G.realms.ayyubid.retinue = 600; G.realms.ayyubid.leg = 80;
   /* starting relationships: a family at war with itself */
   addOp(ch('alexios3'), 'isaac2', -50);

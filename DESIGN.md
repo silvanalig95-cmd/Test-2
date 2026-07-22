@@ -529,6 +529,21 @@ that reads the game.
 - A lowpass warms the master and a 2.2-second fade-in/out keeps toggling
   smooth. Still fully generative — nothing recorded.
 
+### v3.2 — the southern thrones (SHIPPED)
+The new map becomes playable from the other side of the sea.
+- **Fatimid Egypt (1066)**: play al-Mustansir, Caliph in Cairo — the
+  richest realm on the map (Nile gold, the Levant coast to Jerusalem, the
+  Hejaz with Mecca and Medina), a boy-caliph shadowed by an over-mighty
+  vizier (Badr al-Jamali), with the Seljuk storm about to break on Syria.
+- **Saladin's Ayyubids (1187)**: play Salah al-Din himself, fresh from
+  retaking Jerusalem, holding Egypt to the Euphrates — with the Crusader
+  coast (Antioch, Tripoli, Acre) at your flank and the Third Crusade, Richard
+  of England and all, gathering across the sea.
+- Both start with a **full dynasty** (consort, heirs, ambitious kin) so the
+  succession has continuity — verified over a 20-season run in which Saladin
+  died and al-Afdal inherited cleanly. Made playable simply by giving each a
+  scenario card; the auto-ruler fallback covers every other landed realm.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
