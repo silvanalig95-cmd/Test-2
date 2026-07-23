@@ -847,6 +847,17 @@ and there was no way to zoom in far enough to interact.
 - **Crisper borders.** Province outlines are a touch darker and heavier, so
   same-coloured neighbours are easier to tell apart.
 
+### v4.9 — mandates have an ongoing cost (SHIPPED)
+Fixing the odd feel of spending one order for a permanent free effect.
+- A councillor on a mandate is now **occupied**: while away on the task, they no
+  longer provide their seat's **passive council bonus**, and they don't count
+  toward the **order pool** (a thin council can drop below the "working council"
+  threshold and lose an order). The mandate's own effect still runs on the
+  councillor's raw skill — but the price is their absence from day-to-day rule.
+- So "Drill the Host" is a real trade: while the Marshal drills, your levies lose
+  his bonus; recall him and it returns. The UI now shows the suspended passive
+  (struck through) and spells out the cost when you assign a task.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

@@ -1365,8 +1365,10 @@ function aiFillCouncil(rid){
 }
 function councilBonus(rid, seat){
   const cid = rl(rid).council[seat];
-  if(!cid || !alive(ch(cid))) return 0;
-  return skill(ch(cid), {marshal:'mar',steward:'ste',spymaster:'int',chaplain:'dip'}[seat]);
+  const c = cid && ch(cid);
+  if(!c || !alive(c)) return 0;
+  if(c.mandate) return 0;   /* away on a mandate: an advisor cannot also tend their office */
+  return skill(c, {marshal:'mar',steward:'ste',spymaster:'int',chaplain:'dip'}[seat]);
 }
 /* ---- Crown's Focus: a standing doctrine that rewards specialising, amplified by the matching seat ---- */
 const FOCI = {
@@ -3892,16 +3894,17 @@ const UI = {
         const cid = R_.council[seat]; const c = cid?ch(cid):null;
         const isFocus = cf && cf.seat===seat;
         h += `<div class="card${isFocus?' seatFocus':''}"><div class="seatTop"><b>${SKILLICO[sk]} ${nm}${isFocus?' <span class="hint" style="margin:0">· focus seat</span>':''}</b><button class="small" onclick="Game.pickCouncil('${seat}')">${c&&alive(c)?'Replace':'Appoint'}</button></div>`;
+        const onM = c && alive(c) && c.mandate;
         h += c&&alive(c) ? `<div class="seatWho">${esc(fullName(c))} — ${SKILLICO[sk]}${skill(c,sk)} · loyalty <span class="${opinion(c,PR())>=0?'pos':'neg'}">${opinion(c,PR())>0?'+':''}${opinion(c,PR())}</span></div>` : `<div class="seatWho"><i>vacant — your realm forfeits this office’s work</i></div>`;
-        h += `<div class="hint" style="margin:2px 0 0">${eff(G.player)}</div>`;
+        h += onM ? `<div class="hint" style="margin:2px 0 0"><s style="opacity:.6">${eff(G.player)}</s> <span class="neg">— suspended while on task</span></div>` : `<div class="hint" style="margin:2px 0 0">${eff(G.player)}</div>`;
         /* mandate row: send this advisor on a sustained task */
         const md = MANDATES[seat];
         if(c && alive(c)){
           if(c.mandate){ const tgt=c.mandate.target;
-            h += `<div class="mandateRow on"><div>${md.ico} <b>${md.n}</b> — ${md.on(c, tgt)}</div><button class="small" onclick="Game.recallMandate('${seat}')">Recall</button></div>`;
+            h += `<div class="mandateRow on"><div>${md.ico} <b>${md.n}</b> — ${md.on(c, tgt)}<br><span class="hint" style="margin:0">While away, ${esc(nm)} forfeits this office’s passive and its hand in your orders.</span></div><button class="small" onclick="Game.recallMandate('${seat}')">Recall</button></div>`;
           } else {
             const canO = Game.can();
-            h += `<div class="mandateRow"><div class="hint" style="margin:0">${md.ico} <b>${md.n}</b> — ${esc(md.d)}</div><button class="small" ${canO?'':'disabled'} onclick="Game.assignMandate('${seat}')">Set task (⚡)</button></div>`;
+            h += `<div class="mandateRow"><div class="hint" style="margin:0">${md.ico} <b>${md.n}</b> — ${esc(md.d)} <i>(costs this office’s passive while it runs)</i></div><button class="small" ${canO?'':'disabled'} onclick="Game.assignMandate('${seat}')">Set task (⚡)</button></div>`;
           }
         }
         h += `</div>`;
@@ -4469,7 +4472,7 @@ function councilSize(rid){
   const R_ = rl(rid); let n = 0;
   for(const s of ['marshal','steward','spymaster','chaplain']){
     const cid = R_.council[s], c = cid && ch(cid);
-    if(c && alive(c) && !c.prison) n++;
+    if(c && alive(c) && !c.prison && !c.mandate) n++;   /* an advisor on a mandate is occupied, not available for general governance */
   }
   return n;
 }
@@ -4745,7 +4748,7 @@ const Game = {
       logIt('court', `${fullName(c)} is set to ${m.n.toLowerCase()}${label?` (${label})`:''}.`);
       UI.renderAll(); };
     if(!m.target){
-      UI.modal(m.n, `${m.d}<br><br>Setting this task spends <b>one order</b> now; thereafter it works on its own each season until you recall your ${cap(seat)}.`,
+      UI.modal(m.n, `${m.d}<br><br>Setting this task spends <b>one order</b> now; thereafter it works on its own each season until you recall your ${cap(seat)}. <span class="neg">While away, they forfeit this office’s passive bonus and their hand in your order pool</span> — the cost is their absence, not a second order.`,
         [{t:`⚡ Set to “${m.n}”`, fx:()=>commit(null)}, {t:'— Not now —', fx:()=>{}}]);
       return;
     }
@@ -4753,7 +4756,7 @@ const Game = {
       const opts = realmProvs(G.player).filter(p=>pv(p).dev<5)
         .sort((a,b)=>pv(a).dev-pv(b).dev || PROVDATA[a].n.localeCompare(PROVDATA[b].n)).slice(0,12);
       if(!opts.length){ toast('Every province you hold is already fully developed.'); return; }
-      UI.modal(m.n, `${m.d}<br><br>Choose a province. Setting the task spends <b>one order</b>; it then advances on its own each season.`,
+      UI.modal(m.n, `${m.d}<br><br>Choose a province. Setting the task spends <b>one order</b>; it then advances on its own each season. <span class="neg">While away, your ${cap(seat)} forfeits this office’s passive and their hand in your orders.</span>`,
         opts.map(p=>({t:`${esc(PROVDATA[p].n)} — ${STATICO.dev}${pv(p).dev}/5`, fx:()=>commit(p)}))
           .concat([{t:'— Not now —', fx:()=>{}}]));
       return;
@@ -4762,7 +4765,7 @@ const Game = {
     const opts = Object.values(G.realms).filter(r=>!r.dead && r.id!==G.player && ruler(r.id) && alive(ruler(r.id)))
       .sort((a,b)=>realmStrength(b.id)-realmStrength(a.id)).slice(0,12);
     if(!opts.length){ toast('No foreign court stands to receive your advisor.'); return; }
-    UI.modal(m.n, `${m.d}<br><br>Choose a court. Setting the task spends <b>one order</b>; it then works on its own each season.`,
+    UI.modal(m.n, `${m.d}<br><br>Choose a court. Setting the task spends <b>one order</b>; it then works on its own each season. <span class="neg">While away, your ${cap(seat)} forfeits this office’s passive and their hand in your orders.</span>`,
       opts.map(r=>({t:`${esc(r.n)} — ${STATICO.opinion}${opinion(ruler(r.id),PR())}`, fx:()=>commit(r.id)}))
         .concat([{t:'— Not now —', fx:()=>{}}]));
   },
