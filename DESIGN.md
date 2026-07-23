@@ -727,6 +727,28 @@ real friction.
   old consequences (shunned by Christendom, bleeding legitimacy) and the barefoot
   road back.
 
+### v4.3 — Culture (SHIPPED)
+Giving culture the mechanical weight faith now has, on a different axis: where
+religion touches the **economy**, culture touches **stability**.
+- **A people's ethos.** Every culture now carries an ethos that colours its
+  realm: **Martial** (Norman, Norse, Iberian, Magyar, Turkic, Berber — fuller
+  levies), **Mercantile** (Italian, Greek, Arabic — a richer treasury), or
+  **Hardy** (Saxon, Celtic, German, Slav, Baltic — steadier under revolt and
+  the drag of foreign rule). Shown on the realm overview and every realm's
+  panel, so the world reads as peoples, not just colours.
+- **Province culture & the friction of foreign rule.** Provinces carry their own
+  culture, and — as with faith — conquest does not change it. Land of a foreign
+  people **drags on your legitimacy** each year (a Hardy realm bears it better);
+  hold too much of it and the crown wobbles.
+- **Assimilation — the slow counterpart to conversion.** Where faith must be
+  actively converted with missionaries, culture **assimilates on its own** over
+  years: a conquered province gradually takes up its ruler's tongue and ways,
+  faster under good stewardship and a shared faith, until it flips. So the two
+  systems pull differently — faith is a purse-and-effort problem you solve now,
+  culture a patience-and-stability problem that solves itself if you can hold on.
+- **The province panel** now shows each province's faith and people, flags those
+  that don't match their realm, and tracks conversion and assimilation progress.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

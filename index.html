@@ -703,7 +703,7 @@ function realmStrength(rid){
   return s;
 }
 function legFactor(rid){ const r = rl(rid); return r ? Math.min(1, 0.7 + r.leg/150) : 1; } /* below ~45 legitimacy, vassals withhold spears */
-function levyOf(p){ const pr=pv(p); return Math.round((200 + pr.dev*110 + (pr.bld==='castle'?150:0)) * legFactor(pr.r) * focusLevy(pr.r) * faithPenalty(p)); }
+function levyOf(p){ const pr=pv(p); return Math.round((200 + pr.dev*110 + (pr.bld==='castle'?150:0)) * legFactor(pr.r) * focusLevy(pr.r) * faithPenalty(p) * cultureLevy(pr.r)); }
 function taxOf(p){ const pr=pv(p); return Math.round((pr.dev + (pr.bld==='market'?2:0)) * faithPenalty(p)); }
 function realmFinances(rid){
   const R_ = rl(rid);
@@ -715,7 +715,7 @@ function realmFinances(rid){
   }
   const stewPct = councilBonus(rid,'steward')*.04;
   const seasonMult = (G.season===2?2:1) * (G.plague?.65:1);
-  const grossTax = baseTax*(1+stewPct)*seasonMult*focusTax(rid);
+  const grossTax = baseTax*(1+stewPct)*seasonMult*focusTax(rid)*cultureTax(rid);
   const retUpkeep = R_.retinue/200;
   let armyUpkeep = 0; const hosts = [];
   for(const a of G.armies) if(a.realm===rid){
@@ -840,7 +840,9 @@ function newGame(playerRealm, seed, scenId){
   /* ---- Religion: seed each province's faith from its founding owner; give each realm its piety ---- */
   for(const [pid, pr] of Object.entries(G.provinces)){
     pr.rel = pr.r ? (rl(pr.r).rel || 'catholic') : (REALMDATA[pid]&&REALMDATA[pid].rel) || 'catholic';
+    pr.cult = pr.r ? (rl(pr.r).cult) : (REALMDATA[pid]&&REALMDATA[pid].cult) || 'norman';
     pr.conv = 0;   /* progress converting this province toward its current owner's faith */
+    pr.asm = 0;    /* progress assimilating this province toward its owner's culture */
   }
   for(const R_ of Object.values(G.realms)){
     if(R_.dead){ R_.piety = 25; continue; }
@@ -1403,6 +1405,24 @@ function pietyChange(rid){
   return d;
 }
 function pietyGain(rid, n){ const R_=rl(rid); if(!R_) return; R_.piety=clamp((R_.piety||0)+n,0,100); }
+
+/* ---- Culture: each people has an ethos, and conquered land of a foreign culture chafes until it assimilates ---- */
+const ETHOS = {
+  martial:  {n:'Martial',    ico:'⚔', d:'A warrior people — levies muster fuller.'},
+  mercantile:{n:'Mercantile',ico:'🪙', d:'Traders and clerks — the treasury runs richer.'},
+  hardy:    {n:'Hardy',      ico:'🛡', d:'Rooted and stubborn — steadier under revolt and siege.'},
+};
+const CULT_ETHOS = {
+  saxon:'hardy', norman:'martial', norse:'martial', celtic:'hardy', german:'hardy',
+  iberian:'martial', italian:'mercantile', greek:'mercantile', slav:'hardy', magyar:'martial',
+  turkic:'martial', arabic:'mercantile', berber:'martial', baltic:'hardy',
+};
+function cultEthos(rid){ const r=rl(rid); return (r && CULT_ETHOS[r.cult]) || 'hardy'; }
+function cultureLevy(rid){ return cultEthos(rid)==='martial' ? 1.08 : 1; }
+function cultureTax(rid){ return cultEthos(rid)==='mercantile' ? 1.15 : 1; }
+function cultHardy(rid){ return cultEthos(rid)==='hardy'; }
+function provForeignCult(p){ const pr=pv(p); return !!(pr.r && pr.cult && rl(pr.r) && pr.cult!==rl(pr.r).cult); }
+function realmForeignCult(rid){ return realmProvs(rid).filter(p=>provForeignCult(p)); }
 
 /* ---- flexible order pool: base ~3, plus council, high legitimacy, and temporary event boons ---- */
 function ordersMaxNow(){
@@ -3775,6 +3795,8 @@ const UI = {
       <div class="kv"><span>Standing retinue</span><b>${R_.retinue}</b></div>
       <div class="kv"><span>Steward bonus</span><b>+${Math.round(councilBonus(G.player,'steward')*4)}%</b></div>`;
     { const f=FOCI[R_.focus]; if(f) h += `<div class="kv" style="cursor:pointer" data-tip="Your realm’s standing doctrine — ${esc(f.d)} Set it in the Council tab." onclick="UI.tab('council')"><span>Crown’s focus</span><b>${f.ico} ${f.n}</b></div>`; }
+    { const e=ETHOS[cultEthos(G.player)]; const fc=realmForeignCult(G.player).length;
+      h += `<div class="kv" data-tip="Your people are ${esc(cap(R_.cult))} — ${esc(e.d)}${fc?' '+fc+' of your provinces are of another culture; they drag on your legitimacy until they assimilate to your ways over the years.':''}"><span>People</span><b>${esc(cap(R_.cult))} <span class="hint" style="margin:0">${e.ico} ${e.n}${fc?' · '+fc+'🏰?':''}</span></b></div>`; }
     h += `<div class="kv"><span>Succession law</span><b>${R_.law==='elective'?'Elective':'Primogeniture'}</b></div>`;
     { const wf = realmWrongFaith(G.player).length;
       h += `<div class="kv" style="cursor:pointer" onclick="Game.faith()" data-tip="Your faith and your piety — standing with ${esc(RELAUTH[R_.rel])}. Tend it to earn piety; spend it on holy wars, missions, and blessings.${wf?' '+wf+' of your provinces keep another faith and yield grudgingly until converted.':''}"><span>Faith</span><b>${RELICO[R_.rel]} ${RELNAME[R_.rel]} <span class="hint" style="margin:0">☩${Math.round(R_.piety||0)}${wf?' · '+wf+'✝?':''}</span></b></div>`; }
@@ -3824,6 +3846,15 @@ const UI = {
       <div class="kv"><span>${st.bld?BUILDINGS[st.bld].ico:'🏗'} Building</span><b>${st.bld?BUILDINGS[st.bld].n : st.cons?BUILDINGS[st.cons.b].n+' — '+st.cons.left+' season'+(st.cons.left>1?'s':'')+' left' : '—'}</b></div>
       <div class="kv"><span>${STATICO.levy} Levies</span><b>${fmtN(levyOf(pid))}</b></div>
       <div class="kv"><span>${STATICO.gold} Tax / season</span><b>${taxOf(pid)}</b></div>`;
+    { const wrongF = provWrongFaith(pid), wrongC = provForeignCult(pid);
+      h += `<div class="kv"><span>Faith</span><b>${RELICO[st.rel]} ${RELNAME[st.rel]}${wrongF?' <span class="hint" style="margin:0">— not the realm’s</span>':''}</b></div>`;
+      h += `<div class="kv"><span>People</span><b>${esc(cap(st.cult||''))}${wrongC?' <span class="hint" style="margin:0">— not the realm’s</span>':''}</b></div>`;
+      if(mine && (wrongF||wrongC)){
+        const bits = [];
+        if(wrongF) bits.push(`spurns your faith (−tax, −levies) — <b>${Math.round(st.conv||0)}%</b> won over by missions`);
+        if(wrongC) bits.push(`keeps another culture (drags legitimacy) — <b>${Math.round(st.asm||0)}%</b> assimilated`);
+        h += `<div class="hint" style="margin:2px 0 0">This land ${bits.join('; ')}.</div>`;
+      } }
     if(mine){
       h += `<div class="actBtns">`;
       if(!st.bld && !st.cons) for(const [bid,b] of Object.entries(BUILDINGS)){
@@ -3858,6 +3889,7 @@ const UI = {
         <div class="sub">${esc(title(rul))}, ${age(rul)} · thinks of you: <span class="${o>=0?'pos':'neg'}">${o>0?'+':''}${o}</span></div></div></div>`;
     }
     h += `<div class="kv"><span>Faith</span><b>${RELICO[R_.rel]} ${RELNAME[R_.rel]}${R_.rel!==PRL().rel?' <span class=neg>(not yours)</span>':''}</b></div>`;
+    h += `<div class="kv"><span>People</span><b>${esc(cap(R_.cult||''))} <span class="hint" style="margin:0">${ETHOS[cultEthos(rid)].ico} ${ETHOS[cultEthos(rid)].n}</span></b></div>`;
     h += `<div class="kv"><span>Strength</span><b>~${fmtN(realmStrength(rid))}</b></div>`;
     if(al) h += `<div class="kv"><span>Alliance</span><b class="pos">sworn</b></div>`;
     if(tr) h += `<div class="kv"><span>Truce</span><b>until ${tr.until}</b></div>`;
@@ -4629,6 +4661,20 @@ const Game = {
       if(R_.excomm) d -= 4;
       R_.leg = clamp(R_.leg + d, 0, 100);
       R_.piety = clamp((R_.piety!=null?R_.piety:30) + pietyChange(R_.id), 0, 100);
+      /* Culture: land of a foreign people drags on the crown, and slowly takes up its ruler's ways */
+      { const fc = realmForeignCult(R_.id);
+        if(fc.length){ let drag = Math.min(2.2, fc.length*0.3); if(cultHardy(R_.id)) drag*=0.5;
+          R_.leg = clamp(R_.leg - drag, 0, 100); }
+        for(const p of fc){ const pr=pv(p);
+          let step = 3 + councilBonus(R_.id,'steward')*0.5;   /* good administration speeds integration */
+          if(pr.rel===R_.rel) step += 2;                       /* a shared faith eases it */
+          pr.asm = (pr.asm||0) + step;
+          if(pr.asm>=100){ pr.asm=0; pr.cult=R_.cult;
+            logIt('court', `${PROVDATA[p].n} has taken up the ${cap(R_.cult)} tongue and ways.`);
+            if(isPlayer(R_.id)&&!G._ff) toast(`🏰 <b>${esc(PROVDATA[p].n)}</b> assimilates — now ${esc(cap(R_.cult))}`);
+          }
+        }
+      }
       /* Rome watches: godless or failing kings invite the anathema */
       const rul = ruler(R_.id);
       if(rul && R_.rel==='catholic' && !R_.excomm && (R_.leg<30 || R_.piety<12 || (rul.tr.includes('cruel')&&rul.tr.includes('cynical'))) && chance(.15)){
