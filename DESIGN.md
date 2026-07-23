@@ -799,6 +799,26 @@ generic "reach N provinces → crowned Emperor → win" is replaced by it.
   electors with their leanings and warmth toward you, and every imperial action
   available in your current role. Old saves migrate into the system on load.
 
+### v4.6 — war & marriage fixes (SHIPPED)
+Playtest fixes from real games.
+- **No more instant white peace.** A war could be ended by white peace the very
+  season it was declared (war score starts at 0, and white peace was allowed at
+  score ≥ 0) — so an invasion could be shrugged off for free. Wars now carry a
+  season-granular start; white peace is refused for the first two seasons ("the
+  war is barely a season old"), then allowed on a stalemate-or-better or once a
+  war has dragged on four years.
+- **The Wars screen shows every participant.** Each war now lists **both full
+  sides** — your side and the enemy's, with co-belligerents tagged "ally", your
+  own realm tagged "you", each with its fielded/levy strength and a side total —
+  instead of only the two primary belligerents. Duration and holy-war status are
+  shown too.
+- **Marriages: alliances only from ruling houses.** A cross-realm marriage forged
+  an alliance even when it was just a courtier — now an alliance is sworn only
+  when the match binds **both realms' ruling dynasties**; a courtier's marriage is
+  a small courtesy that pledges no realms. And the council no longer recommends
+  marrying off every stray courtier — only close dynastic kin (the heir and the
+  ruler's house), whose match actually buys an ally's spears.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

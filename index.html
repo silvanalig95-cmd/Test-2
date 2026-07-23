@@ -137,6 +137,15 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 .kv b{font-weight:bold}
 .actBtns{display:flex; flex-wrap:wrap; gap:5px; margin-top:8px}
 .warRow{border-left:3px solid var(--red); padding-left:8px; margin-bottom:8px}
+.warSides{display:flex; gap:8px; margin:6px 0 5px}
+.wsCol{flex:1 1 0; min-width:0; border:1px solid rgba(43,32,19,.18); border-radius:4px; padding:4px 6px; background:rgba(255,255,255,.03)}
+.wsCol.wsMine{border-left:3px solid var(--green,#2e5e2e)}
+.wsCol.wsFoe{border-left:3px solid var(--red)}
+.wsHd{font-size:11px; font-weight:bold; letter-spacing:.3px; margin-bottom:3px; opacity:.85}
+.wsPart{display:flex; justify-content:space-between; gap:6px; font-size:12px; line-height:1.5}
+.wsPart b{font-variant-numeric:tabular-nums}
+.wsYou{font-size:10px; color:var(--gold); font-weight:bold}
+.wsAlly{font-size:10px; opacity:.6}
 .plotRow{border-left:3px solid #4a2a5a; padding-left:8px; margin-bottom:8px}
 .tidCard{background:linear-gradient(rgba(58,74,90,.1),rgba(58,74,90,.04)); border:1px solid #5a6d8c;
   border-radius:4px; padding:9px; margin-bottom:10px}
@@ -1960,18 +1969,25 @@ function proposeMarriage(myChar, theirChar){
   addOp(tr, ruler(G.player).id, -5);
   return false;
 }
+function isDynastic(c, realmId){ const rul=ruler(realmId); return !!(rul && (c.id===rul.id || (c.dyn && c.dyn===rul.dyn))); }
 function doMarriage(a, b){
-  wed(a.id, b.id);
   const ra = a.realm, rb = b.realm;
+  /* an alliance is sworn only when the marriage binds two ruling houses — a courtier's match does not commit realms */
+  const dynastic = ra!==rb && isDynastic(a, ra) && isDynastic(b, rb);
+  wed(a.id, b.id);
   /* the bride joins the groom's court */
   const groom = a.sex==='m'?a:b, bride = a.sex==='m'?b:a;
   bride.realm = groom.realm;
-  if(bride.seat){ const R0=rl(rb===bride.realm?ra:rb); }
   if(ra!==rb){
-    addAlliance(ra, rb, bride.id);
-    addOp(ruler(ra), ruler(rb).id, 15); addOp(ruler(rb), ruler(ra).id, 15);
-    logIt('court', `${rl(ra).n} and ${rl(rb).n} are bound by the marriage of ${fullName(groom)} and ${fullName(bride)}.`);
-    if(isPlayer(ra)||isPlayer(rb)) chron(`In this year was made a marriage between the houses of ${rl(ra).n} and ${rl(rb).n}, and with it an alliance sworn on holy relics.`);
+    if(dynastic){
+      addAlliance(ra, rb, bride.id);
+      addOp(ruler(ra), ruler(rb).id, 15); addOp(ruler(rb), ruler(ra).id, 15);
+      logIt('court', `The houses of ${rl(ra).n} and ${rl(rb).n} are bound by the marriage of ${fullName(groom)} and ${fullName(bride)}, and an alliance sworn.`);
+      if(isPlayer(ra)||isPlayer(rb)) chron(`In this year was made a marriage between the houses of ${rl(ra).n} and ${rl(rb).n}, and with it an alliance sworn on holy relics.`);
+    } else {
+      addOp(ruler(ra), ruler(rb).id, 5); addOp(ruler(rb), ruler(ra).id, 5);
+      logIt('court', `${fullName(groom)} and ${fullName(bride)} are wed, a small courtesy between ${rl(ra).n} and ${rl(rb).n} — but no realms are pledged by it.`);
+    }
   }
 }
 </script>
@@ -1980,11 +1996,12 @@ function doMarriage(a, b){
 function warBetween(a,b){ return G.wars.find(w=>w.sides && ((w.sides.a.includes(a)&&w.sides.b.includes(b))||(w.sides.a.includes(b)&&w.sides.b.includes(a)))); }
 function hostile(a,b){ return a!==b && !!warBetween(a,b); }
 function atWar(rid){ return G.wars.filter(w=>w.sides.a.includes(rid)||w.sides.b.includes(rid)); }
+function warAge(w){ const st = (w.startTurn!=null) ? w.startTurn : (w.started||G.year)*4; return (G.year*4+G.season) - st; } /* age in seasons */
 function truceBetween(a,b){ return G.truces.find(t=>((t.a===a&&t.b===b)||(t.a===b&&t.b===a)) && t.until > G.year + G.season/4); }
 
 function declareWar(att, def, cb, claimantId){
   const w = { id:'w'+(++G.wid), att, def, sides:{a:[att], b:[def]}, cb, claimant:claimantId||rl(att).ruler,
-    bp:0, started:G.year };
+    bp:0, started:G.year, startTurn:G.year*4+G.season };
   G.wars.push(w);
   rl(att).leg = clamp(rl(att).leg + (cb.type==='none' ? -20 : 0), 0, 100);
   addOp(ruler(def), ruler(att).id, -50);
@@ -3886,9 +3903,23 @@ const UI = {
       let h = `<h3>Wars</h3>`;
       if(!ws.length) h += `<div class="hint">The realm is at peace. Someone, somewhere, considers that a problem to fix.</div>`;
       for(const w of ws){
-        const s = warScore(w) * (w.sides.a.includes(G.player)?1:-1);
-        h += `<div class="warRow"><b>${esc(rl(w.att).n)} vs ${esc(rl(w.def).n)}</b><br>
-          <span class="hint">${w.cb.type==='throne'?'For the throne of '+esc(rl(w.cb.target).n):'For '+esc(PROVDATA[w.cb.target]?.n||'')}, claimant ${esc(ch(w.claimant)?fullName(ch(w.claimant)):'?')}</span><br>
+        const mySide = w.sides.a.includes(G.player)?'a':'b', foeSide = mySide==='a'?'b':'a';
+        const s = warScore(w) * (mySide==='a'?1:-1);
+        const primaries = [w.att, w.def];
+        const partRow = (r)=>{
+          if(!rl(r)) return '';
+          const fielded = G.armies.filter(a=>a.realm===r).reduce((t,a)=>t+armySize(a),0);
+          const role = r===G.player ? '<span class="wsYou">you</span>' : primaries.includes(r) ? '' : '<span class="wsAlly">ally</span>';
+          return `<div class="wsPart"><span>${esc(rl(r).n)} ${role}</span><b>${fmtN(fielded||realmStrength(r))}${fielded?'':' <span class="hint" style="margin:0">levy</span>'}</b></div>`;
+        };
+        const sideTot = (sd)=>fmtN(w.sides[sd].reduce((t,r)=>t+realmStrength(r),0));
+        h += `<div class="warRow"><b>${esc(rl(w.att).n)} vs ${esc(rl(w.def).n)}</b>
+          <span class="hint" style="margin:0"> · ${Math.max(1,Math.round(warAge(w)/4*10)/10)} yr${w.cb.holy?' · holy war':''}</span><br>
+          <span class="hint">${w.cb.type==='throne'?'For the throne of '+esc(rl(w.cb.target).n):'For '+esc(PROVDATA[w.cb.target]?.n||'')}, claimant ${esc(ch(w.claimant)?fullName(ch(w.claimant)):'?')}</span>
+          <div class="warSides">
+            <div class="wsCol wsMine"><div class="wsHd">Your side — ~${sideTot(mySide)}</div>${w.sides[mySide].map(partRow).join('')}</div>
+            <div class="wsCol wsFoe"><div class="wsHd">The enemy — ~${sideTot(foeSide)}</div>${w.sides[foeSide].map(partRow).join('')}</div>
+          </div>
           War score: <b class="${s>=0?'pos':'neg'}">${s>0?'+':''}${s}</b>
           <div class="wsBar" data-tip="−100 (their triumph) … +100 (yours). Demands need +55."><div class="zero"></div><div class="mk" style="left:calc(${(s+100)/2}% - 2px)"></div></div>
           <div class="actBtns">
@@ -3995,9 +4026,11 @@ const UI = {
       add(`<b>The line hangs by a thread</b> — no heir, no consort. One fever ends the chronicle.`, '💍 Seek a marriage', `Game.marryMenuChar('${PR().id}')`, 'ruler');
     else if(!heir)
       add(`<b>No heir.</b> Pray for a child, or the chronicle ends with you.`, 'Court tab', `UI.tab('court')`, 'ruler');
-    const unwed = marriageCandidates(G.player).filter(c=>c.id!==PR().id)[0];
+    /* only recommend matches for close dynastic kin — whose marriage actually binds realms; courtiers may still be wed manually */
+    const heirC = heir && !heir.sp && age(heir)>=16 && heir.id!==PR().id ? heir : null;
+    const unwed = heirC || marriageCandidates(G.player).filter(c=>c.id!==PR().id && !c.sp && age(c)>=16 && c.dyn===PR().dyn)[0];
     if(unwed && Game.can('marry') && out.length<3)
-      add(`${fullName(unwed)} (${age(unwed)}) is unwed — a ring here buys an ally's spears.`, '💍 Arrange match', `Game.marryMenuChar('${unwed.id}')`, 'ruler');
+      add(`${fullName(unwed)} (${age(unwed)}) of your house is unwed — a dynastic match here buys an ally's spears.`, '💍 Arrange match', `Game.marryMenuChar('${unwed.id}')`, 'ruler');
     if(R_.excomm && R_.gold>=40 && Game.can('rome'))
       add(`You are excommunicate. Every year outside the Church bleeds legitimacy and friends.`, '☩ Reconcile', `Game.act('rome')`, 'chaplain');
     else if(R_.leg<45 && (Game.can('rome')||Game.can('court')) && out.length<3)
@@ -4861,7 +4894,9 @@ const Game = {
         iAmA&&w.cb.type==='province' ? 'Demand '+PROVDATA[w.cb.target].n+' be ceded.' : 'Demand tribute and submission.',
       fx:()=>enforceDemands(w, iAmA?'a':'b')});
     ch_.push({t:'Offer white peace — everyone goes home.', fx:()=>{
-      if(s >= 0 || G.year - w.started >= 4) endWar(w,'white','Both crowns keep what they had.');
+      if(warAge(w) < 2)
+        UI.modal('Too Soon', `The war is barely a season old — no herald will carry terms before the first blows have even landed. Muster, march, and let the field speak first.`, [{t:'Then to arms.',fx:()=>{}}]);
+      else if(s >= 0 || warAge(w) >= 16) endWar(w,'white','Both crowns keep what they had.');
       else UI.modal('Refused', `${rl(foe).n} smells victory and will not sheathe the sword for nothing.`, [{t:'Then we fight on.',fx:()=>{}}]);
     }});
     ch_.push({t:'Surrender on their terms. End it.', fx:()=>enforceDemands(w, iAmA?'b':'a')});
