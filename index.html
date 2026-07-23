@@ -175,6 +175,14 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 .relRow .rtag{text-align:right; font-size:10.5px; text-transform:uppercase; letter-spacing:.5px}
 .claimRow{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:12.5px; line-height:1.35; padding:4px 0; border-top:1px dotted var(--line)}
 .claimRow button{flex:0 0 auto}
+.focusCard{border:1px solid var(--gold2); border-radius:5px; padding:8px 11px; margin:2px 0 4px;
+  background:radial-gradient(ellipse at 12% 0%, rgba(217,185,92,.18), transparent 60%), rgba(217,185,92,.07)}
+.focusTop{display:flex; justify-content:space-between; align-items:center; gap:8px}
+.focusTop b{font-family:var(--disp); color:var(--gold); font-size:14.5px}
+.focusSub{font-size:12.5px; margin-top:2px; line-height:1.4}
+.seatTop{display:flex; justify-content:space-between; align-items:center; gap:8px}
+.seatWho{font-size:12.5px; margin-top:2px}
+.card.seatFocus{border-color:var(--gold2); box-shadow:inset 0 0 0 1px rgba(217,185,92,.25)}
 .advRow:first-of-type{border-top:none}
 .advRow .txt{flex:1; font-size:12.5px; line-height:1.4}
 button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0); font-weight:bold}
@@ -689,7 +697,7 @@ function realmStrength(rid){
   return s;
 }
 function legFactor(rid){ const r = rl(rid); return r ? Math.min(1, 0.7 + r.leg/150) : 1; } /* below ~45 legitimacy, vassals withhold spears */
-function levyOf(p){ const pr=pv(p); return Math.round((200 + pr.dev*110 + (pr.bld==='castle'?150:0)) * legFactor(pr.r)); }
+function levyOf(p){ const pr=pv(p); return Math.round((200 + pr.dev*110 + (pr.bld==='castle'?150:0)) * legFactor(pr.r) * focusLevy(pr.r)); }
 function taxOf(p){ const pr=pv(p); return pr.dev + (pr.bld==='market'?2:0); }
 function realmFinances(rid){
   const R_ = rl(rid);
@@ -701,7 +709,7 @@ function realmFinances(rid){
   }
   const stewPct = councilBonus(rid,'steward')*.04;
   const seasonMult = (G.season===2?2:1) * (G.plague?.65:1);
-  const grossTax = baseTax*(1+stewPct)*seasonMult;
+  const grossTax = baseTax*(1+stewPct)*seasonMult*focusTax(rid);
   const retUpkeep = R_.retinue/200;
   let armyUpkeep = 0; const hosts = [];
   for(const a of G.armies) if(a.realm===rid){
@@ -747,7 +755,7 @@ function newGame(playerRealm, seed, scenId){
   G = {
     seed, scen:scenId, year:S.year, endYear:S.year+100, season:0, player:playerRealm,
     realms:{}, provinces:{}, chars:{}, armies:[], wars:[], plots:[], alliances:[], truces:[],
-    log:[], chron:[], ap:0, orders:null, sel:null, moveMode:null, aid:0, wid:0, pid:0, plague:0,
+    log:[], chron:[], ordersMax:0, ordersLeft:0, ordersBonus:0, ordersTemp:[], sel:null, moveMode:null, aid:0, wid:0, pid:0, plague:0,
     flags:{}, over:false, regency:false, eventQueue:[],
   };
   for(const [pid, pd] of Object.entries(PROVDATA)){
@@ -756,7 +764,7 @@ function newGame(playerRealm, seed, scenId){
   for(const [rid, rd] of Object.entries(REALMDATA)){
     const provs = S.provs ? (S.provs[rid]||[]) : rd.provs;
     G.realms[rid] = { id:rid, n:rd.n, col:rd.col, cap:rd.cap, cult:rd.cult, rel:rd.rel||'catholic',
-      gold:20+provs.length*8, prs:S.cards[rid]?100:60, leg:70, ruler:null, retinue:0, law:'primo',
+      gold:20+provs.length*8, prs:S.cards[rid]?100:60, leg:70, ruler:null, retinue:0, law:'primo', focus:defaultFocus(rid),
       excomm:false, council:{marshal:null,steward:null,spymaster:null,chaplain:null},
       rank: provs.length>=3 ? 'kingdom':'duchy', dead: provs.length?0:'unformed' };
     for(const p of provs) G.provinces[p].r = rid;
@@ -1321,6 +1329,57 @@ function councilBonus(rid, seat){
   const cid = rl(rid).council[seat];
   if(!cid || !alive(ch(cid))) return 0;
   return skill(ch(cid), {marshal:'mar',steward:'ste',spymaster:'int',chaplain:'dip'}[seat]);
+}
+/* ---- Crown's Focus: a standing doctrine that rewards specialising, amplified by the matching seat ---- */
+const FOCI = {
+  sword:  {n:'The Sword',        ico:'⚔',  seat:'marshal',   d:'War — larger levies, swifter sieges, and prestige from every victory.'},
+  purse:  {n:'The Purse',        ico:'🪙', seat:'steward',   d:'Wealth — richer taxes and cheaper building.'},
+  whisper:{n:'The Whisper',      ico:'🗡', seat:'spymaster', d:'Intrigue — deadlier plots and sharper counter-intelligence.'},
+  altar:  {n:'The Altar',        ico:'✝',  seat:'chaplain',  d:'Faith — steady legitimacy and fervour in holy war.'},
+  olive:  {n:'The Olive Branch', ico:'🕊', seat:'chaplain',  d:'Diplomacy — warmer courts, easier alliances and marriages.'},
+};
+const FOCUS_OVERRIDE = { normandy:'sword', norway:'sword', england:'sword', france:'olive', scotland:'sword',
+  byzantium:'whisper', venice:'purse', papacy:'altar', germany:'sword', hungary:'sword', poland:'sword',
+  denmark:'sword', sweden:'purse', kiev:'olive', sicily:'purse', aquitaine:'olive', toulouse:'olive',
+  andalus:'purse', castile:'sword', seljuk:'sword', fatimid:'purse', abbasid:'altar',
+  ayyubid:'sword', almohad:'altar', almoravid:'altar', lithuania:'sword', cumania:'sword' };
+function defaultFocus(rid){
+  if(FOCUS_OVERRIDE[rid]) return FOCUS_OVERRIDE[rid];
+  const keys = ['sword','purse','whisper','altar','olive'];
+  let h=0; for(let i=0;i<rid.length;i++) h=(h*31+rid.charCodeAt(i))>>>0;
+  return keys[h%5];
+}
+function realmFocus(rid){ const r=rl(rid); return (r && r.focus) || null; }
+function hasFocus(rid, f){ return realmFocus(rid)===f; }
+/* the matching councillor amplifies the doctrine: a great Marshal makes the Sword bite harder */
+function focusPow(rid, f){ return hasFocus(rid,f) ? 1 + councilBonus(rid, FOCI[f].seat)*0.06 : 0; } /* 0, or ~1.0–1.6 */
+function focusLevy(rid){ return 1 + 0.22*focusPow(rid,'sword'); }
+function focusTax(rid){ return 1 + 0.26*focusPow(rid,'purse'); }
+function focusBuild(rid){ return hasFocus(rid,'purse') ? 0.78 : 1; }
+function focusSiege(rid){ return Math.round(5*focusPow(rid,'sword')); }
+function focusPlot(rid){ return 1 + 0.30*focusPow(rid,'whisper'); }
+function focusGuard(rid){ return 3*focusPow(rid,'whisper'); }
+function focusLegYr(rid){ return 0.8*focusPow(rid,'altar'); }
+function focusHoly(rid){ return hasFocus(rid,'altar') ? 8 : 0; }
+function focusAccept(rid){ return Math.round(12*focusPow(rid,'olive')); }
+function focusOpinion(rid){ return Math.round(6*focusPow(rid,'olive')); }
+function focusWinPrs(rid){ return hasFocus(rid,'sword') ? 1.5 : 1; }
+
+/* ---- flexible order pool: base ~3, plus council, high legitimacy, and temporary event boons ---- */
+function ordersMaxNow(){
+  const R_ = PRL(); if(!R_) return 2;
+  let n = (G.regency ? 1 : 2);                    /* the crown and its household */
+  if(councilSize(G.player) >= 2) n += 1;          /* a functioning council frees the crown to do more */
+  n += (G.ordersBonus||0);                        /* lasting unlocks */
+  for(const t of (G.ordersTemp||[])) if(t.until > G.year + G.season/4) n += t.n;  /* temporary boons */
+  if(R_.leg >= 85) n += 1;                         /* a beloved, secure crown commands readily */
+  return Math.max(1, n);
+}
+function grantOrders(n, seasons, why){
+  G.ordersTemp = G.ordersTemp || [];
+  if(seasons) G.ordersTemp.push({ n, until: G.year + (G.season + seasons)/4 });
+  G.ordersMax = (G.ordersMax||0) + n; G.ordersLeft = (G.ordersLeft||0) + n;
+  if(why && !G._ff) toast(`⚡ ${why} — <b>+${n} order${n>1?'s':''}</b>`);
 }
 
 function logIt(cls, txt){
@@ -1943,7 +2002,7 @@ function enforceDemands(w, winnerSide){
   } else {
     const gold = Math.min(rl(lr).gold, 40);
     rl(lr).gold -= gold; rl(wr).gold += gold;
-    rl(wr).prs += 30; rl(lr).prs = Math.max(0, rl(lr).prs-20);
+    rl(wr).prs += Math.round(30*focusWinPrs(wr)); rl(lr).prs = Math.max(0, rl(lr).prs-20);
     rl(lr).leg = clamp(rl(lr).leg-10,0,100);
     if(w.cb.type==='throne'){ const cl = ch(w.claimant); if(cl) cl.claims = cl.claims.filter(x=>x!==w.cb.target); }
     endWar(w, 'defended', `${rl(wr).n} takes ${gold} gold in tribute and much honor.`);
@@ -1962,7 +2021,7 @@ function conquerRealm(winner, targetRealm, claimantId){
   chron(`In this year was ${rl(targetRealm).n.toUpperCase()} CONQUERED, and ${cl?fullName(cl):'the victor'} took the crown by right of blood and iron. Let none say God does not judge by battle.`);
   realmFalls(targetRealm, winner);
   if(isPlayer(winner)){ ach('conqueror'); G.flags.conqueredOnce = 1; }
-  rl(winner).prs += 150; rl(winner).leg = clamp(rl(winner).leg+15,0,100);
+  rl(winner).prs += Math.round(150*focusWinPrs(winner)); rl(winner).leg = clamp(rl(winner).leg+15,0,100);
   if(cl && cl.realm!==winner) cl.realm = winner;
   if(isPlayer(winner)) queueEvent({ title:'A Crown Taken',
     text:`<span class="dropcap">The war is won. The realm of ${rl(targetRealm).n} kneels — its lands, its levies, its treasury now answer to your house. The chroniclers are already arguing about what to call you.</span>`,
@@ -2013,7 +2072,7 @@ function siegeTick(){
     if(enemiesIn(a.prov, a.realm).length) continue;
     if(pr.occ && !hostile(a.realm, pr.r)) continue;
     const castle = pr.bld==='castle' ? 1 : 0;
-    a.siege += 30 + skill(ch(a.cmdr)||ruler(a.realm),'mar')*2 + ri(0,15) - castle*22;
+    a.siege += 30 + skill(ch(a.cmdr)||ruler(a.realm),'mar')*2 + ri(0,15) - castle*22 + focusSiege(a.realm);
     if(a.siege >= 100){
       pr.occ = a.realm; a.siege = 0;
       rl(a.realm).gold += Math.floor(pr.dev*1.5);
@@ -2087,7 +2146,7 @@ function plotPower(p){
   if(!alive(pl)) return 0;
   let pow = 10 + skill(pl,'int')*8;
   for(const b of p.backers){ const c=ch(b); if(alive(c)) pow += skill(c,'int')*4; }
-  return pow;
+  return pow * focusPlot(pl.realm);
 }
 function plotTargetName(p){
   return (p.type==='defection'||p.type==='fabricate') ? PROVDATA[p.target].n : (ch(p.target)?fullName(ch(p.target)):'?');
@@ -2108,7 +2167,7 @@ function plotTick(){
     /* discovery */
     const victimRealm = (p.type==='defection'||p.type==='fabricate') ? pv(p.target).r : ch(p.target).realm;
     if(victimRealm && rl(victimRealm) && !rl(victimRealm).dead){
-      const spy = councilBonus(victimRealm,'spymaster');
+      const spy = councilBonus(victimRealm,'spymaster') + focusGuard(victimRealm);
       const discP = .04 + spy*.022 - skill(pl,'int')*.012 + p.backers.length*.02;
       if(chance(Math.max(.02, discP))){
         plotDiscovered(p, victimRealm);
@@ -2162,7 +2221,7 @@ function resolvePlot(p){
   const pl = ch(p.plotter);
   if(p.type==='murder'){
     const t = ch(p.target);
-    const guard = t.realm && rl(t.realm) ? councilBonus(t.realm,'spymaster') : 3;
+    const guard = t.realm && rl(t.realm) ? councilBonus(t.realm,'spymaster') + focusGuard(t.realm) : 3;
     if(ri(0,100) < 55 + skill(pl,'int')*4 - guard*4){
       const cause = pick(['died suddenly at table — poison, the cooks swear it was not','was found dead at the foot of a stair','died in the night without mark or wound, and men crossed themselves','was set upon by "robbers" who took nothing']);
       logIt('plot', `† ${fullName(t)} ${cause}.`);
@@ -2578,9 +2637,16 @@ const EVENTS = [
   return { who:PR().id, title:'The Silver Jubilee',
   text:`Twenty-five years on the throne. Most of your enemies from the coronation are dead, which is the truest kind of victory. The realm expects a celebration; the chronicle expects a paragraph.`,
   choices:[
-    {t:'A jubilee for the ages. (-15 gold, +12 legitimacy, +15 prestige)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-15); PRL().leg=clamp(PRL().leg+12,0,100); PRL().prs+=15; chron('In this year the crown marked twenty-five years, and the realm drank to a reign grown old enough to be called an age.'); }},
+    {t:'A jubilee for the ages. (-15 gold, +12 legitimacy, +15 prestige, the realm rallies)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-15); PRL().leg=clamp(PRL().leg+12,0,100); PRL().prs+=15; grantOrders(1, 8, 'A jubilant realm rallies to your will'); chron('In this year the crown marked twenty-five years, and the realm drank to a reign grown old enough to be called an age.'); }},
     {t:'A quiet mass and back to work. (+5 legitimacy)', fx:()=>{ PRL().leg=clamp(PRL().leg+5,0,100); }},
   ]};}},
+{id:'greatcouncil', w:5, trig:['court'], cond:()=>!G.regency, run:()=>({
+  title:'The Great Council Assembles',
+  text:`Your magnates, bishops and captains ride in from every corner of the realm. With the great men of the land gathered at your side, far more can be set in motion for a season than a lone court could dream.`,
+  choices:[
+    {t:'Put them to work. (−6 gold; +2 orders through the coming year)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-6); grantOrders(2, 4, 'The great council lends its hands'); }},
+    {t:'Hear their grievances and send them home. (+6 legitimacy)', fx:()=>{ PRL().leg=clamp(PRL().leg+6,0,100); }},
+  ]})},
 {id:'relictheft', w:3, cond:()=>realmProvs(G.player).some(p=>pv(p).bld==='cathedral'), run:()=>({
   title:'The Empty Reliquary',
   text:`The sacristan opened the reliquary at matins and found velvet, dust, and absence. The saint is gone. Pilgrim revenue is following.`,
@@ -3096,7 +3162,12 @@ const UI = {
       document.getElementById('prsBox').setAttribute('data-tip', tip.replace(/"/g,'&quot;')); }
     document.getElementById('endBtn').innerHTML = `End ${SEASONS[G.season]} ⏵`;
     const oMax = G.ordersMax||0, oLeft = G.ordersLeft||0, seats = councilSize(G.player);
-    const otip = `Orders you may give this season: <b>${oLeft} of ${oMax}</b>. Spend any of them on any action.<br>The pool is your crown${G.regency?' <i>(empty — a child cannot command)</i>':''} plus one for each of your ${seats} seated councillor${seats===1?'':'s'} — a fuller, abler council lets you do more; an empty seat or a regency, less.`;
+    const parts = [`${G.regency?1:2} from the crown${G.regency?' <i>(a regency)</i>':''}`];
+    if(seats>=2) parts.push('1 for a working council');
+    if(R_.leg>=85) parts.push('1 for a beloved crown');
+    const boon = (G.ordersBonus||0) + (G.ordersTemp||[]).filter(t=>t.until>G.year+G.season/4).reduce((s,t)=>s+t.n,0);
+    if(boon>0) parts.push(`${boon} from boons`);
+    const otip = `Orders this season: <b>${oLeft} of ${oMax}</b> — spend any on any action.<br>${parts.join(' · ')}.<br><span class="hint" style="margin:0">Staff the council, keep legitimacy high, and seize the boons some events grant to command more.</span>`;
     document.getElementById('apBox').innerHTML = `<span class="apLbl" data-tip="${esc(otip)}">Orders</span> ` +
       Array.from({length:oMax},(_,i)=>`<span class="apPip${i<oLeft?' on':''}" data-tip="${esc(otip)}">⚡</span>`).join('') +
       (oLeft===0?` <span class="apNone">all spent — end the season</span>`:'');
@@ -3400,16 +3471,29 @@ const UI = {
     if(t==='council'){
       const R_ = PRL();
       let h = `<h3>The Council</h3>`;
-      const seatInfo = {marshal:['Marshal','mar','levies & sieges'], steward:['Steward','ste','tax income'],
-        spymaster:['Spymaster','int','catches plots'], chaplain:['Chaplain','dip','yearly legitimacy']};
-      for(const [seat,[nm,sk,duty]] of Object.entries(seatInfo)){
-        const cid = R_.council[seat];
-        const c = cid?ch(cid):null;
-        h += `<div class="card"><b>${SKILLICO[sk]} ${nm}</b> <span class="hint" style="margin:0">(${duty})</span><br>`;
-        h += c&&alive(c) ? `${esc(fullName(c))} — ${SKILLICO[sk]}${skill(c,sk)}` : '<i>vacant</i>';
-        h += ` <button class="small" onclick="Game.pickCouncil('${seat}')">Appoint</button></div>`;
+      /* Crown's Focus */
+      const cf = FOCI[R_.focus];
+      if(cf){ const amp = councilBonus(G.player, cf.seat);
+        h += `<div class="focusCard"><div class="focusTop"><b>${cf.ico} Crown’s Focus — ${cf.n}</b><button class="small" onclick="Game.pickFocus()">Change</button></div>
+          <div class="focusSub">${esc(cf.d)}</div>
+          <div class="hint" style="margin:4px 0 0">${amp>0?`Sharpened by your ${cap(cf.seat)} (${SKILLICO[{marshal:'mar',steward:'ste',spymaster:'int',chaplain:'dip'}[cf.seat]]}${amp}) — keep that seat ably filled to make the doctrine bite harder.`:`<span class="neg">The ${cap(cf.seat)}’s seat is empty — fill it to sharpen this focus.</span>`}</div></div>`;
       }
-      h += `<div class="hint">Powerful kin expect seats. Competence pleases the treasury; snubs breed daggers.</div>`;
+      /* the four seats, each with its concrete passive */
+      const seatInfo = {
+        marshal:['Marshal','mar', r=>`+${Math.round(councilBonus(r,'marshal')*2)}% levy strength, swifter sieges, steadier against revolt`],
+        steward:['Steward','ste', r=>`+${Math.round(councilBonus(r,'steward')*4)}% taxes`],
+        spymaster:['Spymaster','int', r=>`uncovers plots against you (watch ${Math.round(councilBonus(r,'spymaster')+focusGuard(r))})`],
+        chaplain:['Chaplain','dip', r=>`+${(councilBonus(r,'chaplain')*0.4+focusLegYr(r)).toFixed(1)} legitimacy each year, and warmer envoys`],
+      };
+      h += `<h3 style="margin-top:10px">The Seats</h3>`;
+      for(const [seat,[nm,sk,eff]] of Object.entries(seatInfo)){
+        const cid = R_.council[seat]; const c = cid?ch(cid):null;
+        const isFocus = cf && cf.seat===seat;
+        h += `<div class="card${isFocus?' seatFocus':''}"><div class="seatTop"><b>${SKILLICO[sk]} ${nm}${isFocus?' <span class="hint" style="margin:0">· focus seat</span>':''}</b><button class="small" onclick="Game.pickCouncil('${seat}')">${c&&alive(c)?'Replace':'Appoint'}</button></div>`;
+        h += c&&alive(c) ? `<div class="seatWho">${esc(fullName(c))} — ${SKILLICO[sk]}${skill(c,sk)} · loyalty <span class="${opinion(c,PR())>=0?'pos':'neg'}">${opinion(c,PR())>0?'+':''}${opinion(c,PR())}</span></div>` : `<div class="seatWho"><i>vacant — your realm forfeits this office’s work</i></div>`;
+        h += `<div class="hint" style="margin:2px 0 0">${eff(G.player)}</div></div>`;
+      }
+      h += `<div class="hint">A staffed, contented council is your capacity to act (it adds to your orders), your bonuses, and your shield against plots. Powerful kin expect seats; snubs breed daggers.</div>`;
       el.innerHTML = h;
     }
     if(t==='wars'){
@@ -3584,6 +3668,7 @@ const UI = {
       <div class="kv"><span>Total levy pool</span><b>${fmtN(realmStrength(G.player))}</b></div>
       <div class="kv"><span>Standing retinue</span><b>${R_.retinue}</b></div>
       <div class="kv"><span>Steward bonus</span><b>+${Math.round(councilBonus(G.player,'steward')*4)}%</b></div>`;
+    { const f=FOCI[R_.focus]; if(f) h += `<div class="kv" style="cursor:pointer" data-tip="Your realm’s standing doctrine — ${esc(f.d)} Set it in the Council tab." onclick="UI.tab('council')"><span>Crown’s focus</span><b>${f.ico} ${f.n}</b></div>`; }
     h += `<div class="kv"><span>Succession law</span><b>${R_.law==='elective'?'Elective':'Primogeniture'}</b></div>`;
     h += `<div class="kv"><span>Faith</span><b>${RELICO[R_.rel]} ${RELNAME[R_.rel]}</b></div>`;
     { const s = R_.leg>=70?['Secure','pos']:R_.leg>=50?['Accepted','']:R_.leg>=35?['Uneasy','neg']:['Precarious','neg'];
@@ -3634,8 +3719,10 @@ const UI = {
       <div class="kv"><span>${STATICO.gold} Tax / season</span><b>${taxOf(pid)}</b></div>`;
     if(mine){
       h += `<div class="actBtns">`;
-      if(!st.bld && !st.cons) for(const [bid,b] of Object.entries(BUILDINGS))
-        h += `<button class="small" ${!Game.can('build')||PRL().gold<b.cost?'disabled':''} onclick="Game.act('build','${pid}','${bid}')" data-tip="${b.desc}">${b.ico} ${b.n} (⚡ ${b.cost}🪙)</button>`;
+      if(!st.bld && !st.cons) for(const [bid,b] of Object.entries(BUILDINGS)){
+        const bc = Math.round(b.cost*focusBuild(G.player));
+        h += `<button class="small" ${!Game.can('build')||PRL().gold<bc?'disabled':''} onclick="Game.act('build','${pid}','${bid}')" data-tip="${b.desc}">${b.ico} ${b.n} (⚡ ${bc}🪙)</button>`;
+      }
       if(st.dev<5) h += `<button class="small" ${!Game.can('develop')||PRL().gold<30+st.dev*12?'disabled':''} onclick="Game.act('develop','${pid}')">Develop (⚡ ${30+st.dev*12}🪙)</button>`;
       h += `<button class="small" ${!Game.can('muster')?'disabled':''} onclick="Game.act('muster','${pid}')" data-tip="Raise all realm levies here">Muster levies (⚡)</button>`;
       h += `</div>`;
@@ -3675,7 +3762,7 @@ const UI = {
     h += `<div class="actBtns">
       <button class="small" ${!Game.can('envoy')||G.flags['env'+rid+G.year]?'disabled':''} onclick="Game.act('envoy','${rid}')" data-tip="${G.flags['env'+rid+G.year]?'Already received this year — courts tire of flattery':'Improve their ruler’s opinion of you. One embassy per court per year.'}">Send envoy (⚡)</button>
       <button class="small" ${!Game.can('gift')||PRL().gold<10||G.flags['gift'+rid+G.year]?'disabled':''} onclick="Game.act('gift','${rid}')" data-tip="${G.flags['gift'+rid+G.year]?'Already sent gifts to this court this year':'+20 opinion with their ruler · once a year per court'}">Send gift (⚡ 10🪙)</button>
-      <button class="small" ${!Game.can('marry')?'disabled':''} onclick="Game.marryMenu('${rid}')" data-tip="${(()=>{ const o2=rul?opinion(rul,PR()):0; const est=clamp(Math.round((o2+(PRL().prs-R_.prs)/8+(PRL().rank==='kingdom'?15:0)+skill(PR(),'dip')*3+10)/50*100),2,98); return 'Their disposition: roughly '+est+'% likely to accept a fair match'; })()}">Arrange marriage (⚡)</button>`;
+      <button class="small" ${!Game.can('marry')?'disabled':''} onclick="Game.marryMenu('${rid}')" data-tip="${(()=>{ const o2=rul?opinion(rul,PR()):0; const est=clamp(Math.round((o2+(PRL().prs-R_.prs)/8+(PRL().rank==='kingdom'?15:0)+skill(PR(),'dip')*3+focusAccept(G.player)+10)/50*100),2,98); return 'Their disposition: roughly '+est+'% likely to accept a fair match'; })()}">Arrange marriage (⚡)</button>`;
     for(const cl of claimants){
       h += `<button class="small" ${!Game.can('war')||tr||G.regency?'disabled':''} onclick="Game.act('war','${rid}','${cl.id}')" data-tip="${G.regency?'A regency cannot declare war':''}">⚔ Press ${esc(cl.nm)}’s claim (⚡)</button>`;
     }
@@ -3860,9 +3947,9 @@ function councilSize(rid){
   return n;
 }
 function resetOrders(){
-  const R_ = PRL(); if(!R_) return;
-  /* one order for the crown (none in a regency) plus one for each seated councillor */
-  G.ordersMax = Math.max(2, (G.regency?0:1) + councilSize(G.player));
+  if(!PRL()) return;
+  G.ordersTemp = (G.ordersTemp||[]).filter(t=>t.until > G.year + G.season/4);
+  G.ordersMax = ordersMaxNow();
   G.ordersLeft = G.ordersMax;
 }
 const Game = {
@@ -3909,10 +3996,10 @@ const Game = {
         const c0 = pick(myCourt()); if(c0) addOp(c0, PR().id, 10);
         logIt('court','You hold open court; justice is seen to be done, mostly.');
         toast('✠ <b>+4 legitimacy</b> — justice was seen to be done'); break;
-      case 'build': if(R_.gold<BUILDINGS[b].cost||pv(a).cons||!this.order('build')) return;
-        R_.gold-=BUILDINGS[b].cost; pv(a).cons={b, left:4};
+      case 'build': { const bc = Math.round(BUILDINGS[b].cost*focusBuild(G.player)); if(R_.gold<bc||pv(a).cons||!this.order('build')) return;
+        R_.gold-=bc; pv(a).cons={b, left:4};
         logIt('court',`Masons begin work on a ${BUILDINGS[b].n.toLowerCase()} at ${PROVDATA[a].n}.`);
-        toast(`🏗 <b>${BUILDINGS[b].n}</b> under construction at ${esc(PROVDATA[a].n)} — one year`); break;
+        toast(`🏗 <b>${BUILDINGS[b].n}</b> under construction at ${esc(PROVDATA[a].n)} — one year`); break; }
       case 'develop': { const cost=30+pv(a).dev*12; if(R_.gold<cost||!this.order('develop')) return;
         R_.gold-=cost; pv(a).dev++; logIt('court',`${PROVDATA[a].n} grows: roads, mills, and men.`);
         toast(`⛏ ${esc(PROVDATA[a].n)} grows to <b>development ${pv(a).dev}</b>`); break; }
@@ -3921,14 +4008,15 @@ const Game = {
         if(G.flags['env'+a+G.year]){ toast(`🕊 Your envoy has already been received at the court of ${esc(rl(a).n)} this year.`); return; }
         if(!this.order('envoy')) return;
         G.flags['env'+a+G.year] = 1;
-        addOp(ruler(a), PR().id, 10+skill(PR(),'dip'));
+        const eop = 10+skill(PR(),'dip')+focusOpinion(G.player);
+        addOp(ruler(a), PR().id, eop);
         logIt('court',`Your envoy flatters the court of ${rl(a).n}.`);
-        toast(`🕊 Envoy to ${esc(rl(a).n)}: <b>+${10+skill(PR(),'dip')} opinion</b>`); break; }
+        toast(`🕊 Envoy to ${esc(rl(a).n)}: <b>+${eop} opinion</b>`); break; }
       case 'gift': if(G.flags['gift'+a+G.year]){ toast(`🎁 You have already sent gifts to ${esc(rl(a).n)} this year.`); return; }
         if(R_.gold<10||!this.order('gift')) return; G.flags['gift'+a+G.year]=1; R_.gold-=10;
-        addOp(ruler(a), PR().id, 20);
+        addOp(ruler(a), PR().id, 20+focusOpinion(G.player));
         logIt('court',`Gold and falcons for ${rl(a).n}; their ruler smiles.`);
-        toast(`🎁 Gift to ${esc(rl(a).n)}: <b>+20 opinion</b>`); break;
+        toast(`🎁 Gift to ${esc(rl(a).n)}: <b>+${20+focusOpinion(G.player)} opinion</b>`); break;
       case 'cgift': if(G.flags['cgift'+a+G.year]){ toast(`🎁 You have already gifted ${esc(fullName(ch(a)))} this year.`); return; }
         if(R_.gold<8||!this.order('cgift')) return; G.flags['cgift'+a+G.year]=1; R_.gold-=8;
         addOp(ch(a), PR().id, 18); logIt('court',`A gift finds ${fullName(ch(a))}.`);
@@ -4040,7 +4128,7 @@ const Game = {
         if(G.regency||!this.order('war')) return;
         if(cb.type==='none'){ declareWar(G.player, tgt, cb); PRL().leg=clamp(PRL().leg-20,0,100); }
         else declareWar(G.player, tgt, cb, claimantId);
-        if(cb.holy){ PRL().leg=clamp(PRL().leg+5,0,100); toast(`${RELICO[PRL().rel]}⚔ <b>Holy war!</b> The clergy proclaim it righteous`); }
+        if(cb.holy){ PRL().leg=clamp(PRL().leg+5+focusHoly(G.player),0,100); toast(`${RELICO[PRL().rel]}⚔ <b>Holy war!</b> The clergy proclaim it righteous`); }
         else toast(`⚔ <b>War!</b> ${esc(rl(tgt).n)} is the enemy`);
         Game.react('war');
       }},
@@ -4064,7 +4152,7 @@ const Game = {
     }
     const accP = t => {
       const tr2 = ruler(rid);
-      let acc = opinion(tr2, PR()) + (PRL().prs - rl(rid).prs)/8 + (PRL().rank==='kingdom'?15:0) + skill(PR(),'dip')*3;
+      let acc = opinion(tr2, PR()) + (PRL().prs - rl(rid).prs)/8 + (PRL().rank==='kingdom'?15:0) + skill(PR(),'dip')*3 + focusAccept(G.player);
       if(t.id===tr2.id) acc -= 20;
       return clamp(Math.round((acc+10)/50*100), 2, 98);
     };
@@ -4087,7 +4175,7 @@ const Game = {
     }
     if(!options.length){ UI.modal('No Match Found','No foreign court offers a marriageable partner this season.',[{t:'Wait, then.',fx:()=>{}}]); return; }
     const accP2 = t => { const tr2 = ruler(t.realm); if(!tr2) return 50;
-      let acc = opinion(tr2, PR()) + (PRL().prs - rl(t.realm).prs)/8 + (PRL().rank==='kingdom'?15:0) + skill(PR(),'dip')*3;
+      let acc = opinion(tr2, PR()) + (PRL().prs - rl(t.realm).prs)/8 + (PRL().rank==='kingdom'?15:0) + skill(PR(),'dip')*3 + focusAccept(G.player);
       if(t.id===tr2.id) acc -= 20;
       return clamp(Math.round((acc+10)/50*100), 2, 98); };
     const accWord2 = p2 => p2>=75?'<span class=pos>near certain</span>':p2>=50?'<span class=pos>likely</span>':p2>=25?'<span class=oddsEven>uncertain</span>':'<span class=neg>unlikely</span>';
@@ -4098,6 +4186,21 @@ const Game = {
           if(proposeMarriage(m,t)) UI.modal('The Banns Are Read', `${tn} accepts the match.`, [{t:'Good.',fx:()=>{}}]);
           else UI.modal('Rebuffed', `${tn} declines. Their opinion of you is too low, or their ambitions too high.`, [{t:'So be it.',fx:()=>{}}]);
         }})).concat([{t:'— Never mind —', fx:()=>{}}]));
+  },
+  pickFocus(){
+    if(this.busy()) return;
+    const R_ = PRL();
+    if(G.flags['focusYr'] && (G.year - G.flags['focusYr'] < 3)){
+      UI.modal('The Realm’s Course', `A realm cannot turn its whole course so often. You last set it in ${G.flags['focusYr']}; wait until ${G.flags['focusYr']+3}.`, [{t:'Very well.',fx:()=>{}}]); return;
+    }
+    UI.modal('Set the Crown’s Focus',
+      `Your realm’s standing doctrine — it rewards committing to one aspect of rule, and the matching councillor sharpens it further. A change costs <b>25 ☀ prestige</b>${R_.prs<25?' <span class="neg">(you cannot yet afford it)</span>':''} and cannot be repeated for three years.`,
+      Object.entries(FOCI).map(([k,f])=>({t:`${f.ico} <b>${f.n}</b> — ${f.d}${R_.focus===k?' <span class="hint" style="margin:0">(current)</span>':''}`,
+        fx:()=>{ if(R_.focus===k) return; if(R_.prs<25){ toast('Not enough prestige to change your realm’s course.'); return; }
+          R_.prs-=25; R_.focus=k; G.flags['focusYr']=G.year;
+          toast(`${f.ico} The crown turns to <b>${f.n}</b>`);
+          logIt('court',`The realm’s course is set anew: ${f.n.toLowerCase()}.`); }}))
+        .concat([{t:'— Leave our course as it is —',fx:()=>{}}]));
   },
   pickCouncil(seat){
     if(this.busy()) return;
@@ -4321,7 +4424,7 @@ const Game = {
   yearly(){
     for(const R_ of Object.values(G.realms)){
       if(R_.dead) continue;
-      let d = (50 - R_.leg)*.06 + councilBonus(R_.id,'chaplain')*.4;
+      let d = (50 - R_.leg)*.06 + councilBonus(R_.id,'chaplain')*.4 + focusLegYr(R_.id);
       d += realmProvs(R_.id).filter(p=>pv(p).bld==='cathedral').length;
       if(R_.excomm) d -= 4;
       R_.leg = clamp(R_.leg + d, 0, 100);

@@ -654,6 +654,32 @@ endless legitimacy. Reviewed every action and bounded the ones that should be:
 Buttons now disable with a plain reason when a per-year action is spent, so the
 limits read at a glance.
 
+### v4.0 — the council, the focus, and a lighter turn (SHIPPED)
+Reworking the core loop so the council matters and a turn feels like a board game.
+- **Crown's Focus.** Every realm now holds a standing doctrine — **The Sword**
+  (war: +levies, faster sieges, prestige from victory), **The Purse** (wealth:
+  +tax, cheaper building), **The Whisper** (intrigue: stronger plots, better
+  counter-intel), **The Altar** (faith: +legitimacy, holy-war fervour), or
+  **The Olive Branch** (diplomacy: +opinion, easier alliances & marriages). It
+  rewards committing to one aspect of rule, and it is **amplified by the
+  matching councillor** — the Sword with a great Marshal bites harder. Realms
+  start with a historically-fitting focus (Normandy → Sword, Byzantium →
+  Whisper, the Papacy → Altar), so the world reads as differentiated, and the
+  AI plays to its focus's strengths. Change it in the Council tab for 25
+  prestige, no more than once in three years.
+- **The council does real, legible work.** The Council tab shows each seat's
+  holder, skill, loyalty, and its concrete passive effect in numbers, with the
+  focus seat marked. A staffed, contented council is your bonuses, your shield
+  against plots, and part of your capacity to act.
+- **Fewer, flexible orders.** The pool dropped from five to a board-game
+  ~three: two from the crown (one in a regency), +1 for a working council, +1
+  for a beloved crown (legitimacy ≥ 85), plus **temporary boons** some events
+  grant — a jubilee rallies the realm, a summoned Great Council lends its hands
+  — which expire after a season or a year. The top-bar tooltip shows exactly
+  where the number comes from, so the count is understood, not mysterious.
+  (The unified pool means you can still pour every order into one aspect — the
+  old "forced breadth" is gone.)
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
