@@ -192,6 +192,9 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 .seatTop{display:flex; justify-content:space-between; align-items:center; gap:8px}
 .seatWho{font-size:12.5px; margin-top:2px}
 .card.seatFocus{border-color:var(--gold2); box-shadow:inset 0 0 0 1px rgba(217,185,92,.25)}
+.pietyBar{position:relative; height:10px; border-radius:5px; background:rgba(43,32,19,.22); overflow:hidden; margin-top:5px}
+.pietyFill{height:100%; background:linear-gradient(90deg, #7c6cc0, #b0a0e0); transition:width .3s}
+.faithActs{display:flex; flex-direction:column; gap:5px}
 .mandateRow{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px;
   padding-top:6px; border-top:1px dashed rgba(217,185,92,.28); font-size:12px}
 .mandateRow>div{flex:1 1 auto; line-height:1.35}
@@ -435,6 +438,7 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
       <button id="tabDyn" class="on" onclick="UI.tab('dyn')">Dynasty</button>
       <button id="tabCourt" onclick="UI.tab('court')">Court</button>
       <button id="tabCouncil" onclick="UI.tab('council')">Council</button>
+      <button id="tabFaith" onclick="UI.tab('faith')">Faith</button>
       <button id="tabWars" onclick="UI.tab('wars')">Wars</button>
       <button id="tabTreasury" onclick="UI.tab('treasury')">Treasury</button>
       <button id="tabRelations" onclick="UI.tab('relations')">Relations</button>
@@ -3368,7 +3372,7 @@ function aiTurn(rid){
 const UI = {
   tabSel:'dyn',
   tab(t){ this.tabSel = t; this.renderLeft();
-    for(const x of ['Dyn','Court','Council','Treasury','Relations','Wars','Plots','Empire']) document.getElementById('tab'+x).classList.toggle('on', x.toLowerCase()===t);
+    for(const x of ['Dyn','Court','Council','Faith','Treasury','Relations','Wars','Plots','Empire']) document.getElementById('tab'+x).classList.toggle('on', x.toLowerCase()===t);
   },
   centroid(pts){
     let x=0,y=0; for(const p of pts){x+=p[0];y+=p[1];} return [x/pts.length, y/pts.length];
@@ -3947,6 +3951,42 @@ const UI = {
       el.innerHTML = h;
     }
     if(t==='empire'){ el.innerHTML = this.empireHtml(); }
+    if(t==='faith'){ el.innerHTML = this.faithHtml(); }
+  },
+  faithHtml(){
+    const R_ = PRL(), rel = R_.rel, auth = RELAUTH[rel];
+    const P = Math.round(R_.piety||0);
+    const chap = R_.council.chaplain, chapC = chap?ch(chap):null;
+    let h = `<h3>${RELICO[rel]} The Faith — ${RELNAME[rel]}</h3>`;
+    /* piety meter + standing */
+    h += `<div class="focusCard"><div class="focusTop"><b>☩ Piety — ${P}/100</b><span class="hint" style="margin:0">standing with ${esc(auth)}</span></div>
+      <div class="pietyBar"><div class="pietyFill" style="width:${P}%"></div></div>`;
+    const dpy = pietyChange(G.player);
+    h += `<div class="focusSub">This year your devotion ${dpy>=0?'<span class="pos">rises</span>':'<span class="neg">wanes</span>'} by about <b>${Math.abs(Math.round(dpy*10)/10)}</b> — ${chapC&&alive(chapC)?`your chaplain ${esc(fullName(chapC))} tends it`:'<span class="neg">you have no chaplain to tend it</span>'}${hasFocus(G.player,'altar')?', and the Altar focus sharpens it':''}${R_.excomm?', and excommunication bleeds it':''}. Earn piety by tending the faith; spend it on the works below.</div></div>`;
+    if(R_.excomm && rel==='catholic'){
+      h += `<div class="card" style="border-color:var(--red)"><b class="neg">☩ Excommunicate</b><div class="hint" style="margin:3px 0 6px">Rome has cut you off. No blessing is yours to buy until you reconcile, and your legitimacy bleeds each year.</div>
+        <div class="actBtns"><button ${!Game.can()||R_.gold<40?'disabled':''} onclick="Game.act('rome')">☩ Reconcile with Rome (⚡ 40🪙)</button></div></div>`;
+    } else {
+      /* the interventions */
+      const endowDone = G.flags['rome'+G.year], banner = G.flags.holyBanner, heretic = realmWrongFaith(G.player);
+      h += `<h3 style="margin-top:10px">Holy Works</h3><div class="faithActs">`;
+      h += `<div class="card"><div class="seatTop"><b>${RELICO[rel]} ${faithVerb(rel)}</b><button class="small" ${!Game.can()||R_.gold<15||endowDone?'disabled':''} onclick="Game.faithEndow()">${endowDone?'Given':'15🪙 (⚡)'}</button></div><div class="hint" style="margin:2px 0 0">Gifts to ${esc(auth)} — <b>+6 ✠ legitimacy, +10 ☩ piety</b>. Once a year.</div></div>`;
+      h += `<div class="card"><div class="seatTop"><b>⚔ Proclaim a Holy War</b><button class="small" ${!Game.can()||P<45||banner?'disabled':''} onclick="Game.faithHolyWar()">${banner?'Ready':'45☩ (⚡)'}</button></div><div class="hint" style="margin:2px 0 0">${banner?'<span class="pos">A holy banner waits</span> — your next war on another faith is sanctified.':'Bless a banner: your next war on another faith carries fervour (+legitimacy, +prestige, zeal in battle).'}</div></div>`;
+      h += `<div class="card"><div class="seatTop"><b>✝ Send Missionaries</b><button class="small" ${!Game.can()||R_.gold<20||P<20||!heretic.length?'disabled':''} onclick="Game.faithMissionaries()">20🪙+20☩ (⚡)</button></div><div class="hint" style="margin:2px 0 0">${heretic.length?`Turn a conquered province to your faith. <b>${heretic.length}</b> of your provinces keep another.`:'All your land already keeps your faith.'}</div></div>`;
+      h += `<div class="card"><div class="seatTop"><b>✠ Bless the Heir</b><button class="small" ${!Game.can()||P<30?'disabled':''} onclick="Game.faithBless()">30☩ (⚡)</button></div><div class="hint" style="margin:2px 0 0">+10 ✠ legitimacy now, steadying the succession.</div></div>`;
+      h += `</div>`;
+    }
+    /* provinces of another faith */
+    const heretic = realmWrongFaith(G.player);
+    if(heretic.length){
+      h += `<h3 style="margin-top:10px">Provinces of Another Faith</h3>`;
+      for(const p of heretic.sort((a,b)=>(pv(b).conv||0)-(pv(a).conv||0)).slice(0,10)){
+        h += `<div class="card" style="padding:5px 8px"><div class="seatTop"><b>${esc(PROVDATA[p].n)}</b><span class="hint" style="margin:0">${RELICO[pv(p).rel]} ${RELNAME[pv(p).rel]}</span></div>
+          <div class="pietyBar" style="height:6px;margin-top:4px"><div class="pietyFill" style="width:${Math.min(100,Math.round(pv(p).conv||0))}%;background:var(--gold)"></div></div>
+          <div class="hint" style="margin:2px 0 0">${Math.round(pv(p).conv||0)}% turned · pays and musters grudgingly until converted</div></div>`;
+      }
+    }
+    return h;
   },
   empireHtml(){
     if(!G.empire){ return `<h3>The Holy Roman Empire</h3><div class="hint">The Empire is not part of this age.</div>`; }
@@ -4726,39 +4766,32 @@ const Game = {
     toast(`Your ${cap(seat)} returns to court.`);
     UI.renderAll();
   },
-  faith(){
-    if(this.busy()) return;
-    const R_ = PRL(); const rel = R_.rel; const auth = RELAUTH[rel];
-    if(R_.excomm && rel==='catholic'){
-      UI.modal('Excommunicate', `Rome has cut you off from the faithful. No blessing is yours to buy until you reconcile — and your legitimacy bleeds each year you remain outside the Church.`,
-        [{t:'☩ Reconcile with Rome (40🪙, ⚡)', fx:()=>this.act('rome')}, {t:'— Endure the anathema —', fx:()=>{}}]); return;
-    }
-    const P = Math.round(R_.piety||0);
-    const endowDone = G.flags['rome'+G.year];
-    const heretic = realmWrongFaith(G.player);
-    const banner = G.flags.holyBanner;
-    const opts = [];
-    opts.push({ t:`${RELICO[rel]} <b>${faithVerb(rel)}</b> — 15🪙 → +6 ✠ legitimacy, +10 ☩ piety${endowDone?' <span class="hint" style="margin:0">(given this year)</span>':''}`,
-      fx:()=>{ if(endowDone){ toast('You have already given generously this year.'); return; }
-        if(R_.gold<15){ toast('Not enough gold.'); return; } if(!this.order()) return;
-        R_.gold-=15; G.flags['rome'+G.year]=1; R_.leg=clamp(R_.leg+6,0,100); pietyGain(G.player,10);
-        toast(`${RELICO[rel]} Gifts to ${esc(auth)} — <b>+6 legitimacy, +10 piety</b>`);
-        logIt('court',`Gold flows to ${auth}; blessings flow back.`); UI.renderAll(); }});
-    opts.push({ t:`⚔ <b>Proclaim a Holy War</b> — 45 ☩ piety → your next war on another faith is sanctified (fervour: +legitimacy, +prestige, zeal in battle)${banner?' <span class="hint" style="margin:0">(a banner already waits)</span>':''}`,
-      fx:()=>{ if(banner){ toast('A holy banner already waits to be raised.'); return; }
-        if(P<45){ toast('Not enough piety — tend the faith first.'); return; } if(!this.order()) return;
-        R_.piety-=45; G.flags.holyBanner=1; toast('⚔ A holy banner is blessed — your next war on the faithless carries it');
-        logIt('court',`${auth} blesses a banner; the next war on the infidel is a holy one.`); UI.renderAll(); }});
-    opts.push({ t:`✝ <b>Send Missionaries</b> — 20🪙 + 20 ☩ piety → turn a conquered province to your faith${heretic.length?` (${heretic.length} of yours keep another faith)`:' <span class="hint" style="margin:0">(all your land shares your faith)</span>'}`,
-      fx:()=>{ if(!heretic.length){ toast('Every province you hold already keeps your faith.'); return; }
-        if(R_.gold<20||P<20){ toast('You need 20 gold and 20 piety.'); return; }
-        this.missionTarget(heretic); }});
-    opts.push({ t:`✠ <b>Bless the Heir</b> — 30 ☩ piety → +10 ✠ legitimacy now, steadying the succession`,
-      fx:()=>{ if(P<30){ toast('Not enough piety.'); return; } if(!this.order()) return;
-        R_.piety-=30; R_.leg=clamp(R_.leg+10,0,100); toast('✠ The heir is blessed — <b>+10 legitimacy</b>'); UI.renderAll(); }});
-    UI.modal(`The Faith — ${RELNAME[rel]}`,
-      `Your standing with ${auth} is <b>${P} ☩ piety</b>. A devout, well-served realm earns it; you spend it on sanctified wars, missions among the conquered, and blessings on your house.${heretic.length?`<br><span class="hint" style="margin:6px 0 0">${heretic.length} province${heretic.length>1?'s':''} you hold do not share your faith — they pay and muster grudgingly until converted.</span>`:''}`,
-      opts.concat([{t:'— Later —', fx:()=>{}}]));
+  faith(){ if(this.busy()) return; UI.tab('faith'); },
+  faithEndow(){
+    if(this.busy()) return; const R_=PRL();
+    if(G.flags['rome'+G.year]){ toast('You have already given generously this year.'); return; }
+    if(R_.gold<15){ toast('Not enough gold.'); return; } if(!this.order()) return;
+    R_.gold-=15; G.flags['rome'+G.year]=1; R_.leg=clamp(R_.leg+6,0,100); pietyGain(G.player,10);
+    toast(`${RELICO[R_.rel]} Gifts to ${esc(RELAUTH[R_.rel])} — <b>+6 legitimacy, +10 piety</b>`);
+    logIt('court',`Gold flows to ${RELAUTH[R_.rel]}; blessings flow back.`); UI.renderAll();
+  },
+  faithHolyWar(){
+    if(this.busy()) return; const R_=PRL();
+    if(G.flags.holyBanner){ toast('A holy banner already waits to be raised.'); return; }
+    if((R_.piety||0)<45){ toast('Not enough piety — tend the faith first.'); return; } if(!this.order()) return;
+    R_.piety-=45; G.flags.holyBanner=1; toast('⚔ A holy banner is blessed — your next war on the faithless carries it');
+    logIt('court',`${RELAUTH[R_.rel]} blesses a banner; the next war on the infidel is a holy one.`); UI.renderAll();
+  },
+  faithMissionaries(){
+    if(this.busy()) return; const R_=PRL(); const heretic=realmWrongFaith(G.player);
+    if(!heretic.length){ toast('Every province you hold already keeps your faith.'); return; }
+    if(R_.gold<20||(R_.piety||0)<20){ toast('You need 20 gold and 20 piety.'); return; }
+    this.missionTarget(heretic);
+  },
+  faithBless(){
+    if(this.busy()) return; const R_=PRL();
+    if((R_.piety||0)<30){ toast('Not enough piety.'); return; } if(!this.order()) return;
+    R_.piety-=30; R_.leg=clamp(R_.leg+10,0,100); toast('✠ The heir is blessed — <b>+10 legitimacy</b>'); UI.renderAll();
   },
   missionTarget(list){
     const R_ = PRL();

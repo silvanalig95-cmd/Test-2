@@ -819,6 +819,17 @@ Playtest fixes from real games.
   marrying off every stray courtier — only close dynastic kin (the heir and the
   ruler's house), whose match actually buys an ally's spears.
 
+### v4.7 — a dedicated Faith interface (SHIPPED)
+Religion earns its own tab, alongside Council and Empire, rather than living in a
+pop-up menu.
+- **The Faith tab** shows a **piety meter** and this year's projected gain or
+  loss (with the reason — your chaplain, the Altar focus, excommunication), the
+  four **Holy Works** as persistent buttons (endow the Church, proclaim a holy
+  war, send missionaries, bless the heir) each with its cost and effect legible
+  at a glance, and a **list of your provinces of another faith** with per-province
+  conversion bars. Excommunicates see the reconcile path instead.
+- The old modal is retired; the overview's Faith button now opens the tab.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
