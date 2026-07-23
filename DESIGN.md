@@ -701,6 +701,32 @@ bonuses.
   strength, and a shortcut to the war council — instead of the news slipping by
   in the log.
 
+### v4.2 — the Faith (SHIPPED)
+Turning religion from a static label into a system with a resource, a sink, and
+real friction.
+- **Piety.** Every realm now holds **piety** (0–100) — its standing with its
+  faith's authority (Rome, the Patriarch, the Caliph, the old ways). It is
+  *earned* by tending the faith: a diligent chaplain, the Altar focus,
+  cathedrals, a pious ruler; it *decays* if neglected, and bleeds under
+  excommunication or when ruling many provinces of another faith. Shown on the
+  realm overview with its own meter, parallel to prestige and legitimacy.
+- **Province faith & the cost of conquest.** Provinces carry their own faith,
+  seeded from their founding owner. Conquest does **not** change it — so a
+  Catholic king who seizes a Muslim province now holds land that shares neither
+  his faith nor his enthusiasm: it **pays less tax and musters fewer men** until
+  it is converted. This makes crossing a faith border a real strategic weight,
+  not a free land-grab.
+- **The Faith menu.** One button opens the faith, where piety is spent:
+  **Endow the Church** (gold → legitimacy + piety, once a year), **Proclaim a
+  Holy War** (piety → a blessed banner that sanctifies your next war on another
+  faith, with its fervour bonuses), **Send Missionaries** (gold + piety →
+  gradually convert a conquered province to your faith), and **Bless the Heir**
+  (piety → legitimacy, steadying the succession).
+- **Excommunication reworked.** Rome's anathema now falls on the impious as well
+  as the illegitimate — let piety collapse and the candles go out, with all the
+  old consequences (shunned by Christendom, bleeding legitimacy) and the barefoot
+  road back.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

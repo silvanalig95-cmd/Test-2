@@ -703,8 +703,8 @@ function realmStrength(rid){
   return s;
 }
 function legFactor(rid){ const r = rl(rid); return r ? Math.min(1, 0.7 + r.leg/150) : 1; } /* below ~45 legitimacy, vassals withhold spears */
-function levyOf(p){ const pr=pv(p); return Math.round((200 + pr.dev*110 + (pr.bld==='castle'?150:0)) * legFactor(pr.r) * focusLevy(pr.r)); }
-function taxOf(p){ const pr=pv(p); return pr.dev + (pr.bld==='market'?2:0); }
+function levyOf(p){ const pr=pv(p); return Math.round((200 + pr.dev*110 + (pr.bld==='castle'?150:0)) * legFactor(pr.r) * focusLevy(pr.r) * faithPenalty(p)); }
+function taxOf(p){ const pr=pv(p); return Math.round((pr.dev + (pr.bld==='market'?2:0)) * faithPenalty(p)); }
 function realmFinances(rid){
   const R_ = rl(rid);
   let baseTax = 0, occLost = 0; const rows = [];
@@ -836,6 +836,20 @@ function newGame(playerRealm, seed, scenId){
     if(G.realms[rid].dead) continue;
     for(let i=0;i<3;i++) mkCourtier(rid);
     aiFillCouncil(rid);
+  }
+  /* ---- Religion: seed each province's faith from its founding owner; give each realm its piety ---- */
+  for(const [pid, pr] of Object.entries(G.provinces)){
+    pr.rel = pr.r ? (rl(pr.r).rel || 'catholic') : (REALMDATA[pid]&&REALMDATA[pid].rel) || 'catholic';
+    pr.conv = 0;   /* progress converting this province toward its current owner's faith */
+  }
+  for(const R_ of Object.values(G.realms)){
+    if(R_.dead){ R_.piety = 25; continue; }
+    const rul = ruler(R_.id);
+    let p = 30;
+    if(rul){ if(rul.tr.includes('pious')) p += 18; if(rul.tr.includes('cynical')) p -= 8; }
+    if(R_.focus==='altar') p += 12;
+    if(R_.id==='papacy') p = 95;
+    R_.piety = clamp(p, 0, 100);
   }
   G.realms[playerRealm].gold += 10;
   resetOrders();
@@ -1370,6 +1384,25 @@ function focusHoly(rid){ return hasFocus(rid,'altar') ? 8 : 0; }
 function focusAccept(rid){ return Math.round(12*focusPow(rid,'olive')); }
 function focusOpinion(rid){ return Math.round(6*focusPow(rid,'olive')); }
 function focusWinPrs(rid){ return hasFocus(rid,'sword') ? 1.5 : 1; }
+
+/* ---- Religion & piety ---- */
+const RELAUTH = { catholic:'Rome', orthodox:'the Patriarch', muslim:'the Caliph', pagan:'the old ways' };
+function faithVerb(rel){ return rel==='catholic'?'Petition Rome':rel==='orthodox'?'Endow the Patriarchate':rel==='muslim'?'Endow the madrasas':'Hold the great blót'; }
+function provWrongFaith(p){ const pr=pv(p); return !!(pr.r && pr.rel && rl(pr.r) && pr.rel!==rl(pr.r).rel); }
+function faithPenalty(p){ return provWrongFaith(p) ? 0.62 : 1; }   /* land that spurns its lord's faith yields grudgingly */
+function realmWrongFaith(rid){ return realmProvs(rid).filter(p=>provWrongFaith(p)); }
+function pietyChange(rid){
+  const R_=rl(rid); if(!R_||R_.dead) return 0; const rul=ruler(rid);
+  let d = -1.5;                                        /* devotion fades without tending */
+  d += councilBonus(rid,'chaplain')*0.5;              /* a diligent chaplain keeps the realm devout */
+  if(hasFocus(rid,'altar')) d += 2;
+  d += realmProvs(rid).filter(p=>pv(p).bld==='cathedral').length*0.6;
+  if(rul){ if(rul.tr.includes('pious')) d += 1.5; if(rul.tr.includes('cynical')) d -= 1; }
+  if(R_.excomm) d -= 3;
+  d -= Math.min(3, realmWrongFaith(rid).length*0.4);   /* ruling the faithless strains devotion */
+  return d;
+}
+function pietyGain(rid, n){ const R_=rl(rid); if(!R_) return; R_.piety=clamp((R_.piety||0)+n,0,100); }
 
 /* ---- flexible order pool: base ~3, plus council, high legitimacy, and temporary event boons ---- */
 function ordersMaxNow(){
@@ -3743,7 +3776,8 @@ const UI = {
       <div class="kv"><span>Steward bonus</span><b>+${Math.round(councilBonus(G.player,'steward')*4)}%</b></div>`;
     { const f=FOCI[R_.focus]; if(f) h += `<div class="kv" style="cursor:pointer" data-tip="Your realm’s standing doctrine — ${esc(f.d)} Set it in the Council tab." onclick="UI.tab('council')"><span>Crown’s focus</span><b>${f.ico} ${f.n}</b></div>`; }
     h += `<div class="kv"><span>Succession law</span><b>${R_.law==='elective'?'Elective':'Primogeniture'}</b></div>`;
-    h += `<div class="kv"><span>Faith</span><b>${RELICO[R_.rel]} ${RELNAME[R_.rel]}</b></div>`;
+    { const wf = realmWrongFaith(G.player).length;
+      h += `<div class="kv" style="cursor:pointer" onclick="Game.faith()" data-tip="Your faith and your piety — standing with ${esc(RELAUTH[R_.rel])}. Tend it to earn piety; spend it on holy wars, missions, and blessings.${wf?' '+wf+' of your provinces keep another faith and yield grudgingly until converted.':''}"><span>Faith</span><b>${RELICO[R_.rel]} ${RELNAME[R_.rel]} <span class="hint" style="margin:0">☩${Math.round(R_.piety||0)}${wf?' · '+wf+'✝?':''}</span></b></div>`; }
     { const s = R_.leg>=70?['Secure','pos']:R_.leg>=50?['Accepted','']:R_.leg>=35?['Uneasy','neg']:['Precarious','neg'];
       const pen = Math.round((1-legFactor(G.player))*100);
       h += `<div class="kv" data-tip="Hover the ✠ legitimacy in the top bar for what it governs${pen>0?'. Low legitimacy is cutting your levies '+pen+'% right now':''}"><span>Crown’s standing</span><b class="${s[1]}">${s[0]} <span class="hint" style="margin:0">✠${Math.floor(R_.leg)}${pen>0?' · levies −'+pen+'%':''}</span></b></div>`;
@@ -3766,7 +3800,7 @@ const UI = {
       ][G.season]}
       ${R_.rel==='catholic' && R_.excomm
         ? `<button onclick="Game.act('rome')" ${!Game.can('rome')||R_.gold<40?'disabled':''} data-tip="Barefoot in the snow if need be">☩ Reconcile with Rome (⚡ 40🪙)</button>`
-        : `<button onclick="Game.act('rome')" ${!Game.can('rome')||R_.gold<15||G.flags['rome'+G.year]?'disabled':''} data-tip="Once a year; +8 legitimacy">${RELICO[R_.rel]} ${R_.rel==='catholic'?'Petition Rome':R_.rel==='orthodox'?'Endow the Patriarchate':R_.rel==='muslim'?'Endow the madrasas':'Hold the great blót'} (⚡ 15🪙)</button>`}
+        : `<button onclick="Game.faith()" ${!Game.can()?'disabled':''} data-tip="Open the faith: endow the Church for piety & legitimacy, proclaim a holy war, send missionaries, or bless your heir">${RELICO[R_.rel]} The Faith — ☩${Math.round(R_.piety||0)} piety (⚡)</button>`}
       <button onclick="Game.act('law')" ${!Game.can('law')||R_.prs<50||G.flags['law'+PR().id]?'disabled':''} data-tip="Once per ruler. Elective: magnates crown the ablest adult of the blood — no child regencies, but your sons may be passed over. Costs 50 ☀ and 10 ✠.">⚖ Adopt ${R_.law==='elective'?'primogeniture':'elective succession'} (⚡ 50☀)</button>
     </div>`;
     if(provs.length>=G.impThresh && !G.over){
@@ -4183,6 +4217,9 @@ const Game = {
     UI.renderAll();
   },
   confirmWar(tgt, cb, claimantId){
+    /* a blessed holy banner sanctifies a war against another faith */
+    const bannerFits = G.flags.holyBanner && !cb.holy && rl(tgt) && rl(tgt).rel!==PRL().rel;
+    if(bannerFits) cb.holy = true;
     const mine = realmStrength(G.player), theirs = realmStrength(tgt);
     const alliesOf = rid => G.alliances.filter(al=>al.a===rid||al.b===rid)
       .map(al=>al.a===rid?al.b:al.a).filter(r=>rl(r)&&!rl(r).dead&&r!==tgt&&r!==G.player);
@@ -4201,6 +4238,7 @@ const Game = {
         if(G.regency||!this.order('war')) return;
         if(cb.type==='none'){ declareWar(G.player, tgt, cb); PRL().leg=clamp(PRL().leg-20,0,100); }
         else declareWar(G.player, tgt, cb, claimantId);
+        if(bannerFits) G.flags.holyBanner = 0;   /* the banner is spent on this war */
         if(cb.holy){ PRL().leg=clamp(PRL().leg+5+focusHoly(G.player),0,100); toast(`${RELICO[PRL().rel]}⚔ <b>Holy war!</b> The clergy proclaim it righteous`); }
         else toast(`⚔ <b>War!</b> ${esc(rl(tgt).n)} is the enemy`);
         Game.react('war');
@@ -4314,6 +4352,54 @@ const Game = {
     if(c) c.mandate = null;
     toast(`Your ${cap(seat)} returns to court.`);
     UI.renderAll();
+  },
+  faith(){
+    if(this.busy()) return;
+    const R_ = PRL(); const rel = R_.rel; const auth = RELAUTH[rel];
+    if(R_.excomm && rel==='catholic'){
+      UI.modal('Excommunicate', `Rome has cut you off from the faithful. No blessing is yours to buy until you reconcile — and your legitimacy bleeds each year you remain outside the Church.`,
+        [{t:'☩ Reconcile with Rome (40🪙, ⚡)', fx:()=>this.act('rome')}, {t:'— Endure the anathema —', fx:()=>{}}]); return;
+    }
+    const P = Math.round(R_.piety||0);
+    const endowDone = G.flags['rome'+G.year];
+    const heretic = realmWrongFaith(G.player);
+    const banner = G.flags.holyBanner;
+    const opts = [];
+    opts.push({ t:`${RELICO[rel]} <b>${faithVerb(rel)}</b> — 15🪙 → +6 ✠ legitimacy, +10 ☩ piety${endowDone?' <span class="hint" style="margin:0">(given this year)</span>':''}`,
+      fx:()=>{ if(endowDone){ toast('You have already given generously this year.'); return; }
+        if(R_.gold<15){ toast('Not enough gold.'); return; } if(!this.order()) return;
+        R_.gold-=15; G.flags['rome'+G.year]=1; R_.leg=clamp(R_.leg+6,0,100); pietyGain(G.player,10);
+        toast(`${RELICO[rel]} Gifts to ${esc(auth)} — <b>+6 legitimacy, +10 piety</b>`);
+        logIt('court',`Gold flows to ${auth}; blessings flow back.`); UI.renderAll(); }});
+    opts.push({ t:`⚔ <b>Proclaim a Holy War</b> — 45 ☩ piety → your next war on another faith is sanctified (fervour: +legitimacy, +prestige, zeal in battle)${banner?' <span class="hint" style="margin:0">(a banner already waits)</span>':''}`,
+      fx:()=>{ if(banner){ toast('A holy banner already waits to be raised.'); return; }
+        if(P<45){ toast('Not enough piety — tend the faith first.'); return; } if(!this.order()) return;
+        R_.piety-=45; G.flags.holyBanner=1; toast('⚔ A holy banner is blessed — your next war on the faithless carries it');
+        logIt('court',`${auth} blesses a banner; the next war on the infidel is a holy one.`); UI.renderAll(); }});
+    opts.push({ t:`✝ <b>Send Missionaries</b> — 20🪙 + 20 ☩ piety → turn a conquered province to your faith${heretic.length?` (${heretic.length} of yours keep another faith)`:' <span class="hint" style="margin:0">(all your land shares your faith)</span>'}`,
+      fx:()=>{ if(!heretic.length){ toast('Every province you hold already keeps your faith.'); return; }
+        if(R_.gold<20||P<20){ toast('You need 20 gold and 20 piety.'); return; }
+        this.missionTarget(heretic); }});
+    opts.push({ t:`✠ <b>Bless the Heir</b> — 30 ☩ piety → +10 ✠ legitimacy now, steadying the succession`,
+      fx:()=>{ if(P<30){ toast('Not enough piety.'); return; } if(!this.order()) return;
+        R_.piety-=30; R_.leg=clamp(R_.leg+10,0,100); toast('✠ The heir is blessed — <b>+10 legitimacy</b>'); UI.renderAll(); }});
+    UI.modal(`The Faith — ${RELNAME[rel]}`,
+      `Your standing with ${auth} is <b>${P} ☩ piety</b>. A devout, well-served realm earns it; you spend it on sanctified wars, missions among the conquered, and blessings on your house.${heretic.length?`<br><span class="hint" style="margin:6px 0 0">${heretic.length} province${heretic.length>1?'s':''} you hold do not share your faith — they pay and muster grudgingly until converted.</span>`:''}`,
+      opts.concat([{t:'— Later —', fx:()=>{}}]));
+  },
+  missionTarget(list){
+    const R_ = PRL();
+    UI.modal('Send Missionaries', `Choose a province to bring into the ${RELNAME[R_.rel]} fold. Each mission advances its conversion; enough of them turn its heart.`,
+      list.sort((a,b)=>(pv(b).conv||0)-(pv(a).conv||0)).slice(0,12).map(p=>({
+        t:`${esc(PROVDATA[p].n)} — ${RELICO[pv(p).rel]} ${RELNAME[pv(p).rel]}, ${Math.min(99,Math.round(pv(p).conv||0))}% turned`,
+        fx:()=>{ if(R_.gold<20||(R_.piety||0)<20){ toast('Not enough gold or piety.'); return; } if(!this.order()) return;
+          R_.gold-=20; R_.piety=clamp(R_.piety-20,0,100);
+          pv(p).conv=(pv(p).conv||0)+34+councilBonus(G.player,'chaplain')*3;
+          if(pv(p).conv>=100){ pv(p).rel=R_.rel; pv(p).conv=0;
+            toast(`✝ <b>${esc(PROVDATA[p].n)}</b> is brought into the ${RELNAME[R_.rel]} faith`);
+            logIt('court',`${PROVDATA[p].n} is converted to the ${RELNAME[R_.rel]} faith, its churches reconsecrated.`); }
+          else toast(`✝ Missionaries labour in ${esc(PROVDATA[p].n)} — ${Math.round(pv(p).conv)}% turned`);
+          UI.renderAll(); }})).concat([{t:'— Not now —', fx:()=>{}}]));
   },
   pickCouncil(seat){
     if(this.busy()) return;
@@ -4542,9 +4628,10 @@ const Game = {
       d += realmProvs(R_.id).filter(p=>pv(p).bld==='cathedral').length;
       if(R_.excomm) d -= 4;
       R_.leg = clamp(R_.leg + d, 0, 100);
+      R_.piety = clamp((R_.piety!=null?R_.piety:30) + pietyChange(R_.id), 0, 100);
       /* Rome watches: godless or failing kings invite the anathema */
       const rul = ruler(R_.id);
-      if(rul && R_.rel==='catholic' && !R_.excomm && (R_.leg<30 || (rul.tr.includes('cruel')&&rul.tr.includes('cynical'))) && chance(.15)){
+      if(rul && R_.rel==='catholic' && !R_.excomm && (R_.leg<30 || R_.piety<12 || (rul.tr.includes('cruel')&&rul.tr.includes('cynical'))) && chance(.15)){
         R_.excomm = true;
         logIt('court', `☩ Rome pronounces anathema: ${fullName(rul)} of ${R_.n} is EXCOMMUNICATED.`);
         if(isPlayer(R_.id)){
