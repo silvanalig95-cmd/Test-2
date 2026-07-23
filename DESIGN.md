@@ -769,6 +769,36 @@ Fifteen new events, weighted toward making the new faith and culture systems
   the hall — each with its own three choices spanning prestige, legitimacy,
   piety, gold, and court favour, so no two reigns begin quite alike.
 
+### v4.5 — The Holy Roman Empire (SHIPPED)
+The Imperial crown becomes a real political prize, won and wielded — and the
+generic "reach N provinces → crowned Emperor → win" is replaced by it.
+- **An elective crown.** The Empire (the German realm) is now headed by an
+  **Emperor** chosen by **seven prince-electors** (Mainz, Köln, Trier, the Rhine
+  Palatinate, Saxony, Brandenburg, Bohemia). On the Emperor's death — or the fall
+  of his realm — the electors convene and choose anew. Each elector has a
+  favourite and a warmth toward you.
+- **Winning the crown.** Two roads, per how you play:
+  - *Inside the Empire* (Germany, Bohemia, Burgundy): court the electors and,
+    with four of seven pledged, **contest the election**.
+  - *Outside* it: grow to the imperial threshold, **press an Imperial claim**
+    (become a pretender), then court and contest — an outsider forcing in.
+  Electors are swayed with gold, prestige, and piety — **spiritual electors heed
+  a devout prince, secular ones a renowned one.**
+- **Imperial authority.** As Emperor you may summon the **Imperial Diet** (renown,
+  legitimacy, sometimes an extra order), pronounce the **Imperial Ban** on a
+  neighbour (outlawing them and granting a lawful claim on their land), and the
+  whole Empire **rallies to your wars** — members are summoned to your side, and
+  a member who defies the summons loses legitimacy and the Emperor's favour. The
+  Imperial dignity also lends steady prestige each year.
+- **Victory rewritten.** The old province-count coronation is gone. The empire
+  victory now requires **actually holding the Imperial title** — then, with the
+  threshold of provinces and 200 prestige, a coronation crowns the age. A small
+  realm can no longer buy an empire with land alone; it must win the oldest crown
+  in Christendom through the electors or the sword.
+- **The Empire tab** shows the Emperor, your standing and path, the seven
+  electors with their leanings and warmth toward you, and every imperial action
+  available in your current role. Old saves migrate into the system on load.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

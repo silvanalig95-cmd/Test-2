@@ -430,6 +430,7 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
       <button id="tabTreasury" onclick="UI.tab('treasury')">Treasury</button>
       <button id="tabRelations" onclick="UI.tab('relations')">Relations</button>
       <button id="tabPlots" onclick="UI.tab('plots')">Plots</button>
+      <button id="tabEmpire" onclick="UI.tab('empire')">Empire</button>
     </div>
     <div id="leftBody"></div>
   </div>
@@ -853,6 +854,7 @@ function newGame(playerRealm, seed, scenId){
     if(R_.id==='papacy') p = 95;
     R_.piety = clamp(p, 0, 100);
   }
+  empInit();
   G.realms[playerRealm].gold += 10;
   resetOrders();
 }
@@ -1428,6 +1430,77 @@ function borderRealms(rid){ const set=new Set();
   return [...set];
 }
 
+/* ---- The Holy Roman Empire: an elective crown and the authority it confers ---- */
+const ELECTORS = [
+  {id:'mainz',       n:'Archbishop of Mainz',            seat:'spiritual'},
+  {id:'koln',        n:'Archbishop of Köln',             seat:'spiritual'},
+  {id:'trier',       n:'Archbishop of Trier',            seat:'spiritual'},
+  {id:'palatine',    n:'Count Palatine of the Rhine',    seat:'secular'},
+  {id:'saxony',      n:'Duke of Saxony',                 seat:'secular'},
+  {id:'brandenburg', n:'Margrave of Brandenburg',        seat:'secular'},
+  {id:'bohemia',     n:'King of Bohemia',                seat:'secular'},
+];
+const IMPERIAL_MEMBERS = ['germany','bohemia','bourgogne'];
+function empInit(){
+  const holder = (rl('germany')&&!rl('germany').dead) ? 'germany' : null;
+  G.empire = { holder, members:IMPERIAL_MEMBERS.filter(m=>rl(m)), pretender:null, lastVote:G.year, _contested:false,
+    electors: ELECTORS.map(e=>({ ...e, favor: holder||'germany', op:0 })) };
+}
+function isEmperor(rid){ return !!(G.empire && G.empire.holder===rid); }
+function empHolder(){ return G.empire ? G.empire.holder : null; }
+function empMember(rid){ return !!(G.empire && (G.empire.members.includes(rid) || G.empire.holder===rid)); }
+function empEligible(rid){ const r=rl(rid); return !!(r && !r.dead && r.rel==='catholic' && ruler(rid)); }
+function empIsCandidatePlayer(){ return G.empire && (empMember(G.player) || G.empire.pretender===G.player); }
+function empCandidates(){
+  if(!G.empire) return [];
+  const set=new Set();
+  for(const m of G.empire.members) if(empEligible(m)) set.add(m);
+  if(G.empire.holder && empEligible(G.empire.holder)) set.add(G.empire.holder);
+  if(G.empire.pretender && empEligible(G.empire.pretender)) set.add(G.empire.pretender);
+  return [...set];
+}
+function candStrength(rid){ const r=rl(rid); return (r?r.prs:0) + realmProvs(rid).length*10 + (isEmperor(rid)?40:0); }
+function electorVote(e, cands){
+  /* a strongly-courted elector will cast for the player, if the player is in the running */
+  if(empIsCandidatePlayer() && e.op>=55 && cands.includes(G.player)) return G.player;
+  if(cands.includes(e.favor)) return e.favor;
+  return cands.slice().sort((a,b)=>candStrength(b)-candStrength(a))[0];
+}
+function electorTally(){
+  const cands = empCandidates(); const tally={}; for(const c of cands) tally[c]=0;
+  for(const e of G.empire.electors){ const v=electorVote(e,cands); if(v) tally[v]=(tally[v]||0)+1; }
+  return tally;
+}
+function imperialElection(reason){
+  if(!G.empire) return;
+  const cands = empCandidates();
+  if(!cands.length){ G.empire.holder=null; return; }
+  const tally = electorTally();
+  let winner = cands[0];
+  for(const c of cands) if((tally[c]||0)>(tally[winner]||0) || ((tally[c]||0)===(tally[winner]||0) && candStrength(c)>candStrength(winner))) winner=c;
+  const prev = G.empire.holder;
+  const playerRan = empIsCandidatePlayer() && cands.includes(G.player);
+  G.empire.holder = winner; G.empire.pretender=null; G.empire.lastVote=G.year;
+  for(const e of G.empire.electors){ if(!cands.includes(e.favor)) e.favor=winner; e.op=Math.round(e.op*0.7); }
+  const emp = ruler(winner);
+  logIt('court', `⚜ The prince-electors raise ${emp?fullName(emp):rl(winner).n} of ${rl(winner).n} to the Imperial throne.`);
+  chron(`In this year the prince-electors met${reason==='death'?' upon the death of the Emperor':''} and chose ${emp?fullName(emp):'a new lord'} of ${rl(winner).n} as Emperor of the Romans${prev&&prev!==winner&&rl(prev)?`, and the dignity passed from the house of ${rl(prev).n}`:''}.`);
+  if(isPlayer(winner)){
+    queueEvent({ title:'⚜ You Are Elected Emperor',
+      text:`<span class="dropcap">In the great cathedral the seven electors cast their votes, and the majority falls to you. ${fullName(PR())}, by the grace of God and the choice of the princes, Emperor of the Romans.</span><br><br>The imperial dignity is yours — and with it authority over the Empire and the road to a crowning victory. <em>Forge a true Empire — hold the title, hold ${G.impThresh} provinces, and 200 ☀ prestige — to be crowned and win the age.</em>`,
+      choices:[{t:'Long live the Emperor.', fx:()=>{}}] });
+    if(!G._ff) toast('⚜ <b>You are elected Emperor of the Romans!</b>');
+  } else if(playerRan){
+    queueEvent({ title:'The Imperial Election', text:`The electors have met and chosen ${emp?fullName(emp):'another'} of ${rl(winner).n}. The crown is not yours — this time. The princes remember who courts them.`, choices:[{t:'Bought, or blind. Both can be mended.', fx:()=>{}}] });
+  } else if(prev!==winner && isPlayer(prev)){
+    queueEvent({ title:'The Crown Passes', text:`The electors have raised ${emp?fullName(emp):'a rival'} of ${rl(winner).n} to the Imperial throne. The dignity your house held is another's now.`, choices:[{t:'Crowns are lent, never given.', fx:()=>{}}] });
+  }
+  G.empire._contested=false;
+  if(typeof UI!=='undefined' && UI.renderAll) UI.renderAll();
+}
+function empOnRulerDeath(rid){ if(G.empire && G.empire.holder===rid) imperialElection('death'); }
+function empOnRealmFall(rid){ if(G.empire){ if(G.empire.holder===rid) G.empire.holder=null; G.empire.members=G.empire.members.filter(m=>m!==rid); if(G.empire.pretender===rid) G.empire.pretender=null; if(!G.empire.holder) imperialElection('interregnum'); } }
+
 /* ---- flexible order pool: base ~3, plus council, high legitimacy, and temporary event boons ---- */
 function ordersMaxNow(){
   const R_ = PRL(); if(!R_) return 2;
@@ -1766,7 +1839,7 @@ function killChar(c, causeTxt){
   const R_ = Object.values(G.realms).find(r=>!r.dead && r.ruler===c.id);
   const important = R_ || isPlayer(c.realm) || c.claims.length;
   if(important) logIt('court', `${title(c)} ${fullName(c)} ${causeTxt||'has died'}, aged ${age(c)}.`);
-  if(R_) rulerDied(R_, c, causeTxt);
+  if(R_){ rulerDied(R_, c, causeTxt); empOnRulerDeath(R_.id); }
   else if(isPlayer(c.realm) && ruler(G.player) && c.dyn===ruler(G.player).dyn)
     chron(`In this year died ${fullName(c)} of the royal house, aged ${age(c)}, ${causeTxt||'of a sickness'}.`);
   /* a war whose claimant lies dead (and unreplaced) has no cause left */
@@ -1948,6 +2021,24 @@ function declareWar(att, def, cb, claimantId){
         breakAlliance(al.a, al.b);
         logIt('court', `${rl(other).n} finds reasons to stay home; the alliance lapses.`);
       }
+    }
+  }
+  /* the Empire rallies to its Emperor's wars */
+  if(G.empire && (isEmperor(att)||isEmperor(def))){
+    const emp = isEmperor(att)?att:def, side = isEmperor(att)?'a':'b', foe = side==='a'?def:att;
+    for(const m of G.empire.members){
+      if(m===emp || !rl(m) || rl(m).dead || m===foe) continue;
+      if(w.sides.a.includes(m)||w.sides.b.includes(m)) continue;
+      if(truceBetween(m, foe)) continue;
+      const mr = ruler(m); if(!mr) continue;
+      if(isPlayer(m)){
+        queueEvent({ title:'⚜ The Emperor Summons the Empire',
+          text:`The Emperor calls the princes of the Empire to war against ${rl(foe).n}. As a member of the Empire, your banners are summoned to the ${side==='a'?'attack':'defence'}.`,
+          choices:[
+            {t:'Answer the summons — we march for the Empire.', fx:()=>{ w.sides[side].push(m); logIt('war',`${rl(m).n} answers the Imperial summons.`); }},
+            {t:'Defy the Emperor. (−10 legitimacy; the Emperor’s wrath)', fx:()=>{ rl(m).leg=clamp(rl(m).leg-10,0,100); if(ruler(emp)) addOp(ruler(emp), rl(m).ruler, -30); }},
+          ]});
+      } else if(chance(.7)){ w.sides[side].push(m); logIt('war',`${rl(m).n} answers the Imperial summons.`); }
     }
   }
 }
@@ -2155,6 +2246,7 @@ function realmFalls(rid, toRealm){
   G.alliances = G.alliances.filter(al=>al.a!==rid&&al.b!==rid);
   logIt('war', `The realm of ${R_.n} is extinguished.`);
   if(isPlayer(rid)) gameOver(false, `Your last province is lost. The house of ${ruler(rid)?ruler(rid).dyn:'your fathers'} passes into the footnotes of other men's chronicles.`);
+  empOnRealmFall(rid);
 }
 function warUpkeep(){
   for(const a of [...G.armies]){
@@ -3259,7 +3351,7 @@ function aiTurn(rid){
 const UI = {
   tabSel:'dyn',
   tab(t){ this.tabSel = t; this.renderLeft();
-    for(const x of ['Dyn','Court','Council','Treasury','Relations','Wars','Plots']) document.getElementById('tab'+x).classList.toggle('on', x.toLowerCase()===t);
+    for(const x of ['Dyn','Court','Council','Treasury','Relations','Wars','Plots','Empire']) document.getElementById('tab'+x).classList.toggle('on', x.toLowerCase()===t);
   },
   centroid(pts){
     let x=0,y=0; for(const p of pts){x+=p[0];y+=p[1];} return [x/pts.length, y/pts.length];
@@ -3823,6 +3915,51 @@ const UI = {
         <div class="hint">${spy&&alive(ch(spy)) ? esc(fullName(ch(spy)))+` (${SKILLICO.int}${skill(ch(spy),'int')}) watches the court. The higher the skill, the sooner plots against you surface.` : '<b>You have no spymaster.</b> Plots against you will surface late, or not at all. Appoint one in the Council tab.'}</div>`;
       el.innerHTML = h;
     }
+    if(t==='empire'){ el.innerHTML = this.empireHtml(); }
+  },
+  empireHtml(){
+    if(!G.empire){ return `<h3>The Holy Roman Empire</h3><div class="hint">The Empire is not part of this age.</div>`; }
+    const E = G.empire, R_ = PRL();
+    const holder = E.holder, emp = holder?ruler(holder):null;
+    const amEmperor = isEmperor(G.player), amMember = empMember(G.player), amPretender = E.pretender===G.player;
+    const tally = electorTally(); const mine = tally[G.player]||0;
+    let h = `<h3>⚜ The Holy Roman Empire</h3>`;
+    /* the Emperor */
+    h += `<div class="card"><div class="seatTop"><b>The Emperor</b>${amEmperor?' <span class="hint" style="margin:0">· that is you</span>':''}</div>`;
+    h += holder&&rl(holder)&&!rl(holder).dead
+      ? `<div class="seatWho">${emp?esc(fullName(emp)):'—'} of <b>${esc(rl(holder).n)}</b></div>`
+      : `<div class="seatWho"><i>The throne stands empty — an interregnum. The electors must choose.</i></div>`;
+    h += `</div>`;
+    /* your standing */
+    h += `<div class="focusCard"><div class="focusSub">`;
+    if(amEmperor) h += `You wear the Imperial crown. Forge a true Empire — <b>${realmProvs(G.player).length}/${G.impThresh}</b> provinces and <b>${Math.floor(R_.prs)}/200</b> ☀ — then hold your coronation to win the age.`;
+    else if(amMember) h += `Your realm is a prince of the Empire. Court the electors, and when you hold <b>4 of 7</b> votes, contest the election and take the crown. You command <b>${mine}/7</b> so far.`;
+    else if(amPretender) h += `You are a declared pretender to the Imperial throne — an outsider pressing in. Court the electors; you command <b>${mine}/7</b> votes, and need <b>4</b>.`;
+    else h += `Your realm stands outside the Empire. ${R_.rel!=='catholic'?'The Imperial crown is a Catholic dignity, closed to you.':`Grow to <b>${G.impThresh}</b> provinces and press a claim to contend for the oldest crown in Christendom (you hold ${realmProvs(G.player).length}).`}`;
+    h += `</div>`;
+    /* action buttons */
+    h += `<div class="actBtns" style="margin-top:8px">`;
+    if(amEmperor){
+      h += `<button class="small" ${!Game.can()||G.flags['diet'+G.year]?'disabled':''} onclick="Game.imperialDiet()" data-tip="+12 prestige, +4 legitimacy, a chance of an extra order · once a year">⚜ Summon the Imperial Diet (⚡)</button>`;
+      h += `<button class="small" ${!Game.can()?'disabled':''} onclick="Game.imperialBan()" data-tip="Outlaw a neighbouring prince — gain a lawful claim on their land">⚖ Pronounce the Imperial Ban (⚡)</button>`;
+    } else if(amMember||amPretender){
+      h += `<button class="small" ${!Game.can()||R_.prs<60?'disabled':''} onclick="Game.contestElection()" data-tip="Force the electors to convene now (60 ☀). Need 4 of 7 votes to win.">⚜ Contest the election (⚡ 60☀)</button>`;
+    } else if(R_.rel==='catholic'){
+      h += `<button class="small" ${!Game.can()||realmProvs(G.player).length<G.impThresh||R_.prs<80?'disabled':''} onclick="Game.pressImperialClaim()" data-tip="Declare your candidacy for the Imperial throne (needs ${G.impThresh} provinces, 80 ☀)">⚜ Press an Imperial claim (⚡)</button>`;
+    }
+    h += `</div></div>`;
+    /* the electors */
+    h += `<h3 style="margin-top:10px">The Prince-Electors</h3>`;
+    const canCourt = amMember || amPretender;
+    for(const e of E.electors){
+      const forMe = canCourt && e.op>=55;
+      const favN = rl(e.favor)?rl(e.favor).n:'—';
+      h += `<div class="card"><div class="seatTop"><b>${e.seat==='spiritual'?'✝':'⚜'} ${esc(e.n)}</b>`;
+      if(canCourt) h += `<button class="small" ${!Game.can()||R_.gold<12?'disabled':''} onclick="Game.courtElector('${e.id}')">Court (⚡ 12🪙)</button>`;
+      h += `</div><div class="seatWho">${forMe?'<span class="pos">Pledged to you</span>':`Favours <b>${esc(favN)}</b>`}${canCourt?` · warmth <span class="${e.op>=55?'pos':e.op>0?'':'neg'}">${e.op}</span>/55`:''}</div></div>`;
+    }
+    h += `<div class="hint">The seven electors choose the Emperor. ${canCourt?'Court them with gold, prestige, and piety — spiritual electors heed a devout prince, secular ones a renowned one — until four or more pledge to you, then contest the election.':'Only a member of the Empire or a declared pretender may court the electors.'}</div>`;
+    return h;
   },
   renderRight(){
     const el = document.getElementById('rightBody');
@@ -3992,11 +4129,15 @@ const UI = {
         : `<button onclick="Game.faith()" ${!Game.can()?'disabled':''} data-tip="Open the faith: endow the Church for piety & legitimacy, proclaim a holy war, send missionaries, or bless your heir">${RELICO[R_.rel]} The Faith — ☩${Math.round(R_.piety||0)} piety (⚡)</button>`}
       <button onclick="Game.act('law')" ${!Game.can('law')||R_.prs<50||G.flags['law'+PR().id]?'disabled':''} data-tip="Once per ruler. Elective: magnates crown the ablest adult of the blood — no child regencies, but your sons may be passed over. Costs 50 ☀ and 10 ✠.">⚖ Adopt ${R_.law==='elective'?'primogeniture':'elective succession'} (⚡ 50☀)</button>
     </div>`;
-    if(provs.length>=G.impThresh && !G.over){
-      h += `<div class="card" style="margin-top:9px"><b>An Empire Beckons.</b> You hold ${provs.length} provinces. For 200 prestige the bishops will anoint you Emperor — and the game is won.
+    if(isEmperor(G.player) && provs.length>=G.impThresh && !G.over){
+      h += `<div class="card" style="margin-top:9px"><b>⚜ The Empire Is Yours to Forge.</b> You wear the Imperial crown and hold ${provs.length} provinces. For 200 prestige the bishops will crown you in full — and the age is won.
       <div class="actBtns"><button class="primary" ${R_.prs<200?'disabled':''} onclick="Game.coronation()">Imperial Coronation (200 ☀)</button></div></div>`;
     } else if(!G.over){
-      h += `<div class="hint">Toward victory — empire: <b>${provs.length}/${G.impThresh}</b> provinces (and 200 ☀) · endure to <b>${G.endYear}</b> · renown: <b>${Math.floor(R_.prs)}/2500</b> ☀.</div>`;
+      const emp = isEmperor(G.player) ? `You are <b>Emperor</b> — grow to ${G.impThresh} provinces and 200 ☀ to be crowned.`
+        : empMember(G.player) ? `Win the <b>Imperial election</b> (Empire tab), then forge a true Empire.`
+        : PRL().rel==='catholic' ? `Reach ${G.impThresh} provinces and <b>press an Imperial claim</b> (Empire tab) to contend for the crown.`
+        : `The Imperial crown is closed to your faith.`;
+      h += `<div class="hint">Toward victory — <b>empire:</b> ${emp} · <b>endure</b> to ${G.endYear} · <b>renown</b> ${Math.floor(R_.prs)}/2500 ☀. <span style="cursor:pointer;text-decoration:underline" onclick="UI.tab('empire')">The Empire ⚜</span></div>`;
     }
     h += `<div class="hint">Your orders (⚡) are a shared pool — spend them on anything. You hold one for the crown and one for each seated councillor, so a full council lets you do more each season; an empty seat or a child's regency, less.</div>`;
     return h;
@@ -4728,9 +4869,77 @@ const Game = {
     UI.modal('Terms of Peace',
       `War score: <b class="${s>=0?'pos':'neg'}">${s>0?'+':''}${s}</b>. Demands need +55; white peace needs the upper hand or a long, tired war. Surrender is always on the menu — it is the prices that vary.`, ch_);
   },
+  courtElector(id){
+    if(this.busy()) return;
+    const R_ = PRL();
+    if(!empIsCandidatePlayer()){ toast('You are not in the running for the Imperial crown — join the Empire or press a claim first.'); return; }
+    const e = G.empire.electors.find(x=>x.id===id); if(!e) return;
+    if(R_.gold<12){ toast('Courting an elector costs 12 gold in gifts and promises.'); return; }
+    if(!this.order()) return;
+    R_.gold -= 12;
+    const seatBonus = e.seat==='spiritual' ? Math.round((R_.piety||0)/16) : Math.round(R_.prs/60);
+    const gain = 12 + Math.round(councilBonus(G.player,'chaplain')) + seatBonus + ri(0,5);
+    e.op = clamp(e.op + gain, -100, 100);
+    toast(`⚜ You court the <b>${esc(e.n)}</b> — ${e.op>=55?'<b class="pos">their vote is yours</b>':'warming ('+e.op+'/55)'}`);
+    logIt('court', `Gold and quiet promises flow to the ${e.n}.`);
+    UI.renderAll();
+  },
+  pressImperialClaim(){
+    if(this.busy()) return;
+    const R_ = PRL();
+    if(R_.rel!=='catholic'){ UI.modal('The Imperial Crown','The Imperial dignity is a Catholic crown, blessed at Rome. It is closed to you while your realm keeps another faith.',[{t:'So be it.',fx:()=>{}}]); return; }
+    if(empMember(G.player)){ toast('You are already of the Empire — you need no claim, only the electors’ votes.'); return; }
+    if(G.empire.pretender===G.player){ toast('You have already declared your candidacy.'); return; }
+    if(realmProvs(G.player).length < G.impThresh){ UI.modal('Not Yet','A pretender to the oldest crown in Christendom must command real might. Hold at least '+G.impThresh+' provinces before the princes will so much as hear your name.',[{t:'In time.',fx:()=>{}}]); return; }
+    if(R_.prs<80){ toast('Pressing an Imperial claim demands renown — 80 ☀ prestige at the least.'); return; }
+    if(!this.order()) return;
+    R_.prs -= 40; G.empire.pretender = G.player; G.empire._contested = true;
+    UI.modal('A Claim Upon the Empire', `You proclaim your candidacy for the Imperial throne — an outsider pressing in upon the oldest crown in Christendom. The prince-electors take note; some are affronted, some intrigued, all suddenly worth courting. Win them over, then contest the election — or wait for the old Emperor to die.`, [{t:'Let the princes weigh me.', fx:()=>{}}]);
+    logIt('court','⚜ You proclaim your candidacy for the Imperial throne.');
+    UI.renderAll();
+  },
+  contestElection(){
+    if(this.busy()) return;
+    const R_ = PRL();
+    if(!empIsCandidatePlayer()){ toast('You must be of the Empire or a declared pretender to force an election.'); return; }
+    if(isEmperor(G.player)){ toast('You already wear the Imperial crown.'); return; }
+    if(R_.prs<60){ toast('Forcing an election costs 60 ☀ prestige — a great feast of banners and bribes.'); return; }
+    const tally = electorTally(); const mine = tally[G.player]||0;
+    UI.modal('Contest the Imperial Election',
+      `Compel the electors to convene now, rather than wait for the Emperor's death. It costs <b>60 ☀ prestige</b>. As matters stand you would command about <b>${mine} of 7</b> electoral votes${mine>=4?' — <span class="pos">a majority</span>':', and <b>4</b> are needed'}.`,
+      [{t:'Convene the electors now (60 ☀)', fx:()=>{ if(R_.prs<60||!this.order()) return; R_.prs-=60; G.empire._contested=true; imperialElection('contest'); }},
+       {t:'— Wait, and court them further —', fx:()=>{}}]);
+  },
+  imperialDiet(){
+    if(this.busy()) return;
+    if(!isEmperor(G.player)){ toast('Only the Emperor may summon a Diet.'); return; }
+    if(G.flags['diet'+G.year]){ toast('The Imperial Diet has already met this year.'); return; }
+    if(!this.order()) return;
+    G.flags['diet'+G.year]=1; const R_=PRL();
+    R_.prs+=12; R_.leg=clamp(R_.leg+4,0,100);
+    toast('⚜ The Imperial Diet convenes — <b>+12 prestige, +4 legitimacy</b>');
+    logIt('court','The princes of the Empire assemble at the Diet; oaths are renewed, grievances aired, and the Emperor’s dignity affirmed.');
+    if(chance(.5)) grantOrders(1,4,'The Diet lends its hands');
+    UI.renderAll();
+  },
+  imperialBan(){
+    if(this.busy()) return;
+    if(!isEmperor(G.player)){ toast('Only the Emperor may pronounce the Imperial Ban.'); return; }
+    const targets = borderRealms(G.player).filter(r=>rl(r)&&!rl(r).dead&&r!==G.player).slice(0,10);
+    if(!targets.length){ toast('No realm stands within reach of your ban.'); return; }
+    UI.modal('Pronounce the Imperial Ban', `As Emperor you may place a neighbouring realm under the Imperial Ban — outlawing its prince and making war upon it a lawful act of the Empire. You gain a just cause against whomever you name.`,
+      targets.map(r=>({t:`${esc(rl(r).n)} <span class="hint" style="margin:0">(${fmtN(realmStrength(r))} str)</span>`, fx:()=>{ if(!this.order()) return;
+        G.flags['ban_'+r]=G.year;
+        const tp = realmProvs(r).find(p=>!PR().pclaims.includes(p));
+        if(tp) PR().pclaims.push(tp);
+        toast(`⚜ <b>${esc(rl(r).n)}</b> is placed under the Imperial Ban`);
+        logIt('court',`The Emperor pronounces the Imperial Ban upon ${rl(r).n}; a lawful war now lies open.`);
+        UI.renderAll(); }})).concat([{t:'— Withhold the ban —',fx:()=>{}}]));
+  },
   coronation(){
     if(this.busy()) return;
     const R_ = PRL();
+    if(!isEmperor(G.player)){ toast('The crown of Empire is not yours to wear — win the Imperial election first.'); return; }
     if(R_.prs<200 || realmProvs(G.player).length<G.impThresh) return;
     R_.prs -= 200;
     ach('emperor');
@@ -4828,6 +5037,7 @@ const Game = {
       if(R_.excomm) d -= 4;
       R_.leg = clamp(R_.leg + d, 0, 100);
       R_.piety = clamp((R_.piety!=null?R_.piety:30) + pietyChange(R_.id), 0, 100);
+      if(isEmperor(R_.id)) R_.prs += 3;   /* the Imperial dignity lends steady renown */
       /* Culture: land of a foreign people drags on the crown, and slowly takes up its ruler's ways */
       { const fc = realmForeignCult(R_.id);
         if(fc.length){ let drag = Math.min(2.2, fc.length*0.3); if(cultHardy(R_.id)) drag*=0.5;
@@ -4919,6 +5129,7 @@ const Game = {
     try{
       G = JSON.parse(s);
       G.eventQueue = []; G.sel=null; G.moveMode=null;
+      if(!G.empire) empInit();   /* migrate older saves to the Empire system */
       _cid = G._cid||900;
       srand((G.seed + G.year*4 + G.season)>>>0);
       document.getElementById('setup').style.display='none';
