@@ -749,6 +749,26 @@ religion touches the **economy**, culture touches **stability**.
 - **The province panel** now shows each province's faith and people, flags those
   that don't match their realm, and tracks conversion and assimilation progress.
 
+### v4.4 — a wider event library (SHIPPED)
+Fifteen new events, weighted toward making the new faith and culture systems
+*felt* through the narrative, plus historic and gameplay texture.
+- **Faith & piety:** a heretic preacher (burn / out-argue / tolerate); a holy
+  order's petition; a zealot demanding a holy war on an infidel neighbour (grants
+  a blessed banner); the tithe dispute (crown vs. Church, with an excommunication
+  risk); returning pilgrims.
+- **Culture & assimilation:** a conquered people petitioning to keep their
+  customs (settle them vs. assimilate faster); the crown decreeing its own tongue
+  across the realm; a wandering scholar seeking patronage.
+- **Historic:** the First Crusade (Deus Vult, 1095 in the 1066 game); the
+  Concordat of Worms (1122) ending the investiture quarrel; coastal sea-raids.
+- **Gameplay:** a free mercenary company for hire; a famous outlaw (hang him or
+  recruit him); an able seneschal (a temporary extra order); a steppe horse-fair.
+- **A varied opening.** The 1066 game no longer always opens on the same
+  comet-and-two-choices. The opening omen is now drawn at random from five —
+  the fiery star, a blood moon, a monstrous birth, a great storm, ravens over
+  the hall — each with its own three choices spanning prestige, legitimacy,
+  piety, gold, and court favour, so no two reigns begin quite alike.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

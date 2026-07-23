@@ -1423,6 +1423,10 @@ function cultureTax(rid){ return cultEthos(rid)==='mercantile' ? 1.15 : 1; }
 function cultHardy(rid){ return cultEthos(rid)==='hardy'; }
 function provForeignCult(p){ const pr=pv(p); return !!(pr.r && pr.cult && rl(pr.r) && pr.cult!==rl(pr.r).cult); }
 function realmForeignCult(rid){ return realmProvs(rid).filter(p=>provForeignCult(p)); }
+function borderRealms(rid){ const set=new Set();
+  for(const p of realmProvs(rid)) for(const q of (PROVDATA[p].adj||[])){ const o=pv(q).r; if(o&&o!==rid&&rl(o)&&!rl(o).dead) set.add(o); }
+  return [...set];
+}
 
 /* ---- flexible order pool: base ~3, plus council, high legitimacy, and temporary event boons ---- */
 function ordersMaxNow(){
@@ -2466,13 +2470,47 @@ function myCourt(){ return Object.values(G.chars).filter(c=>alive(c)&&c.realm===
 function myKids(){ return Object.values(G.chars).filter(c=>alive(c)&&(c.fa===PR().id||c.mo===PR().id)); }
 
 const EVENTS = [
-{id:'comet', w:99, once:1, cond:()=>G.year===1066&&G.season===0, run:()=>({
-  title:'The Long-Haired Star',
-  text:`<span class="dropcap">A star with hair of fire hangs over the sea for seven nights, and all Christendom argues what it means. Your chaplain says it portends the fall of a king. He declines to say which one.</span>`,
-  choices:[
-    {t:'"It shines for our house." Proclaim it a blessing. (+15 prestige)', fx:()=>{ PRL().prs+=15; chron('In this year a great star with a fiery tail was seen, which the king proclaimed a sign of God’s favor. Some believed him.'); }},
-    {t:'Order prayers and fasting. (+5 legitimacy)', fx:()=>{ PRL().leg=clamp(PRL().leg+5,0,100); chron('In this year the long-haired star appeared, and the king ordered fasting, which the poor were doing anyway.'); }},
-  ]})},
+{id:'comet', w:99, once:1, cond:()=>G.year===1066&&G.season===0, run:()=>{
+  /* a randomized opening omen — so no two reigns begin quite alike */
+  const omens = [
+    { title:'The Long-Haired Star',
+      text:`<span class="dropcap">A star with hair of fire hangs over the sea for seven nights, and all Christendom argues what it means. Your chaplain says it portends the fall of a king. He declines to say which one.</span>`,
+      choices:[
+        {t:'"It shines for our house." Proclaim it a blessing. (+15 prestige)', fx:()=>{ PRL().prs+=15; chron('In this year a great star with a fiery tail was seen, which the king proclaimed a sign of God’s favor. Some believed him.'); }},
+        {t:'Order prayers and fasting across the realm. (+5 legitimacy, +6 piety)', fx:()=>{ PRL().leg=clamp(PRL().leg+5,0,100); pietyGain(G.player,6); chron('In this year the long-haired star appeared, and the king ordered fasting, which the poor were doing anyway.'); }},
+        {t:'Read it as a war-star, and let the court see you unafraid. (court +5 opinion)', fx:()=>{ for(const c of myCourt()) addOp(c,PR().id,5); chron('In this year the fiery star was named an omen of war, and the king laughed at it, which the hard men admired.'); }},
+      ]},
+    { title:'The Bloody Moon',
+      text:`<span class="dropcap">The moon rises the colour of a wound and hangs so for a night, and the hall falls quiet. An old woman at the gate says a great house will fall within the year. She is not wrong often enough to ignore.</span>`,
+      choices:[
+        {t:'Endow a chapel against the omen. (−8 gold, +10 piety)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-8); pietyGain(G.player,10); chron('In this year the moon turned to blood, and the king raised a chapel, that God might turn the omen upon his enemies.'); }},
+        {t:'Feast the court to steady their nerves. (−6 gold, court +8 opinion)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-6); for(const c of myCourt()) addOp(c,PR().id,8); }},
+        {t:'"Let it fall on other houses." Show no fear. (+10 prestige)', fx:()=>{ PRL().prs+=10; }},
+      ]},
+    { title:'A Monstrous Birth',
+      text:`<span class="dropcap">A calf is born in the home fields with two heads, and word of it runs faster than any courier. Half the realm calls it a portent of division; the other half wants to know what it will fetch at market.</span>`,
+      choices:[
+        {t:'Have the clergy declare it a sign of your unity of purpose. (+6 legitimacy, +4 piety)', fx:()=>{ PRL().leg=clamp(PRL().leg+6,0,100); pietyGain(G.player,4); }},
+        {t:'Put it on show and charge admission. (+8 gold, the pious frown — −3 piety)', fx:()=>{ PRL().gold+=8; PRL().piety=clamp((PRL().piety||0)-3,0,100); }},
+        {t:'Ignore peasant superstition entirely. (+8 prestige among the worldly)', fx:()=>{ PRL().prs+=8; }},
+      ]},
+    { title:'The Great Storm',
+      text:`<span class="dropcap">A storm out of the west tears the roofs from barns and drowns the low fields, and drives ships onto the rocks. The realm looks to its lord: is this God’s wrath, or merely weather?</span>`,
+      choices:[
+        {t:'Open the granaries to the flooded villages. (−8 gold, +8 legitimacy)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-8); PRL().leg=clamp(PRL().leg+8,0,100); chron('In this year a great storm drowned the fields, and the king fed the people from his own stores, and was remembered for it.'); }},
+        {t:'Lead prayers on the ruined strand yourself. (+6 legitimacy, +6 piety)', fx:()=>{ PRL().leg=clamp(PRL().leg+6,0,100); pietyGain(G.player,6); }},
+        {t:'Salvage the wrecks for the crown. (+10 gold, the drowned are unmourned — court −3)', fx:()=>{ PRL().gold+=10; for(const c of myCourt()) addOp(c,PR().id,-3); }},
+      ]},
+    { title:'Ravens Over the Hall',
+      text:`<span class="dropcap">For three mornings a great unkindness of ravens settles on the roof of your hall and will not be driven off. The Norsemen among your people call it the god of battle marking a favourite. Your priests call it something worse.</span>`,
+      choices:[
+        {t:'Adopt the raven as your banner-beast. (+12 prestige, the warriors love it)', fx:()=>{ PRL().prs+=12; for(const c of myCourt()) if(c.tr.includes('brave')) addOp(c,PR().id,6); }},
+        {t:'Have the priests cleanse the hall with bell and candle. (+6 legitimacy, +5 piety)', fx:()=>{ PRL().leg=clamp(PRL().leg+6,0,100); pietyGain(G.player,5); }},
+        {t:'Say nothing and let each man read it as he will. (court +4 opinion)', fx:()=>{ for(const c of myCourt()) addOp(c,PR().id,4); }},
+      ]},
+  ];
+  return pick(omens);
+}},
 {id:'tostigraid', w:99, once:1, cond:()=>G.year===1066&&G.season===1&&alive(ch('tostig'))&&!rl('england').dead, run:()=>({
   title:'Tostig Burns the Coast',
   text:`Tostig Godwinson — exile, oath-breaker, and the King of England's own brother — falls on the English coast with hired ships, burning as he goes. ${isPlayer('england')?'Your brother sends a message with the smoke: <em>what was taken from me, I will take back tenfold.</em>':'England bleeds from its own family. All Europe takes note of the omen.'}`,
@@ -2900,6 +2938,135 @@ const EVENTS = [
   choices:[
     {t:'Take the best of them. (+150 retinue)', fx:()=>{ PRL().retinue=Math.min(900,PRL().retinue+150); }},
     {t:'Feast them and send the rabble home. (-4 gold, court +4 opinion)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-4); for(const c of myCourt()) addOp(c,PR().id,4); }},
+  ]})},
+
+/* ===== Faith & piety ===== */
+{id:'heresy', w:5, cond:()=>realmProvs(G.player).length>=2&&PRL().rel!=='pagan', run:()=>{
+  const p=pick(realmProvs(G.player));
+  return { title:'A Preacher of Error',
+  text:`In ${PROVDATA[p].n} a barefoot preacher draws crowds, denouncing your bishops as fat and your taxes as sin. The doctrine is muddled; the anger is not. Your chaplain wants him burned; your steward notes that the crowd around him pays no tithes.`,
+  choices:[
+    {t:'Burn him. Let the ashes preach obedience. (+6 legitimacy, −8 piety, the commons fear you)', fx:()=>{ PRL().leg=clamp(PRL().leg+6,0,100); PRL().piety=clamp((PRL().piety||0)-8,0,100); chron(`In this year a heresiarch was burned at ${PROVDATA[p].n}, and the smoke was accounted a sermon.`); }},
+    {t:'Let your chaplain out-argue him. (his skill decides: a triumph of doctrine, or a public embarrassment)', fx:()=>{ const s=councilBonus(G.player,'chaplain'); if(ri(0,10)<3+s){ pietyGain(G.player,10); toast('✝ Your chaplain wins the disputation — <b>+10 piety</b>'); } else { PRL().leg=clamp(PRL().leg-5,0,100); toast('The preacher makes a fool of your chaplain — −5 legitimacy'); } }},
+    {t:'Tolerate him; the poor need someone to shout for. (−6 piety, +4 gold, the crowd loves you)', fx:()=>{ PRL().piety=clamp((PRL().piety||0)-6,0,100); PRL().gold+=4; }},
+  ]};}},
+{id:'holyorder', w:4, cond:()=>(PRL().piety||0)>=25&&PRL().rel!=='pagan', run:()=>({
+  title:'A Holy Order Petitions',
+  text:`Brothers of a rising order — plain habits, hard eyes, a rule of poverty they intend chiefly for others — ask leave to found a house in your realm. They bring prayers, hospitals for the poor, and, quietly, disciplined knights.`,
+  choices:[
+    {t:'Endow them richly. (−12 gold, +12 piety, +4 legitimacy)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-12); pietyGain(G.player,12); PRL().leg=clamp(PRL().leg+4,0,100); }},
+    {t:'Grant land, but no gold. (+6 piety)', fx:()=>{ pietyGain(G.player,6); }},
+    {t:'Refuse; you have monks enough eating your bread. (−4 piety)', fx:()=>{ PRL().piety=clamp((PRL().piety||0)-4,0,100); }},
+  ]})},
+{id:'zealotwar', w:4, cond:()=>{ if((PRL().piety||0)<30||PRL().rel==='pagan'||G.flags.holyBanner) return false; return borderRealms(G.player).some(r=>rl(r).rel!==PRL().rel); }, run:()=>{
+  const foes=borderRealms(G.player).filter(r=>rl(r).rel!==PRL().rel);
+  const foe=foes.length?pick(foes):null;
+  if(!foe) return null;
+  return { title:'The Preacher’s Demand',
+  text:`A firebrand preaches in your own hall: God’s enemies sit across your border in ${rl(foe).n}, and a prince who will not draw the sword for the faith is no prince at all. The court is stirred; some eyes turn to you, measuring.`,
+  choices:[
+    {t:`Bless a banner against ${esc(rl(foe).n)}. (−25 piety; your next war on the faithless is a holy one)`, fx:()=>{ PRL().piety=clamp((PRL().piety||0)-25,0,100); G.flags.holyBanner=1; toast('⚔ A holy banner waits to be raised'); }},
+    {t:'Counsel patience. War is not prayer. (−6 piety, the zealots grumble)', fx:()=>{ PRL().piety=clamp((PRL().piety||0)-6,0,100); }},
+    {t:'Silence him from the pulpit. (+4 legitimacy, −10 piety)', fx:()=>{ PRL().leg=clamp(PRL().leg+4,0,100); PRL().piety=clamp((PRL().piety||0)-10,0,100); }},
+  ]};}},
+{id:'tithewar', w:4, cond:()=>PRL().rel==='catholic'&&!PRL().excomm, run:()=>({
+  title:'The Tithe Dispute',
+  text:`Your bishops want the tithes of three rich manors restored to the Church; your treasury wants them kept. Both cite God; only one cites the account-books. The legate waits, mild-eyed, on your answer.`,
+  choices:[
+    {t:'Restore the tithes to the Church. (−8 gold, +12 piety)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-8); pietyGain(G.player,12); }},
+    {t:'Keep them for the crown. (+8 gold, −12 piety, and Rome remembers)', fx:()=>{ PRL().gold+=8; PRL().piety=clamp((PRL().piety||0)-12,0,100); if(chance(.12)){ PRL().excomm=true; logIt('court','☩ Rome pronounces anathema over the seized tithes.'); toast('☩ <b class="neg">Rome excommunicates you over the tithes!</b>'); } }},
+    {t:'Split the difference and satisfy no one. (−3 gold, −3 piety)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-3); PRL().piety=clamp((PRL().piety||0)-3,0,100); }},
+  ]})},
+{id:'pilgrimreturn', w:4, cond:()=>(PRL().piety||0)>=20&&PRL().rel!=='pagan', run:()=>({
+  title:'The Pilgrims Return',
+  text:`A ragged column of your subjects returns from a far shrine — Compostela, or Rome, or further still — footsore and shining-eyed, bearing palm-fronds and impossible tales. They say they prayed for your house at the holy places.`,
+  choices:[
+    {t:'Receive them at court with honour. (+6 piety, +6 prestige)', fx:()=>{ pietyGain(G.player,6); PRL().prs+=6; }},
+    {t:'Found a hospice for the next who go. (−6 gold, +10 piety)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-6); pietyGain(G.player,10); }},
+  ]})},
+
+/* ===== Culture & assimilation ===== */
+{id:'foreigncustoms', w:6, cond:()=>realmForeignCult(G.player).length>0, run:()=>{
+  const p=pick(realmForeignCult(G.player));
+  return { title:'A Conquered People Petition',
+  text:`The elders of ${PROVDATA[p].n} — ${cap(pv(p).cult)} in tongue and temper, and lately yours by the sword — ask to keep their own law, their own courts, their own market-days. Grant it, and they settle; refuse, and they submit, sullenly, and keep their grudge warm.`,
+  choices:[
+    {t:'Grant their customs. (+4 legitimacy now — but they cling to their ways: slower to assimilate)', fx:()=>{ PRL().leg=clamp(PRL().leg+4,0,100); pv(p).asm=Math.max(0,(pv(p).asm||0)-25); }},
+    {t:'Impose your law and tongue. (assimilation leaps ahead, but they seethe — −5 legitimacy)', fx:()=>{ pv(p).asm=Math.min(99,(pv(p).asm||0)+30); PRL().leg=clamp(PRL().leg-5,0,100); }},
+  ]};}},
+{id:'mothertongue', w:5, cond:()=>realmForeignCult(G.player).length>0&&PRL().prs>=10, run:()=>({
+  title:'The Crown’s Own Tongue',
+  text:`Your chancellor proposes that all charters, courts, and high offices use the ${cap(PRL().cult)} tongue alone — the language of the crown, imposed from the top. It would knit the realm together. It would also tell every other people in it exactly where they stand.`,
+  choices:[
+    {t:'Decree it. (−10 prestige on the effort; every foreign province assimilates faster this year)', fx:()=>{ PRL().prs=Math.max(0,PRL().prs-10); for(const p of realmForeignCult(G.player)) pv(p).asm=Math.min(99,(pv(p).asm||0)+20); toast('🏰 The crown’s tongue advances across the realm'); }},
+    {t:'Leave each people its own. (a realm of many tongues, at peace with itself)', fx:()=>{ for(const c of myCourt()) addOp(c,PR().id,2); }},
+  ]})},
+{id:'scholarcourt', w:4, cond:()=>PRL().gold>=10, run:()=>{
+  const p=realmProvs(G.player).filter(x=>pv(x).dev<5).sort((a,b)=>pv(b).dev-pv(a).dev)[0];
+  return { title:'A Scholar Seeks a Patron',
+  text:`A scholar of some renown — astronomer, jurist, translator of the Greeks and the Arabs both — seeks a patron. Genius is portable; it goes where the purse opens.`,
+  choices:[
+    p?{t:`Set him to improving ${PROVDATA[p].n}. (−10 gold, that province develops)`, fx:()=>{ PRL().gold=Math.max(0,PRL().gold-10); pv(p).dev=Math.min(5,pv(p).dev+1); toast(`🌾 ${esc(PROVDATA[p].n)} develops under the scholar’s hand`); }}:null,
+    {t:'Keep him at court for his brilliance alone. (−8 gold, +10 prestige)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-8); PRL().prs+=10; }},
+    {t:'Send him on his way. Learning is a luxury of peace.', fx:()=>{}},
+  ].filter(Boolean)};}},
+
+/* ===== Region & historic ===== */
+{id:'firstcrusade', w:99, once:1, cond:()=>G.scen==='y1066'&&G.year>=1095&&PRL().rel==='catholic'&&!PRL().excomm&&!G.flags.crusadeReturn, run:()=>({
+  title:'Deus Vult',
+  text:`<span class="dropcap">Word comes from Clermont: the Holy Father has called all Christendom to march east and free Jerusalem from the infidel. Kings and beggars alike are sewing crosses to their cloaks. The greatest venture of the age is leaving — with you, or without you.</span>`,
+  choices:[
+    {t:'Take the cross. (−30 gold; return in two years with glory — or not at all)', fx:()=>{ if(PRL().gold>=30){ PRL().gold-=30; PRL().prs+=25; pietyGain(G.player,30); PRL().leg=clamp(PRL().leg+8,0,100); G.flags.crusadeReturn=G.year+2; chron('In this year the king took the cross and rode east toward Jerusalem, and the realm held its breath.'); } else { toast('You cannot afford to march east — the treasury is too thin.'); } }},
+    {t:'Send gold and prayers; keep your throne warm. (−10 gold, +10 piety)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-10); pietyGain(G.player,10); }},
+    {t:'Let the zealots go. Someone must mind the realm. (−6 piety)', fx:()=>{ PRL().piety=clamp((PRL().piety||0)-6,0,100); }},
+  ]})},
+{id:'worms', w:99, once:1, cond:()=>G.year>=1122&&G.year<=1140&&PRL().rel==='catholic', run:()=>({
+  title:'The Concordat',
+  text:`After two generations of quarrel between crown and mitre over who invests bishops with ring and staff, a settlement is reached: the Church shall name them, the crown shall grant their lands. Everyone claims victory; the parchment is ambiguous enough to allow it.`,
+  choices:[
+    {t:'Accept the settlement; let the long quarrel end. (+10 legitimacy, +6 piety)', fx:()=>{ PRL().leg=clamp(PRL().leg+10,0,100); pietyGain(G.player,6); chron('In this year the strife of crown and Church over the bishops’ rings was composed, to the relief of all but the lawyers.'); }},
+  ]})},
+{id:'searaid', w:5, cond:()=>G.year<1120&&realmProvs(G.player).some(p=>PROVDATA[p].coast), run:()=>{
+  const p=pick(realmProvs(G.player).filter(x=>PROVDATA[x].coast));
+  return { title:'Dragons on the Tide',
+  text:`Longships beach at ${PROVDATA[p].n} in the grey dawn — northern raiders, or men who learned the trade from them, come for silver, slaves, and the pleasure of it. The tide that brought them will take them by dusk, laden or not.`,
+  choices:[
+    {t:'Pay the danegeld and be rid of them. (−10 gold, the province is spared)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-10); }},
+    {t:'Ride them down on the strand. (+10 prestige, but the harrying does damage)', fx:()=>{ PRL().prs+=10; if(chance(.5)){ pv(p).dev=Math.max(1,pv(p).dev-1); } }},
+    {t:'Let the coast fend for itself. (−5 legitimacy, −1 development)', fx:()=>{ PRL().leg=clamp(PRL().leg-5,0,100); pv(p).dev=Math.max(1,pv(p).dev-1); }},
+  ]};}},
+{id:'horsefair', w:4, cond:()=>PRL().gold>=15, run:()=>({
+  title:'The Horse Fair',
+  text:`Traders from the eastern grasslands drive a herd of steppe horses to your gates — small, ugly, tireless, and worth three of your knights’ chargers on a long march. They deal only in silver, and only today.`,
+  choices:[
+    {t:'Buy the herd for your household. (−14 gold, +120 retinue)', fx:()=>{ if(PRL().gold>=14){ PRL().gold-=14; PRL().retinue=Math.min(900,PRL().retinue+120); toast('🐎 Swift horsemen join your retinue'); } else toast('Not enough silver.'); }},
+    {t:'Buy a few as gifts for your vassals. (−6 gold, court +5 opinion)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-6); for(const c of myCourt()) addOp(c,PR().id,5); }},
+    {t:'Wave them on toward the next gate.', fx:()=>{}},
+  ]})},
+
+/* ===== Gameplay ===== */
+{id:'freecompany', w:5, cond:()=>PRL().gold>=20, run:()=>({
+  title:'A Free Company',
+  text:`A captain of mercenaries — scarred, courteous, and without loyalty save to coin — offers his company: five hundred hard men who will fight for anyone and flee for no one, so long as the pay is prompt.`,
+  choices:[
+    {t:'Hire them. (−18 gold, a mercenary host musters at your capital)', fx:()=>{ if(PRL().gold>=18){ PRL().gold-=18; const cp=PRL().cap; const ex=G.armies.find(a=>a.realm===G.player&&a.prov===cp); if(ex) ex.mercs+=500; else G.armies.push({id:'a'+(++G.aid),realm:G.player,prov:cp,levies:0,retinue:0,mercs:500,cmdr:bestCommander(G.player),siege:0,moved:false}); toast('⚔ 500 mercenaries muster at your capital'); UI.renderAll(); } else toast('Not enough gold.'); }},
+    {t:'Decline. Hired swords cut both ways. (+2 legitimacy)', fx:()=>{ PRL().leg=clamp(PRL().leg+2,0,100); }},
+  ]})},
+{id:'banditlord', w:5, cond:()=>realmProvs(G.player).length>=2, run:()=>{
+  const p=pick(realmProvs(G.player));
+  return { title:'The Outlaw of '+PROVDATA[p].n,
+  text:`A broken knight turned outlaw holds the greenwood above ${PROVDATA[p].n}, robbing merchants and mocking your sheriff in ballads that are, annoyingly, quite good. The roads grow unsafe; the tolls grow thin.`,
+  choices:[
+    {t:'Hunt him down with your household. (+8 legitimacy)', fx:()=>{ PRL().leg=clamp(PRL().leg+8,0,100); logIt('court',`The outlaw of ${PROVDATA[p].n} is taken and hanged, and the roads fall quiet.`); }},
+    {t:'Offer him a pardon and a place. (a famous rogue joins your court — able, unreliable)', fx:()=>{ const c=mkCourtier(G.player); if(c){ c.sk.mar=Math.min(9,c.sk.mar+2); if(!c.tr.includes('deceitful')) c.tr=[c.tr[0]||'brave','deceitful']; toast(`A famous outlaw kneels — and joins your court`); } }},
+    {t:'Ignore him; every reign has its ballads. (−4 gold)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-4); }},
+  ]};}},
+{id:'seneschal', w:4, cond:()=>!G.regency, run:()=>({
+  title:'An Able Seneschal',
+  text:`A grey, tireless administrator offers to set your household in order — the couriers, the clerks, the endless small business of rule. For a year, your court would half-run itself, freeing your hand for greater things.`,
+  choices:[
+    {t:'Appoint him. (+1 order for the coming year)', fx:()=>{ grantOrders(1,4,'An able seneschal'); }},
+    {t:'You prefer to hold every rein yourself. (+4 prestige)', fx:()=>{ PRL().prs+=4; }},
   ]})},
 ];
 function fireEvents(scriptedOnly){
