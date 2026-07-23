@@ -830,6 +830,23 @@ pop-up menu.
   conversion bars. Excommunicates see the reconcile path instead.
 - The old modal is retired; the overview's Faith button now opens the tab.
 
+### v4.8 — a legible map in tight quarters (SHIPPED)
+Fixing the crush of dense war zones, where provinces vanished under army banners
+and there was no way to zoom in far enough to interact.
+- **Deeper zoom.** The zoom floor is roughly halved (a 95-unit window vs. 190),
+  so cramped clusters — the Low Countries, northern Italy, the Levant — spread
+  out far enough to click a province or order an army.
+- **Tokens that don't balloon.** Army banners are drawn in map units, so zooming
+  in used to blow them up until they swallowed the map. They now **counter-scale
+  with the zoom**, holding a steady on-screen size and re-rendering as you zoom.
+- **Compact, translucent banners.** Multiple hosts in one province are packed
+  into a tight grid over the province instead of a long horizontal line that
+  spilled across borders, and every banner is now slightly **translucent** (fully
+  opaque on hover or when selected), so the province colour and its neighbours
+  read through.
+- **Crisper borders.** Province outlines are a touch darker and heavier, so
+  same-coloured neighbours are easier to tell apart.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

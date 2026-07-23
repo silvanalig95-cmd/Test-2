@@ -213,7 +213,7 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
 .sklFill{height:100%; background:linear-gradient(90deg,#a8842c,#d9b95c); box-shadow:inset 0 1px 0 rgba(255,240,200,.5)}
 
 /* ---------- map ---------- */
-.provPath{stroke:rgba(48,36,16,.42); stroke-width:.7; cursor:pointer; transition:filter .12s}
+.provPath{stroke:rgba(44,32,14,.58); stroke-width:.85; cursor:pointer; transition:filter .12s}
 .provPath:hover{filter:brightness(1.13) saturate(1.08)}
 .coastUnder path{fill:none; stroke:#2a2011; stroke-width:2.7; stroke-linejoin:round}
 .rivers .river{fill:none; stroke:#5f8496; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; opacity:.72; pointer-events:none}
@@ -240,7 +240,8 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
 .bigIco{font-size:15px; width:22px; display:inline-block; text-align:center}
 .provName{font-size:var(--pnfs, 9.5px); fill:#f6eed6; text-anchor:middle; pointer-events:none;
   font-family:var(--body); paint-order:stroke; stroke:rgba(30,20,8,.8); stroke-width:2.8px; letter-spacing:.4px}
-.armyTok{cursor:pointer}
+.armyTok{cursor:pointer; opacity:.84; transition:opacity .12s}
+.armyTok:hover, .armyTok.seldTok{opacity:1}
 .armyTok text{font-size:10px; fill:#fff; text-anchor:middle; font-weight:bold; pointer-events:none; font-family:Georgia,serif}
 .moveTarget{stroke:#ffe98a; stroke-width:3; stroke-dasharray:6 4; animation:dash 1s linear infinite}
 @keyframes dash{to{stroke-dashoffset:-20}}
@@ -3670,6 +3671,7 @@ const UI = {
     h += `</g><g id="markLayer"></g><g id="armyLayer"></g>`;
     svg.innerHTML = h;
   },
+  tokScale(){ const w = (this.view&&this.view.w)||1000; return clamp(Math.sqrt(w/620), .5, 1.15); },
   renderMapDynamic(){
     const svg = document.getElementById('mapSvg'); if(!svg) return;
     /* occupation stripe patterns for whoever currently holds foreign ground */
@@ -3715,20 +3717,25 @@ const UI = {
         m += `<text class="siegeIco" x="${cx+22}" y="${cy-8}" font-size="13">🔥</text>`;
     }
     const markEl = document.getElementById('markLayer'); if(markEl) markEl.innerHTML = m;
-    /* army tokens */
+    /* army tokens — packed into a compact grid over the province, and scaled to a steady screen size at any zoom */
     const byProv = {};
     for(const a of G.armies){ (byProv[a.prov]=byProv[a.prov]||[]).push(a); }
+    const k = this.tokScale();
     let am = '';
     for(const [pid, list] of Object.entries(byProv)){
       const [cx, cy] = PROVDATA[pid].lbl;
+      const span = 14;
       list.forEach((a,i)=>{
-        const x = cx - 8 + i*17, y = cy + 14;
+        const gcol = i % 3, grow = Math.floor(i/3);
+        const rowN = Math.min(list.length - grow*3, 3);
+        const x = cx + (gcol - (rowN-1)/2)*span, y = cy + 14 + grow*13;
         const seld = G.sel && G.sel.t==='army' && G.sel.id===a.id;
         const cm = ch(a.cmdr);
         const col = rl(a.realm).col;
         const dk = UI.shade(col, .6);
         const tipTxt = `<b>${esc(rl(a.realm).n)} host</b><br>${fmtN(a.levies)} levies · ${fmtN(a.retinue)} retinue · ${fmtN(a.mercs)} mercs<br>Commander: ${cm?esc(fullName(cm))+' ('+SKILLICO.mar+skill(cm,'mar')+')':'—'}${a.siege?`<br>Siege ${Math.min(99,Math.round(a.siege))}%`:''}`.replace(/"/g,'&quot;');
-        am += `<g class="armyTok" onclick="UI.selArmy('${a.id}')" data-tip="${tipTxt}"${seld?' style="filter:drop-shadow(0 0 5px rgba(255,233,138,.85))"':''}>
+        const tf = k!==1 ? ` transform="translate(${(x*(1-k)).toFixed(2)} ${(y*(1-k)).toFixed(2)}) scale(${k.toFixed(3)})"` : '';
+        am += `<g class="armyTok${seld?' seldTok':''}" onclick="UI.selArmy('${a.id}')" data-tip="${tipTxt}"${tf}${seld?' style="filter:drop-shadow(0 0 5px rgba(255,233,138,.85))"':''}>
           <line x1="${x}" y1="${y+7}" x2="${x}" y2="${y-17}" stroke="${seld?'#ffe98a':'#241a0c'}" stroke-width="1.6"/>
           <path d="M${x+.8} ${y-16.5} h11.5 q4 2.2 0 4.4 q-4 2.2 0 4.4 h-11.5 z" fill="${col}" stroke="${dk}" stroke-width=".9"/>
           <rect x="${x-8.5}" y="${y+1}" width="17" height="9.5" rx="2.5" fill="#241a0c" stroke="${seld?'#ffe98a':dk}" stroke-width="1"/>
@@ -5237,14 +5244,17 @@ UI.applyView = function(){
 };
 UI.zoom = function(f, cx, cy){
   const v = this.view;
-  const nw = clamp(v.w*f, 190, 1000), nh = nw*0.747;
+  const nw = clamp(v.w*f, 95, 1000), nh = nw*0.747;   /* a deeper floor so tight province clusters spread enough to click */
   if(cx===undefined){ cx = v.x+v.w/2; cy = v.y+v.h/2; }
   v.x = clamp(cx - (cx-v.x)*(nw/v.w), 0, 1000-nw);
   v.y = clamp(cy - (cy-v.y)*(nh/v.h), 0, 747-nh);
   v.w = nw; v.h = nh;
   this.applyView();
+  this.rescaleTokens();
 };
-UI.resetView = function(){ this.view = {x:0, y:0, w:1000, h:747}; this.applyView(); };
+UI.rescaleTokens = function(){ if(this._tokRAF) cancelAnimationFrame(this._tokRAF);
+  this._tokRAF = requestAnimationFrame(()=>{ if(G && !G.over && document.getElementById('armyLayer')) UI.renderMapDynamic(); }); };
+UI.resetView = function(){ this.view = {x:0, y:0, w:1000, h:747}; this.applyView(); this.rescaleTokens(); };
 (function(){
   const wrap = document.getElementById('mapWrap'), svgEl = document.getElementById('mapSvg');
   const toSvg = e => {
