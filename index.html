@@ -183,6 +183,12 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 .seatTop{display:flex; justify-content:space-between; align-items:center; gap:8px}
 .seatWho{font-size:12.5px; margin-top:2px}
 .card.seatFocus{border-color:var(--gold2); box-shadow:inset 0 0 0 1px rgba(217,185,92,.25)}
+.mandateRow{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px;
+  padding-top:6px; border-top:1px dashed rgba(217,185,92,.28); font-size:12px}
+.mandateRow>div{flex:1 1 auto; line-height:1.35}
+.mandateRow>button{flex:0 0 auto}
+.mandateRow.on{color:var(--gold)}
+.mandateRow.on b{color:var(--gold)}
 .advRow:first-of-type{border-top:none}
 .advRow .txt{flex:1; font-size:12.5px; line-height:1.4}
 button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0); font-weight:bold}
@@ -1382,6 +1388,50 @@ function grantOrders(n, seasons, why){
   if(why && !G._ff) toast(`⚡ ${why} — <b>+${n} order${n>1?'s':''}</b>`);
 }
 
+/* ---- councillor mandates: set a seated advisor to a sustained task (the "position your pieces" layer) ---- */
+const MANDATES = {
+  marshal:{ n:'Drill the Host', ico:'⚔', seat:'marshal', target:null,
+    d:'Your marshal drills the levies into hardened retinue — banking trained men each season that reinforce your strongest army, or wait in reserve for the next you raise.',
+    on:(c)=>`Drilling the host — <b>+${20+skill(c,'mar')*4}</b> trained men each season.` },
+  steward:{ n:'Develop a Province', ico:'🌾', seat:'steward', target:'province',
+    d:'Your steward pours works into one province — roads, mills, drainage — raising its development over the years at no cost in gold.',
+    on:(c,p)=>`Improving <b>${PROVDATA[p]?esc(PROVDATA[p].n):'—'}</b> — its fields deepen a little each season.` },
+  spymaster:{ n:'Watch a Court', ico:'🕯', seat:'spymaster', target:'realm',
+    d:'Your spymaster plants eyes in a rival court — laying bare the plots it sets against you, and sharpening your own daggers there.',
+    on:(c,r)=>`Watching <b>${rl(r)?esc(rl(r).n):'—'}</b> — their schemes against you come to light; yours against them strike surer.` },
+  chaplain:{ n:'Minister to a Court', ico:'✝', seat:'chaplain', target:'realm',
+    d:'Your chaplain keeps company with a foreign court — warming its ruler toward you, season by season.',
+    on:(c,r)=>`Ministering to <b>${rl(r)?esc(rl(r).n):'—'}</b> — its ruler warms to you each season.` },
+};
+function mandateHolder(seat){ const R_=PRL(); if(!R_) return null; const cid=R_.council[seat]; const c=cid?ch(cid):null; return (c&&alive(c))?c:null; }
+function mandateOf(seat){ const c=mandateHolder(seat); if(c&&c.mandate) return {c, m:MANDATES[seat], target:c.mandate.target}; return null; }
+function watchedRealm(){ const w=mandateOf('spymaster'); return (w&&w.target)||null; }
+function tickMandates(){
+  const R_ = PRL(); if(!R_) return;
+  /* marshal — bank trained retinue */
+  const mar = mandateOf('marshal');
+  if(mar){ const men = 20 + skill(mar.c,'mar')*4;
+    const mine = G.armies.filter(a=>a.realm===G.player);
+    if(mine.length){ mine.sort((a,b)=>armySize(b)-armySize(a)); mine[0].retinue += men; }
+    else { R_.retinue = Math.min(600, (R_.retinue||0) + men); }   /* waits in the standing retinue, applied when you next raise */
+  }
+  /* steward — gradual, free development of one owned province */
+  const ste = mandateOf('steward');
+  if(ste){ const t=ste.target, p=t?pv(t):null;
+    if(p && p.r===G.player && p.dev<5){ p._dev=(p._dev||0)+1;
+      if(p._dev>=4){ p._dev=0; p.dev++; logIt('court',`Steady works raise ${PROVDATA[t].n}: roads, mills, and fuller granaries.`);
+        if(!G._ff) toast(`🌾 <b>${esc(PROVDATA[t].n)}</b> prospers under your steward’s works`); }
+    } else { ste.c.mandate=null; if(!G._ff&&t) toast(`🌾 Your steward’s works at <b>${esc(PROVDATA[t]?PROVDATA[t].n:'—')}</b> are complete`); }
+  }
+  /* chaplain — warm a foreign ruler toward you */
+  const chp = mandateOf('chaplain');
+  if(chp){ const fr=chp.target?rl(chp.target):null; const fru=fr&&!fr.dead?ruler(fr.id):null;
+    if(fru&&alive(fru)) addOp(fru, PR().id, 2 + Math.round(skill(chp.c,'dip')/4));
+    else chp.c.mandate=null;
+  }
+  /* spymaster — effects read in plotPower() and plot discovery */
+}
+
 function logIt(cls, txt){
   G.log.push({y:G.year, s:G.season, cls, txt});
   if(G.log.length>400) G.log.shift();
@@ -1654,7 +1704,7 @@ function killChar(c, causeTxt){
   if(c.seat){
     const R_ = rl(c.realm);
     if(R_ && R_.council[c.seat]===c.id) R_.council[c.seat]=null;
-    c.seat = null;
+    c.seat = null; c.mandate = null;
   }
   const R_ = Object.values(G.realms).find(r=>!r.dead && r.ruler===c.id);
   const important = R_ || isPlayer(c.realm) || c.claims.length;
@@ -1812,6 +1862,14 @@ function declareWar(att, def, cb, claimantId){
     cb.type==='province' ? `claiming the province of ${PROVDATA[cb.target].n}` : 'without just cause, God forgive them';
   logIt('war', `⚔ ${rl(att).n} declares war on ${rl(def).n}, ${cbTxt}.`);
   chron(`In this year ${title(ruler(att))} ${fullName(ruler(att))} raised his banners against ${rl(def).n}, ${cbTxt}.`);
+  /* the defender must be told, plainly and at once, when the war is against them */
+  if(def===G.player && att!==G.player){
+    const holy = cb.holy ? ' It is proclaimed a <b>holy war</b>.' : '';
+    queueEvent({ who: ruler(att) ? ruler(att).id : null, title:'⚔ War Is Declared Upon You',
+      text:`<span class="dropcap">${fullName(ruler(att))} of ${rl(att).n} has declared war upon you, ${cbTxt}.${holy}</span><br><br>Their strength: about <b>${fmtN(realmStrength(att))}</b> against your <b>${fmtN(realmStrength(G.player))}</b>. Muster in spring, strike in summer — autumn and winter maul armies left in the field.`,
+      choices:[{t:'To arms!', fx:()=>{}}, {t:'Open the war council.', fx:()=>{ UI.tab('wars'); }}] });
+    toast(`⚔ <b class="neg">${esc(rl(att).n)} declares war on you!</b>`);
+  }
   /* call allies */
   for(const [rid, side] of [[att,'a'],[def,'b']]){
     for(const al of G.alliances){
@@ -2146,7 +2204,10 @@ function plotPower(p){
   if(!alive(pl)) return 0;
   let pow = 10 + skill(pl,'int')*8;
   for(const b of p.backers){ const c=ch(b); if(alive(c)) pow += skill(c,'int')*4; }
-  return pow * focusPlot(pl.realm);
+  pow *= focusPlot(pl.realm);
+  if(p.mine){ const vr=(p.type==='defection'||p.type==='fabricate')?(pv(p.target)?pv(p.target).r:null):(ch(p.target)?ch(p.target).realm:null);
+    if(vr && vr===watchedRealm()) pow *= 1.3; }   /* your spymaster's eyes speed your own schemes there */
+  return pow;
 }
 function plotTargetName(p){
   return (p.type==='defection'||p.type==='fabricate') ? PROVDATA[p.target].n : (ch(p.target)?fullName(ch(p.target)):'?');
@@ -2167,7 +2228,8 @@ function plotTick(){
     /* discovery */
     const victimRealm = (p.type==='defection'||p.type==='fabricate') ? pv(p.target).r : ch(p.target).realm;
     if(victimRealm && rl(victimRealm) && !rl(victimRealm).dead){
-      const spy = councilBonus(victimRealm,'spymaster') + focusGuard(victimRealm);
+      let spy = councilBonus(victimRealm,'spymaster') + focusGuard(victimRealm);
+      if(victimRealm===G.player && pl.realm===watchedRealm()) spy += 10;   /* your planted eyes lay their schemes bare */
       const discP = .04 + spy*.022 - skill(pl,'int')*.012 + p.backers.length*.02;
       if(chance(Math.max(.02, discP))){
         plotDiscovered(p, victimRealm);
@@ -2211,7 +2273,7 @@ function plotDiscovered(p, victimRealm){
   else { addOp(ruler(victimRealm), pl.id, -60); logIt('plot', `A plot by ${fullName(pl)} against ${plotTargetName(p)} is uncovered in ${rl(victimRealm).n}.`); }
 }
 function imprison(c){
-  c.prison = true; c.seat = null;
+  c.prison = true; c.seat = null; c.mandate = null;
   const R_ = rl(c.realm);
   for(const s of Object.keys(R_.council)) if(R_.council[s]===c.id) R_.council[s]=null;
   logIt('plot', `${fullName(c)} is thrown in the dungeon.`);
@@ -3491,7 +3553,18 @@ const UI = {
         const isFocus = cf && cf.seat===seat;
         h += `<div class="card${isFocus?' seatFocus':''}"><div class="seatTop"><b>${SKILLICO[sk]} ${nm}${isFocus?' <span class="hint" style="margin:0">· focus seat</span>':''}</b><button class="small" onclick="Game.pickCouncil('${seat}')">${c&&alive(c)?'Replace':'Appoint'}</button></div>`;
         h += c&&alive(c) ? `<div class="seatWho">${esc(fullName(c))} — ${SKILLICO[sk]}${skill(c,sk)} · loyalty <span class="${opinion(c,PR())>=0?'pos':'neg'}">${opinion(c,PR())>0?'+':''}${opinion(c,PR())}</span></div>` : `<div class="seatWho"><i>vacant — your realm forfeits this office’s work</i></div>`;
-        h += `<div class="hint" style="margin:2px 0 0">${eff(G.player)}</div></div>`;
+        h += `<div class="hint" style="margin:2px 0 0">${eff(G.player)}</div>`;
+        /* mandate row: send this advisor on a sustained task */
+        const md = MANDATES[seat];
+        if(c && alive(c)){
+          if(c.mandate){ const tgt=c.mandate.target;
+            h += `<div class="mandateRow on"><div>${md.ico} <b>${md.n}</b> — ${md.on(c, tgt)}</div><button class="small" onclick="Game.recallMandate('${seat}')">Recall</button></div>`;
+          } else {
+            const canO = Game.can();
+            h += `<div class="mandateRow"><div class="hint" style="margin:0">${md.ico} <b>${md.n}</b> — ${esc(md.d)}</div><button class="small" ${canO?'':'disabled'} onclick="Game.assignMandate('${seat}')">Set task (⚡)</button></div>`;
+          }
+        }
+        h += `</div>`;
       }
       h += `<div class="hint">A staffed, contented council is your capacity to act (it adds to your orders), your bonuses, and your shield against plots. Powerful kin expect seats; snubs breed daggers.</div>`;
       el.innerHTML = h;
@@ -4202,6 +4275,46 @@ const Game = {
           logIt('court',`The realm’s course is set anew: ${f.n.toLowerCase()}.`); }}))
         .concat([{t:'— Leave our course as it is —',fx:()=>{}}]));
   },
+  assignMandate(seat){
+    if(this.busy()) return;
+    const c = mandateHolder(seat);
+    if(!c){ toast('That seat is empty — appoint an advisor before setting them a task.'); return; }
+    const m = MANDATES[seat];
+    const commit = (target)=>{ if(!this.can()){ toast('No orders left this season to set a new task.'); return; }
+      this.order(); c.mandate = { target };
+      const label = target ? (m.target==='province' ? PROVDATA[target].n : rl(target).n) : '';
+      toast(`${m.ico} <b>${esc(fullName(c))}</b> set to: ${m.n}${label?` — ${esc(label)}`:''}`);
+      logIt('court', `${fullName(c)} is set to ${m.n.toLowerCase()}${label?` (${label})`:''}.`);
+      UI.renderAll(); };
+    if(!m.target){
+      UI.modal(m.n, `${m.d}<br><br>Setting this task spends <b>one order</b> now; thereafter it works on its own each season until you recall your ${cap(seat)}.`,
+        [{t:`⚡ Set to “${m.n}”`, fx:()=>commit(null)}, {t:'— Not now —', fx:()=>{}}]);
+      return;
+    }
+    if(m.target==='province'){
+      const opts = realmProvs(G.player).filter(p=>pv(p).dev<5)
+        .sort((a,b)=>pv(a).dev-pv(b).dev || PROVDATA[a].n.localeCompare(PROVDATA[b].n)).slice(0,12);
+      if(!opts.length){ toast('Every province you hold is already fully developed.'); return; }
+      UI.modal(m.n, `${m.d}<br><br>Choose a province. Setting the task spends <b>one order</b>; it then advances on its own each season.`,
+        opts.map(p=>({t:`${esc(PROVDATA[p].n)} — ${STATICO.dev}${pv(p).dev}/5`, fx:()=>commit(p)}))
+          .concat([{t:'— Not now —', fx:()=>{}}]));
+      return;
+    }
+    /* realm target */
+    const opts = Object.values(G.realms).filter(r=>!r.dead && r.id!==G.player && ruler(r.id) && alive(ruler(r.id)))
+      .sort((a,b)=>realmStrength(b.id)-realmStrength(a.id)).slice(0,12);
+    if(!opts.length){ toast('No foreign court stands to receive your advisor.'); return; }
+    UI.modal(m.n, `${m.d}<br><br>Choose a court. Setting the task spends <b>one order</b>; it then works on its own each season.`,
+      opts.map(r=>({t:`${esc(r.n)} — ${STATICO.opinion}${opinion(ruler(r.id),PR())}`, fx:()=>commit(r.id)}))
+        .concat([{t:'— Not now —', fx:()=>{}}]));
+  },
+  recallMandate(seat){
+    if(this.busy()) return;
+    const c = mandateHolder(seat);
+    if(c) c.mandate = null;
+    toast(`Your ${cap(seat)} returns to court.`);
+    UI.renderAll();
+  },
   pickCouncil(seat){
     if(this.busy()) return;
     const skmap = {marshal:'mar',steward:'ste',spymaster:'int',chaplain:'dip'};
@@ -4210,8 +4323,8 @@ const Game = {
     UI.modal('Appoint '+cap(seat),'Competence serves the realm; blood expects the honor anyway.',
       cands.map(c=>({t:`${fullName(c)} — ${SKILLICO[skmap[seat]]}${skill(c,skmap[seat])}, ${STATICO.opinion}${opinion(c,PR())}${c.seat?' (currently '+cap(c.seat)+')':''}`,
         fx:()=>{ const R_=PRL(); const old=R_.council[seat];
-          if(old&&ch(old)&&old!==c.id){ ch(old).seat=null; addOp(ch(old),PR().id,-15); }
-          if(c.seat) R_.council[c.seat]=null;
+          if(old&&ch(old)&&old!==c.id){ ch(old).seat=null; ch(old).mandate=null; addOp(ch(old),PR().id,-15); }
+          if(c.seat){ R_.council[c.seat]=null; c.mandate=null; }
           c.seat=seat; R_.council[seat]=c.id; addOp(c,PR().id,20);
           logIt('court',`${fullName(c)} is named ${cap(seat)}.`);
         }})).concat([{t:'— Leave it —', fx:()=>{}}]));
@@ -4358,6 +4471,7 @@ const Game = {
     const logStart = G.log.length;
     warUpkeep();
     siegeTick();
+    tickMandates();
     for(const rid of Object.keys(G.realms)) aiTurn(rid);
     checkWarEnds();
     plotTick();

@@ -680,6 +680,27 @@ Reworking the core loop so the council matters and a turn feels like a board gam
   (The unified pool means you can still pour every order into one aspect — the
   old "forced breadth" is gone.)
 
+### v4.1 — councillor mandates & a war summons (SHIPPED)
+Completing the council layer: advisors are pieces you position, not just passive
+bonuses.
+- **Councillor mandates.** Each seated advisor can be set to a *sustained task*
+  that costs one order to begin, then works on its own each season until you
+  recall them: the **Marshal** *drills the host* (banks trained retinue that
+  reinforces your strongest army, or waits in the standing reserve for your next
+  muster); the **Steward** *develops a province* (raises one owned province's
+  development to 5 over the years, free — a slow, cheap counterpart to the paid
+  Develop action); the **Spymaster** *watches a court* (exposes the plots that
+  realm lays against you and speeds your own schemes there); the **Chaplain**
+  *ministers to a court* (warms a foreign ruler toward you each season). This is
+  the "position your pieces" layer — a standing commitment you weigh against
+  spending the same order on an immediate action. Mandates clear cleanly when the
+  holder dies, is imprisoned, or is replaced. Managed from the Council tab, each
+  seat showing its live task or an offer to set one.
+- **A proper war summons.** When another realm declares war on *you*, a modal now
+  breaks in — the enemy's casus belli, whether it's a holy war, both sides'
+  strength, and a shortcut to the war council — instead of the news slipping by
+  in the log.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
