@@ -858,6 +858,28 @@ Fixing the odd feel of spending one order for a permanent free effect.
   his bonus; recall him and it returns. The UI now shows the suspended passive
   (struck through) and spells out the cost when you assign a task.
 
+### v5.0 — a peace acceptance system (SHIPPED)
+Peace stops being all-or-nothing. Every offered term is weighed by the side that
+must swallow it.
+- **An acceptance margin.** For any proposed term, the recipient computes a
+  number: how badly they're losing, minus the term's cost to them, plus
+  war-weariness (long wars end easier), plus desperation (occupied capital,
+  lost provinces, an empty treasury), adjusted for the ruler's temper
+  (craven/content concede; brave/wrathful/ambitious hold out) and the realm's
+  pride (renown). ≥ 0 and they accept.
+- **Partial terms.** You can now demand **white peace, gold tribute, a single
+  province, or the whole crown** — each with its own cost, so a war won by a
+  margin gets you gold or a border province without needing total victory. When
+  you're losing, you can even **pay the enemy to depart**.
+- **Negotiation you can read.** "Negotiate peace" is now a menu of terms, each
+  showing the enemy's verdict — *Certain / Likely / Uncertain / Unlikely / They
+  refuse* — with the raw margin beside it. The harder the demand, the higher your
+  hand must be. Surrendering their full demands is always on the table.
+- **The AI plays the same game.** When it's winning it demands the most you'd
+  rationally grant (not always your ruin); when losing it offers the most it will
+  concede. AI-only wars settle on graded terms too, and total occupation still
+  forces submission as the backstop.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

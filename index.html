@@ -2238,6 +2238,99 @@ function enforceDemands(w, winnerSide){
     endWar(w, 'defended', `${rl(wr).n} takes ${gold} gold in tribute and much honor.`);
   }
 }
+/* ---- Peace acceptance: every offered term is weighed by the side that must swallow it ---- */
+function termCost(w, t, giver){
+  switch(t.kind){
+    case 'white':   return 0;
+    case 'tribute': return 8 + t.gold/6;
+    case 'province':{ const p=t.prov; return 30 + (pv(p)?pv(p).dev*6:0) + (rl(giver)&&rl(giver).cap===p?45:0); }
+    case 'throne':  return 120;
+    case 'buyout':  return -(8 + t.gold/6);   /* the "giver" here is paid to depart — a benefit, not a loss */
+  }
+  return 0;
+}
+function peaceAccept(w, giverSide, t){
+  const giver = giverSide==='a'?w.att:w.def;
+  if(!rl(giver)) return -100;
+  const gRul = ruler(giver);
+  const sGiver = warScore(w) * (giverSide==='a'?1:-1);   /* the giver's own war score: + = winning */
+  let acc = -sGiver;                                      /* the worse they are losing, the more they will concede */
+  acc -= termCost(w, t, giver);
+  acc += Math.min(30, warAge(w)*2);                       /* both sides weary of a long war */
+  const gp = realmProvs(giver);
+  const occ = gp.filter(p=>pv(p).occ && hostile(pv(p).occ, giver)).length;
+  acc += occ*6 + (rl(giver).cap && pv(rl(giver).cap) && pv(rl(giver).cap).occ && hostile(pv(rl(giver).cap).occ, giver) ? 20 : 0);
+  if(rl(giver).gold < 5) acc += 8;
+  if(gRul){ if(gRul.tr.includes('craven')) acc+=15; if(gRul.tr.includes('content')) acc+=10; if(gRul.tr.includes('patient')) acc+=6;
+            if(gRul.tr.includes('brave')) acc-=10; if(gRul.tr.includes('wrathful')) acc-=12; if(gRul.tr.includes('ambitious')) acc-=6; }
+  acc -= Math.round(rl(giver).prs/50);                    /* proud, renowned houses hold out longer */
+  const gSideArr = giverSide==='a'?w.sides.a:w.sides.b;
+  if(gSideArr.length>1) acc -= 6;                         /* allies still in the field stiffen resolve */
+  if(t.kind==='white' && sGiver>25) acc -= 20;           /* a side that is winning does not simply walk away */
+  return Math.round(acc);
+}
+function acceptLabel(m){
+  if(m>=25) return ['Certain','pos'];
+  if(m>=6)  return ['Likely','pos'];
+  if(m>=-6) return ['Uncertain',''];
+  if(m>=-25)return ['Unlikely','neg'];
+  return ['They refuse','neg'];
+}
+function termText(w, t){
+  switch(t.kind){
+    case 'white':   return 'white peace';
+    case 'tribute': return `${t.gold} gold in tribute`;
+    case 'province':return `${PROVDATA[t.prov]?PROVDATA[t.prov].n:'a province'} ceded`;
+    case 'throne':  return `the crown of ${rl(t.target)?rl(t.target).n:'the realm'}`;
+    case 'buyout':  return `${t.gold} gold to depart`;
+  }
+  return 'terms';
+}
+function peaceTerms(w, takerSide){
+  /* the terms `takerSide` could impose on the other primary belligerent */
+  const taker = takerSide==='a'?w.att:w.def;
+  const giver = takerSide==='a'?w.def:w.att;
+  const giverArr = takerSide==='a'?w.sides.b:w.sides.a;
+  const s = warScore(w) * (takerSide==='a'?1:-1);
+  const out = [];
+  out.push({kind:'tribute', gold:clamp(Math.round(15 + Math.max(0,s)*0.35), 8, 60), to:taker, from:giver});
+  if(w.cb.type==='province' && pv(w.cb.target)) out.push({kind:'province', prov:w.cb.target, to:taker, from:pv(w.cb.target).r||giver});
+  let np = 0;
+  for(const p of Object.keys(G.provinces)){
+    if(pv(p).occ===taker && giverArr.includes(pv(p).r)){
+      if(w.cb.type==='province' && p===w.cb.target) continue;
+      out.push({kind:'province', prov:p, to:taker, from:pv(p).r});
+      if(++np>=3) break;
+    }
+  }
+  if(w.cb.type==='throne' && takerSide==='a') out.push({kind:'throne', target:w.cb.target, to:taker});
+  return out;
+}
+function strongestAcceptable(w, takerSide){
+  const giverSide = takerSide==='a'?'b':'a';
+  const giver = takerSide==='a'?w.def:w.att;
+  let best=null, bestCost=-1;
+  for(const t of peaceTerms(w, takerSide)){
+    const c = termCost(w, t, giver);
+    if(peaceAccept(w, giverSide, t) >= 0 && c > bestCost){ best=t; bestCost=c; }
+  }
+  return best;
+}
+function settleWar(w, t){
+  switch(t.kind){
+    case 'white': endWar(w,'white','Both crowns keep what they had.'); break;
+    case 'tribute': { const g=Math.min(rl(t.from).gold, t.gold); rl(t.from).gold-=g; rl(t.to).gold+=g;
+      rl(t.to).prs+=Math.round(20*focusWinPrs(t.to)); rl(t.from).prs=Math.max(0,rl(t.from).prs-10);
+      endWar(w,'defended',`${rl(t.to).n} takes ${g} gold in tribute.`); break; }
+    case 'province': { const from=pv(t.prov).r; transferProv(t.prov, t.to);
+      rl(t.to).prs+=Math.round(30*focusWinPrs(t.to)); if(rl(from)) rl(from).leg=clamp(rl(from).leg-10,0,100);
+      if(w.cb.type==='throne'){ const cl=ch(w.claimant); if(cl) cl.claims=cl.claims.filter(x=>x!==w.cb.target); }
+      endWar(w,'cession',`${PROVDATA[t.prov].n} is ceded to ${rl(t.to).n}.`); break; }
+    case 'throne': conquerRealm(t.to, t.target, w.claimant); endWar(w,'conquest',`The crown of ${rl(t.target)?rl(t.target).n:'the realm'} changes heads.`); break;
+    case 'buyout': { const g=Math.min(rl(t.from).gold, t.gold); rl(t.from).gold-=g; rl(t.to).gold+=g;
+      endWar(w,'white',`${rl(t.from).n} pays ${g} gold for peace.`); break; }
+  }
+}
 function transferProv(p, toRealm){
   const from = pv(p).r;
   pv(p).r = toRealm; pv(p).occ = null;
@@ -2319,15 +2412,17 @@ function checkWarEnds(){
     /* AI-only wars settle themselves */
     const pInv = w.sides.a.includes(G.player)||w.sides.b.includes(G.player);
     if(!pInv){
-      if(s>=70) enforceDemands(w,'a');
-      else if(s<=-70) enforceDemands(w,'b');
-      else if(G.year - w.started >= 6) endWar(w,'white','Both realms are bled white.');
+      /* AI-only wars settle themselves on graded terms, not just all-or-nothing */
+      const ta = strongestAcceptable(w,'a'), tb = strongestAcceptable(w,'b');
+      if(s>=40 && ta) settleWar(w, ta);
+      else if(s<=-40 && tb) settleWar(w, tb);
+      else if(warAge(w) >= 24) endWar(w,'white','Both realms are bled white.');
       continue;
     }
-    /* AI offers terms to the player */
+    /* wars the player is in: the AI weighs the same terms */
     const playerA = w.sides.a.includes(G.player);
-    const aiLosing = playerA ? s>=60 : s<=-60;
-    const aiWinning = playerA ? s<=-65 : s>=65;
+    const playerSide = playerA?'a':'b', aiSide = playerA?'b':'a';
+    const aiRealm = playerA ? w.def : w.att;
     /* a realm wholly occupied cannot refuse forever */
     const aiTotal = playerA ? s===-100 : s===100;
     if(aiTotal){
@@ -2336,28 +2431,29 @@ function checkWarEnds(){
         queueEvent({ title:'The Realm Submits',
           text:`Every castle is taken, every shire under the enemy's law. Whatever you say in your hall, the realm itself has surrendered — the magnates treat with the invader over your head.`,
           choices:[{t:'So falls the house.', fx:()=>{}}]});
-        enforceDemands(w, playerA?'b':'a');
+        enforceDemands(w, aiSide);
         continue;
       }
     } else w.doom = 0;
-    if(aiLosing && !w.offered){
+    /* the AI is losing — it offers you the most it will concede */
+    if((playerA ? s>=45 : s<=-45) && !w.offered){
       w.offered = true;
-      const foe = playerA ? w.def : w.att;
+      const t = strongestAcceptable(w, playerSide) || {kind:'white'};
       queueEvent({ title:'They Sue for Peace',
-        text:`Envoys arrive from ${rl(foe).n} under a white banner. The war goes badly for them, and they know it. They offer to concede your full demands.`,
+        text:`Envoys arrive from ${rl(aiRealm).n} under a white banner. The war goes against them, and they know it. They offer: <b>${termText(w,t)}</b>.`,
         choices:[
-          {t:'Accept their surrender.', fx:()=>enforceDemands(w, playerA?'a':'b')},
-          {t:'No. Grind them into the mud. (war continues)', fx:()=>{ rl(G.player).leg=clamp(rl(G.player).leg-5,0,100); addOp(ruler(foe), rl(G.player).ruler, -20); }},
+          {t:`Accept — ${termText(w,t)}.`, fx:()=>settleWar(w, t)},
+          {t:'No. Grind them down. (the war goes on)', fx:()=>{ rl(G.player).leg=clamp(rl(G.player).leg-4,0,100); if(ruler(aiRealm)) addOp(ruler(aiRealm), rl(G.player).ruler, -15); }},
         ]});
     }
-    if(aiWinning && !w.demanded){
+    /* the AI is winning — it demands the most you would rationally grant */
+    if((playerA ? s<=-45 : s>=45) && !w.demanded){
       w.demanded = true;
-      const foe = playerA ? w.def : w.att;
-      const isThrone = w.cb.type==='throne' && !playerA;
+      const t = strongestAcceptable(w, aiSide) || {kind:'tribute', gold:20, to:aiRealm, from:G.player};
       queueEvent({ title:'Terms, or the Sword',
-        text:`Envoys from ${rl(foe).n} bring hard words: yield now — ${isThrone?'the crown itself':'gold, honor, and their demands'} — or they will take it over your corpse.`,
+        text:`Envoys from ${rl(aiRealm).n} bring hard words: yield <b>${termText(w,t)}</b> now, or they will take it over your corpse.`,
         choices:[
-          {t:'Yield. End this war on their terms.', fx:()=>enforceDemands(w, playerA?'b':'a')},
+          {t:`Yield — ${termText(w,t)}.`, fx:()=>settleWar(w, t)},
           {t:'Never. We fight on.', fx:()=>{}},
         ]});
     }
@@ -4929,23 +5025,31 @@ const Game = {
   offerPeace(wid){
     if(this.busy()) return;
     const w = G.wars.find(x=>x.id===wid); if(!w) return;
-    const iAmA = w.sides.a.includes(G.player);
-    const s = warScore(w) * (iAmA?1:-1);
-    const foe = iAmA ? w.def : w.att;
+    if(warAge(w) < 2){ UI.modal('Too Soon', `The war is barely a season old — no herald will carry terms before the first blows have even landed. Muster, march, and let the field speak first.`, [{t:'Then to arms.',fx:()=>{}}]); return; }
+    const mySide = w.sides.a.includes(G.player)?'a':'b', foeSide = mySide==='a'?'b':'a';
+    const foe = mySide==='a'?w.def:w.att;
+    const s = warScore(w) * (mySide==='a'?1:-1);
+    /* the terms I could impose, plus white peace, plus buying my way out when losing */
+    const terms = [{kind:'white'}].concat(peaceTerms(w, mySide));
+    if(s < -5){ terms.push({kind:'buyout', gold:clamp(Math.round(18 + (-s)*0.4), 10, 80), to:foe, from:G.player}); }
+    const labelOf = t => t.kind==='white' ? 'Offer white peace — all go home'
+      : t.kind==='tribute' ? `Demand ${t.gold} gold in tribute`
+      : t.kind==='province' ? `Demand ${esc(PROVDATA[t.prov].n)} be ceded`
+      : t.kind==='throne' ? `Demand the crown of ${esc(rl(t.target).n)} — full conquest`
+      : t.kind==='buyout' ? `Pay ${t.gold} gold for them to depart`
+      : 'Terms';
     const ch_ = [];
-    if(s>=55) ch_.push({t: iAmA&&w.cb.type==='throne' ? '👑 Demand the crown itself — full conquest.' :
-        iAmA&&w.cb.type==='province' ? 'Demand '+PROVDATA[w.cb.target].n+' be ceded.' : 'Demand tribute and submission.',
-      fx:()=>enforceDemands(w, iAmA?'a':'b')});
-    ch_.push({t:'Offer white peace — everyone goes home.', fx:()=>{
-      if(warAge(w) < 2)
-        UI.modal('Too Soon', `The war is barely a season old — no herald will carry terms before the first blows have even landed. Muster, march, and let the field speak first.`, [{t:'Then to arms.',fx:()=>{}}]);
-      else if(s >= 0 || warAge(w) >= 16) endWar(w,'white','Both crowns keep what they had.');
-      else UI.modal('Refused', `${rl(foe).n} smells victory and will not sheathe the sword for nothing.`, [{t:'Then we fight on.',fx:()=>{}}]);
-    }});
-    ch_.push({t:'Surrender on their terms. End it.', fx:()=>enforceDemands(w, iAmA?'b':'a')});
+    for(const t of terms){
+      const m = peaceAccept(w, foeSide, t);
+      const [lbl, cls] = acceptLabel(m);
+      ch_.push({ t:`${labelOf(t)} <span class="hint" style="margin:0">— <span class="${cls}">${lbl}</span> (${m>=0?'+':''}${m})</span>`,
+        fx:()=>{ if(peaceAccept(w, foeSide, t) >= 0){ settleWar(w, t); }
+          else UI.modal('They Refuse', `${esc(rl(foe).n)} will not agree to <b>${termText(w,t)}</b> — not while the war stands as it does. Press your advantage on the field, or ask for less.`, [{t:'Back to the war.',fx:()=>{}}]); }});
+    }
+    ch_.push({t:'⚑ Surrender — grant them their full demands', fx:()=>enforceDemands(w, foeSide)});
     ch_.push({t:'— Break off talks —', fx:()=>{}});
     UI.modal('Terms of Peace',
-      `War score: <b class="${s>=0?'pos':'neg'}">${s>0?'+':''}${s}</b>. Demands need +55; white peace needs the upper hand or a long, tired war. Surrender is always on the menu — it is the prices that vary.`, ch_);
+      `War score <b class="${s>=0?'pos':'neg'}">${s>0?'+':''}${s}</b> · ${Math.max(0,Math.round(warAge(w)/4*10)/10)} yr in the field. Offer terms and ${esc(rl(foe).n)} weighs each — a term they will accept ends the war on it. The harder your demand, the higher your hand must be.`, ch_);
   },
   courtElector(id){
     if(this.busy()) return;
