@@ -981,6 +981,24 @@ fulfilment.
   realm sheet with live progress (*wars won 0/1*, *piety 30/75*…) and a Change
   button — a guiding point rather than an aimless sandbox.
 
+### v5.7 — the Dynastic Legacy (SHIPPED)
+The grand companion to per-ruler Ambitions: a goal that spans the whole
+playthrough, giving the dynasty a north star across generations.
+- **Four legacies**, chosen at the founding (and unchangeable): **The Conquerors**
+  (grow the realm), **The Illustrious** (renown), **Pillars of the Church** (faith
+  and holy works), **The Ancient Line** (endure the centuries). Each is a live
+  metric.
+- **Milestone tiers.** Every legacy has four tiers with their own titles — *The
+  Rising House → A Power of the Age → A Great Dominion → An Empire of Iron* — that
+  unlock as you cross thresholds, each paying escalating prestige and firing a
+  chronicle event. The **capstone** completes the legacy, earns an achievement,
+  and grants a permanent **+2 prestige every year** — your house remembered
+  forever.
+- **Always visible.** A card at the top of the Dynasty tab shows the legacy, a
+  tiered pip-track of your progress, and the next milestone with your current
+  value. Where an Ambition is this ruler's near goal, the Legacy is the whole
+  bloodline's — a guiding arc, not a sandbox.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

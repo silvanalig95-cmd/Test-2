@@ -137,6 +137,14 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 .ambTop{display:flex; justify-content:space-between; align-items:center; gap:8px}
 .ambTop b{font-family:var(--disp); color:var(--gold); font-size:13.5px}
 .ambGoal{font-size:12px; margin-top:2px; font-variant-numeric:tabular-nums}
+.legCard{border:1px solid var(--gold2); border-radius:5px; padding:7px 10px; margin:2px 0 9px;
+  background:radial-gradient(ellipse at 10% 0%, rgba(120,90,180,.16), transparent 60%), rgba(217,185,92,.06)}
+.legTop{display:flex; justify-content:space-between; align-items:center; gap:8px}
+.legTop b{font-family:var(--disp); color:var(--gold); font-size:13.5px}
+.legPips{display:flex; gap:5px; margin:6px 0 4px}
+.legPip{flex:1; height:7px; border-radius:4px; background:rgba(43,32,19,.22); box-shadow:inset 0 0 0 1px rgba(60,45,20,.25)}
+.legPip.on{background:linear-gradient(90deg,#c9b06a,#b2953f); box-shadow:0 0 5px rgba(217,185,92,.7)}
+.legGoal{font-size:12px; font-variant-numeric:tabular-nums}
 .stanceBtns{display:grid; grid-template-columns:1fr 1fr; gap:4px}
 .stanceBtn{font-size:11.5px; padding:5px 4px; cursor:pointer}
 .stanceBtn.on{background:linear-gradient(#8c3a31,#6d251f); color:#f3e6c8; border-color:#4c1712; font-weight:bold}
@@ -578,6 +586,21 @@ const AMBITIONS = [
     check:a=>isEmperor(G.player), reward:R=>{R.prs+=60; return '+60 ☀ prestige';}, cond:R=>G.empire&&!isEmperor(G.player)&&R.rel==='catholic'},
 ];
 function ambitionById(id){ return AMBITIONS.find(a=>a.id===id); }
+/* ---- Dynastic Legacy: a grand goal spanning the whole reign, in milestone tiers ---- */
+const LEGACIES = {
+  conquerors:{ n:'The Conquerors', ico:'⚔', d:'Forge the mightiest realm of the age, province by province.',
+    unit:'provinces', val:()=>realmProvs(G.player).length,
+    tiers:[{at:8,t:'The Rising House'},{at:14,t:'A Power of the Age'},{at:20,t:'A Great Dominion'},{at:28,t:'An Empire of Iron'}] },
+  illustrious:{ n:'The Illustrious', ico:'☀', d:'Make your name the most renowned in all Christendom.',
+    unit:'prestige', val:()=>Math.floor(PRL().prs),
+    tiers:[{at:150,t:'Known Abroad'},{at:400,t:'Spoken of in Every Court'},{at:900,t:'A Living Legend'},{at:2000,t:'Immortal Renown'}] },
+  faithful:{ n:'Pillars of the Church', ico:'☩', d:'Raise your house as the sword and shield of the faith.',
+    unit:'faith', val:()=>Math.round((PRL().piety||0) + realmProvs(G.player).filter(p=>pv(p).bld==='cathedral'||pv(p).bld==='monastery').length*10),
+    tiers:[{at:60,t:'The Devout'},{at:110,t:'Defenders of the Faith'},{at:170,t:'A Holy House'},{at:240,t:'Blessed Among Dynasties'}] },
+  ancient:{ n:'The Ancient Line', ico:'🌳', d:'Endure — let no age, knife, or war end the bloodline.',
+    unit:'years reigning', val:()=>G.year - (SCENARIOS[G.scen]?SCENARIOS[G.scen].year:G.year),
+    tiers:[{at:25,t:'A Generation'},{at:50,t:'Two Generations Deep'},{at:75,t:'An Old and Rooted House'},{at:100,t:'A Dynasty for the Ages'}] },
+};
 const STATICO = { gold:'🪙', prestige:'☀', legitimacy:'✠', opinion:'♥', levy:'⚔', dev:'🌾' };
 const SKILLICO = { dip:'🕊', mar:'⚔', int:'🗡', ste:'🔑' };
 const RELICO = { catholic:'✝', orthodox:'☦', muslim:'☪', pagan:'🌙' };
@@ -1803,6 +1826,7 @@ const ACH = {
   unshaken:{n:'Unshaken', d:'Crush an armed rising against your crown'},
   lion:{n:'The Young Lion', d:'Win a war before your ruler turns 25'},
   dynast:{n:'Dynast', d:'Have five living children of your ruler'},
+  legacy:{n:'A Legacy for the Ages', d:'Complete a dynastic legacy in full'},
 };
 function achGot(){ try{ return JSON.parse(localStorage.getItem('crownAch')||'{}'); }catch(e){ return {}; } }
 function ach(id){
@@ -4033,6 +4057,21 @@ const UI = {
     if(t==='dyn'){
       const r = PR();
       let h = `<h3>House ${esc(r.dyn||'?')}</h3>`;
+      /* the dynasty's grand legacy */
+      if(G.legacy && LEGACIES[G.legacy.id]){ const def=LEGACIES[G.legacy.id], L=G.legacy;
+        const done = L.tier>=def.tiers.length;
+        const next = done ? null : def.tiers[L.tier];
+        const cur = def.val();
+        h += `<div class="legCard"><div class="legTop"><b>${def.ico} Legacy — ${esc(def.n)}</b><span class="hint" style="margin:0">${L.tier}/${def.tiers.length}</span></div>`;
+        h += `<div class="legPips">`;
+        for(let i=0;i<def.tiers.length;i++) h += `<span class="legPip${i<L.tier?' on':''}" data-tip="${esc(def.tiers[i].t)} — ${def.tiers[i].at} ${def.unit}"></span>`;
+        h += `</div>`;
+        h += done ? `<div class="legGoal pos">Fulfilled — ${esc(def.tiers[def.tiers.length-1].t)}. +2 ☀ each year.</div>`
+          : `<div class="legGoal">Next — <b>${esc(next.t)}</b> at ${next.at} ${def.unit} <span class="hint" style="margin:0">(now ${cur})</span></div>`;
+        h += `</div>`;
+      } else if(!G.legacy){
+        h += `<div class="legCard"><div class="legTop"><b>🌳 No legacy chosen</b><button class="small" onclick="Game.pickLegacy()">Choose</button></div><div class="legGoal hint" style="margin:0">Set the grand goal your dynasty is remembered for.</div></div>`;
+      }
       h += this.charRow(r, `${title(r)}, ${age(r)} — your ruler`);
       if(r.sp && ch(r.sp)) h += this.charRow(ch(r.sp), `Consort, ${age(ch(r.sp))}`);
       const kids = Object.values(G.chars).filter(c=>c.fa===r.id||c.mo===r.id).sort((a,b)=>a.by-b.by);
@@ -5085,6 +5124,25 @@ const Game = {
       choices:[{t:'On to the next.', fx:()=>{ Game.pickAmbition(true); }}] });
     chron(`In this year ${fullName(PR())} fulfilled a great ambition: ${a.n.toLowerCase()}.`);
   },
+  pickLegacy(){
+    UI.modal("Your Dynasty's Legacy", `Beyond the ambition of any one ruler: what will House ${esc(PR().dyn||'yours')} be remembered for down the centuries? Choose a grand legacy — a goal spanning generations, marked by milestones and crowned at its height. It cannot be changed once set.`,
+      Object.entries(LEGACIES).map(([k,l])=>({t:`${l.ico} <b>${l.n}</b> — ${esc(l.d)}`,
+        fx:()=>{ G.legacy={id:k, tier:0}; toast(`${l.ico} Your legacy: <b>${esc(l.n)}</b>`); logIt('court',`House ${PR().dyn} sets its course for the ages: ${l.n.toLowerCase()}.`); Game.checkLegacy(); UI.renderAll(); }})));
+  },
+  checkLegacy(){
+    const L=G.legacy; if(!L||G.over) return; const def=LEGACIES[L.id]; if(!def) return;
+    while(L.tier < def.tiers.length && def.val() >= def.tiers[L.tier].at){
+      const tier=def.tiers[L.tier]; L.tier++;
+      const capstone = L.tier===def.tiers.length;
+      const prs = [25,45,80,150][L.tier-1] || 40;
+      PRL().prs += prs;
+      if(capstone){ G.legacyLegend = true; ach('legacy'); }
+      queueEvent({ title:`${def.ico} ${capstone?'Legacy Fulfilled':'A Milestone in the Legacy'} — ${tier.t}`,
+        text:`<span class="dropcap">The chroniclers set it down: House ${esc(PR().dyn)} is become <b>${esc(tier.t.toLowerCase())}</b>${capstone?`, and its grand legacy — ${esc(def.n.toLowerCase())} — is complete`:''}.</span><br><br><em>+${prs} ☀ prestige${capstone?'. Your house is remembered forever — +2 ☀ every year hereafter.':''}</em>`,
+        choices:[{t:'The chronicle records it.', fx:()=>{}}] });
+      chron(`In this year House ${PR().dyn} became ${tier.t.toLowerCase()}.`);
+    }
+  },
   pickFocus(){
     if(this.busy()) return;
     const R_ = PRL();
@@ -5472,6 +5530,7 @@ const Game = {
       }
     }
     this.checkAmbition();
+    this.checkLegacy();
     this.victoryCheck();
     UI.renderAll();
     seasonBanner();
@@ -5494,6 +5553,7 @@ const Game = {
       R_.leg = clamp(R_.leg + d, 0, 100);
       R_.piety = clamp((R_.piety!=null?R_.piety:30) + pietyChange(R_.id), 0, 100);
       if(isEmperor(R_.id)) R_.prs += 3;   /* the Imperial dignity lends steady renown */
+      if(isPlayer(R_.id) && G.legacyLegend) R_.prs += 2;   /* a completed legacy echoes down the years */
       /* Academies: renown, and slow growth of their province */
       { const acad = realmProvs(R_.id).filter(p=>pv(p).bld==='academy');
         if(acad.length){ R_.prs += acad.length;
@@ -5610,7 +5670,8 @@ const Game = {
         text:`<span class="dropcap">${card.brief}</span><br><br><em>Victory: win the Imperial crown (Empire tab) and be crowned at ${G.impThresh} provinces · keep the dynasty alive to ${G.endYear} · or amass 2500 ☀ prestige.<br>Space ends the season · F hurries quiet ones · Esc deselects · hover anything for detail. The Council Advises panel will point the way.</em>`,
         choices:[{t:'To the matter at hand.', fx:()=>{}}]});
     }
-    Game.pickAmbition(true);   /* the new reign chooses its ambition */
+    Game.pickLegacy();          /* the founding choice: the dynasty's grand legacy */
+    Game.pickAmbition(true);    /* and this ruler's immediate ambition */
     UI.tab('dyn');
     { const capId = rl(rid).cap;
       if(capId && PROVDATA[capId]){ const L=PROVDATA[capId].lbl, w=560, h=Math.round(w*747/1000);
