@@ -132,6 +132,9 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 .statMeter .smFill{height:100%; border-radius:5px; transition:width .3s}
 .statMeter .smMark{position:absolute; top:-1px; width:2px; height:11px; background:rgba(43,32,19,.55)}
 .actGroupHd{font-family:var(--disp); font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink2); margin:8px 0 3px; opacity:.8}
+.stanceBtns{display:grid; grid-template-columns:1fr 1fr; gap:4px}
+.stanceBtn{font-size:11.5px; padding:5px 4px; cursor:pointer}
+.stanceBtn.on{background:linear-gradient(#8c3a31,#6d251f); color:#f3e6c8; border-color:#4c1712; font-weight:bold}
 .charRow{display:flex; align-items:center; gap:8px; padding:5px 4px; border-bottom:1px dotted var(--line);
   cursor:pointer; border-radius:3px; transition:background .12s}
 .charRow:hover{background:rgba(255,250,220,.6)}
@@ -2169,19 +2172,41 @@ function terrainMod(provId, side){
   const t = TERRAIN[PROVDATA[provId].t];
   return side==='atk' ? t.atk : t.def;
 }
+const STANCES = {
+  balanced:  {n:'Balanced',   ico:'⚑', d:'A steady line — no advantage, no exposure.'},
+  aggressive:{n:'Aggressive', ico:'⚔', d:'Press the attack: +12% strength, but your own losses run a third higher. Best when you already hold the upper hand.'},
+  defensive: {n:'Defensive',  ico:'🛡', d:'Hold and receive: +16% on the defence (and far fewer losses), but −10% when you are the one attacking. Deadly in hills and mountains.'},
+  cunning:   {n:'Cunning',    ico:'🦊', d:'Manoeuvre and feint: your commander’s ⚔ skill swings the day — a great captain wins it outright, a poor one throws it away.'},
+};
+function aiStance(a){ const c=ch(a.cmdr)||ruler(a.realm); if(!c) return 'balanced';
+  if(c.tr.includes('brave')||c.tr.includes('wrathful')) return 'aggressive';
+  if(c.tr.includes('craven')) return 'defensive';
+  if(c.tr.includes('deceitful')&&skill(c,'mar')>=6) return 'cunning';
+  return 'balanced'; }
+function stanceOf(a){ return a.stance || (a.realm===G.player ? 'balanced' : aiStance(a)); }
+function stanceMods(a, side){
+  const cm = alive(ch(a.cmdr)) ? skill(ch(a.cmdr),'mar') : 3;
+  switch(stanceOf(a)){
+    case 'aggressive': return { s:1.12, cas:1.35 };
+    case 'defensive':  return { s: side==='def'?1.16:0.90, cas:0.68 };
+    case 'cunning':    return { s: 0.90 + cm*0.03, cas:1.0 };   /* a great captain wins it, a poor one throws it away */
+    default:           return { s:1, cas:1 };
+  }
+}
 function battle(atk, def, provId){
   const w = warBetween(atk.realm, def.realm);
   const roll = ()=>ri(2,12)/10 + .5; /* 0.7 .. 1.7 */
   const line = (a, side, r)=>{
     const cm = alive(ch(a.cmdr)) ? skill(ch(a.cmdr),'mar') : 3;
     const tm = terrainMod(provId, side);
-    return { n:armySize(a), cm, tm, r, str: armySize(a) * (1+cm*.06) * tm * r };
+    const sm = stanceMods(a, side);
+    return { n:armySize(a), cm, tm, r, sm, str: armySize(a) * (1+cm*.06) * tm * r * sm.s };
   };
   const ra = roll(), rd = roll();
   const A = line(atk,'atk',ra), D = line(def,'def',rd);
   const atkWins = A.str > D.str;
   const [wn, ls, wnA, lsA] = atkWins ? [A,D,atk,def] : [D,A,def,atk];
-  const lsCas = Math.min(.9, .28 + (wn.str/ls.str -1)*.18), wnCas = .12;
+  const lsCas = Math.min(.95, (.28 + (wn.str/ls.str -1)*.18) * ls.sm.cas), wnCas = .12 * wn.sm.cas;
   const casOf = (army, frac)=>{
     const total = Math.floor(armySize(army)*frac);
     let rem = total;
@@ -2220,6 +2245,7 @@ function battle(atk, def, provId){
       `<div class="btShields">${sideHtml(atk)}<div class="btVs">⚔</div>${sideHtml(def)}</div>` +
       `<div class="btrow"><span>${fmtN(A.n)}</span><em>Men</em><span>${fmtN(D.n)}</span></div>` +
       `<div class="btrow"><span>+${A.cm*6}%</span><em>Commander</em><span>+${D.cm*6}%</span></div>` +
+      `<div class="btrow"><span>${STANCES[stanceOf(atk)].ico} ${STANCES[stanceOf(atk)].n}</span><em>Stance</em><span>${STANCES[stanceOf(def)].ico} ${STANCES[stanceOf(def)].n}</span></div>` +
       `<div class="btrow"><span>×${A.tm}</span><em>${TERRAIN[PROVDATA[provId].t].n}</em><span>×${D.tm}</span></div>` +
       `<div class="btrow"><span>×${A.r.toFixed(2)}</span><em>Fortune</em><span>×${D.r.toFixed(2)}</span></div>` +
       `<div class="btrow strength"><span>${Math.round(A.str)}</span><em>Strength</em><span>${Math.round(D.str)}</span></div>` +
@@ -4560,6 +4586,13 @@ const UI = {
         <button class="small" onclick="Game.pickCommander('${a.id}')">Change commander</button>
         <button class="small" onclick="Game.act('disband','${a.id}')">Disband</button>
       </div>`;
+      /* battle stance — how this host fights when it comes to blows */
+      const cur = stanceOf(a);
+      h += `<div class="actGroupHd">Battle stance</div><div class="stanceBtns">`;
+      for(const [k,s] of Object.entries(STANCES)){
+        h += `<button class="stanceBtn${cur===k?' on':''}" data-tip="${esc(s.d)}" onclick="Game.setStance('${a.id}','${k}')">${s.ico} ${s.n}</button>`;
+      }
+      h += `</div><div class="hint" style="margin-top:3px">${esc(STANCES[cur].d)}</div>`;
       if(others.length) h += `<div class="hint">${others.length===1?'Another column of yours stands here':others.length+' more columns of yours stand here'} — merge to mass, or leave split to hold more ground.</div>`;
       if(G.moveMode) h += `<div class="hint">Click a highlighted province. Dashed = by sea (15🪙, storm risk). Marching into an enemy host gives battle at once.</div>`;
       h += `<div class="hint">Armies move once a season. Split a large host to hold ground while you strike elsewhere; muster or merge to reinforce. Autumn and winter kill the unhoused — bring them home or press hard.</div>`;
@@ -5095,6 +5128,10 @@ const Game = {
   },
   startMove(aid){
     if(this.busy()) return; G.moveMode = aid; UI.renderMap(); UI.renderRight(); },
+  setStance(aid, st){
+    const a = G.armies.find(x=>x.id===aid); if(!a || a.realm!==G.player) return;
+    a.stance = st; toast(`${STANCES[st].ico} The host takes a <b>${STANCES[st].n.toLowerCase()}</b> stance`);
+    UI.renderRight(); },
   moveTargets(){
     const a = G.armies.find(x=>x.id===G.moveMode);
     if(!a) return {land:[],sea:[]};

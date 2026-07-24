@@ -921,6 +921,22 @@ and adding a discovery layer over thematically-placed actions.
   under subheaders — *Court &amp; Ceremony · The Church · Crown &amp; Realm* — so a
   cluster of buttons reads as organised rather than a pile.
 
+### v5.3 — battle stances (SHIPPED)
+Giving the player a tactical hand in the climax of every war. Battles resolved
+automatically before; now each host carries a **stance** you set — a standing
+posture that shapes how it fights, on attack or defence:
+- **Balanced** — a steady line, no advantage or exposure.
+- **Aggressive** — +12% strength, but a third more of your own men fall. Best when
+  you already hold the upper hand.
+- **Defensive** — +16% on the defence and far fewer losses, but −10% when *you*
+  attack. Deadly in hills and mountains.
+- **Cunning** — your commander's ⚔ skill swings the day: a great captain wins it
+  outright, a poor one throws it away.
+The battle screen now shows each side's stance in its breakdown, and **AI
+commanders pick a stance from their temperament** — the brave and wrathful press
+aggressively, the craven dig in, cunning captains manoeuvre. So who you appoint to
+command, and the posture you set, now matter as much as raw numbers.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
