@@ -609,6 +609,16 @@ const FAITH_COL = { catholic:'#d8c27a', orthodox:'#9a6ab0', muslim:'#3f9e6a', pa
 const CULT_COL = { saxon:'#b0913f', norman:'#5a76a8', norse:'#7d5aa0', celtic:'#4f8f6b', german:'#7f7f92',
   iberian:'#c07850', italian:'#c9a94a', greek:'#a04d8f', slav:'#6b8f3f', magyar:'#a86a3f',
   turkic:'#3f9a9a', arabic:'#3f8f5f', berber:'#8f8f4e', baltic:'#6b7d9a' };
+/* faces vary by the people a character springs from — complexion and hair by cultural region */
+const LOOK = {
+  fair:  { skin:['#f2d8b6','#eac9a0','#e8c39a','#f0d2ae'], hair:['#e6c66a','#c98a3a','#b5623a','#a5813f','#8a6136','#6b4a2a'] },
+  north: { skin:['#eac9a0','#e8c39a','#dcb488','#f0d2ae'], hair:['#6b4a2a','#3a2a18','#8a6136','#a5813f','#7a3b2a','#26241f'] },
+  med:   { skin:['#d6ab7a','#c89a68','#cfa476','#dcb488'], hair:['#26241f','#2a2118','#3a2a18','#4a3320'] },
+  east:  { skin:['#c69564','#b8875a','#a8794e','#cfa476'], hair:['#1e1c18','#26241f','#2a2118','#332a1e'] },
+};
+const CULT_LOOK = { saxon:'north', norman:'north', german:'north', baltic:'north', slav:'north',
+  norse:'fair', celtic:'fair', italian:'med', greek:'med', iberian:'med',
+  arabic:'east', berber:'east', turkic:'east', magyar:'east' };
 function relOf(c){ const r = c && c.realm && rl(c.realm); return (r && r.rel) || 'catholic'; }
 function traitChips(c){
   return c.tr.map(t=>`<span class="trait ${TRAITS[t].opn<0?'bad':''}" data-tip="${esc(TRAITS[t].d)}">${cap(t)}</span>`).join('');
@@ -3695,16 +3705,17 @@ const UI = {
     const h = this.dynHash(c.id + (c.nm||''));
     const a = c.dead ? Math.max(0, c.dead - c.by) : age(c);
     const child = a < 16;
-    const skin = ['#e8c39a','#dcb488','#cfa476','#f0d2ae'][h%4];
+    const lk = LOOK[CULT_LOOK[c.cult] || 'north'] || LOOK.north;
+    const skin = lk.skin[h % lk.skin.length];
     const skin2 = this.shade(skin, .78);
-    let hairC = ['#3a2a18','#6b4a2a','#8a6136','#a5813f','#26241f','#7a3b2a'][(h>>>2)%6];
+    let hairC = lk.hair[(h>>>2) % lk.hair.length];
     if(a>=65) hairC = '#d9d5c9'; else if(a>=48) hairC = '#a8a49a';
     const hairD = this.shade(hairC, .7);
     const col = c.realm && rl(c.realm) ? rl(c.realm).col : '#777777';
     const rel = relOf(c);
     const isRuler = Object.values(G.realms).some(r=>!r.dead && r.ruler===c.id);
-    const wrath = c.tr.includes('wrathful') || c.tr.includes('cruel');
-    const kind = c.tr.includes('kind') || c.tr.includes('generous');
+    const wrath = c.tr.includes('wrathful') || c.tr.includes('cruel') || c.tr.includes('dread');
+    const kind = c.tr.includes('kind') || c.tr.includes('generous') || c.tr.includes('saintly') || c.tr.includes('peacemaker');
     const eyeC = ['#3a2f22','#2f4a5a','#4a5a2f','#54382a'][(h>>>9)%4];
     const hs = (h>>>4)%4;
     let hair;
@@ -3743,8 +3754,12 @@ const UI = {
       : `<path d="M15 20.5 h4" stroke="#9c5a48" stroke-width="1" fill="none"/><path d="M15.6 21.2 q1.4 .5 2.8 0" stroke="#c98b74" stroke-width=".5" fill="none"/>`;
     const blush = (child||kind) ? `<circle cx="12.6" cy="18.2" r="1.1" fill="#d98b6b" opacity=".25"/><circle cx="21.4" cy="18.2" r="1.1" fill="#d98b6b" opacity=".25"/>` : '';
     const lines = a>=48 && !child ? `<path d="M12.2 17.6 q-.7 1 -.4 2 M21.8 17.6 q.7 1 .4 2 M14.9 13 q2.1 -.9 4.2 0" stroke="${skin2}" stroke-width=".55" fill="none" opacity="${a>=65?.9:.55}"/>` : '';
-    const scar = (!child && c.sex==='m' && skill(c,'mar')>=7 && (h>>>13)%3===0)
+    let scar = (!child && c.sex==='m' && skill(c,'mar')>=7 && (h>>>13)%3===0)
       ? `<path d="M20.6 12.6 l1.6 3.4" stroke="#a06a52" stroke-width=".9" opacity=".8"/>` : '';
+    if(!child && c.tr.includes('warhardened')) scar += `<path d="M12.2 13.6 l-1.1 3.4" stroke="#a06a52" stroke-width=".9" opacity=".85"/>`;   /* the marks of a hard-fighting reign */
+    const cleric = c.seat==='chaplain';
+    const cross = (!child && (c.tr.includes('pious')||c.tr.includes('saintly')||cleric) && (rel==='catholic'||rel==='orthodox'))
+      ? `<path d="M17 24.3 v3.4 M15.7 25.3 h2.6" stroke="#e9c34f" stroke-width=".75" fill="none"/>` : '';
     let headwear = '';
     if(isRuler){
       if(c.sex==='f'){
@@ -3779,7 +3794,9 @@ const UI = {
       <path d="M5 37 q1.5 -9 12 -9 q10.5 0 12 9 z" fill="${col}" stroke="#3a2c18" stroke-width=".8"/>
       <path d="M8 37 q2 -6.5 9 -7 l0 7 z" fill="rgba(255,250,230,.14)"/>
       <rect x="14.4" y="21.5" width="5.2" height="5.5" fill="${skin2}"/>
+      ${c.tr.includes('saintly') ? '<circle cx="17" cy="14.5" r="11.5" fill="none" stroke="#ffe9a0" stroke-width="1.3" opacity=".6"/>' : ''}
       ${child ? `<g transform="translate(17 16) scale(.82) translate(-17 -16)">${face}</g>` : face}
+      ${cross}
       ${c.prison ? '<text x="5" y="35" font-size="9">⛓</text>' : ''}
     </svg>`;
   },

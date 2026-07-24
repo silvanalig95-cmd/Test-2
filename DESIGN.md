@@ -1014,6 +1014,18 @@ mark and no two reigns feel the same.
   own deeds writing their own character. It ties every system — battle, intrigue,
   faith, peace — back into who your ruler *becomes*.
 
+### v5.9 — portraits fleshed out (SHIPPED)
+The procedural character faces gained real variety and meaning.
+- **Culture-driven complexion & hair.** Faces now draw skin and hair from their
+  people's region — fair and red/blond among the Norse and Celts, ruddy-brown in
+  the Germanic and Slavic north, olive with dark hair around the Mediterranean,
+  darker with black hair in the Arabic, Berber, Turkic and Magyar east — so the
+  world's peoples look visibly distinct.
+- **Trait cues.** Personality now shows on the face: a **saintly halo**, a **gold
+  cross** pendant for the pious and for chaplains, an extra **battle scar** for
+  the war-hardened, and a harder brow and scowl for the dreaded (as for the cruel
+  and wrathful), while the kind, saintly, and peace-making wear a gentler look.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
