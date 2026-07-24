@@ -643,6 +643,12 @@ const TRAITS = {
   sickly:{opp:'robust', opn:-2, d:'Weak of body. Death waits nearby.'},
   lustful:{opp:'chaste', opn:-4, d:'The bedchamber rules them. More children, more scandals.'},
   chaste:{opp:'lustful', opn:3, d:'Cold sheets, clean soul. Fewer children.'},
+  /* --- earned through deeds, not born with --- */
+  warhardened:{earned:1, mar:1, opn:3, d:'War-hardened. +1 Martial; every victory brings extra renown.'},
+  dread:{earned:1, int:1, opn:-6, d:'A dreaded name. Plotters fear this ruler; few love them.'},
+  saintly:{earned:1, opn:6, d:'Saintly. The Church reveres this ruler; devotion comes easily.'},
+  shrewd:{earned:1, int:2, d:'Shrewd. Sees the knife before it falls.'},
+  peacemaker:{earned:1, dip:1, opn:8, d:'A peacemaker. The realm prospers under a steady hand.'},
 };
 const NAMES = {
   saxon:{m:['Godwin','Leofric','Aelfric','Wulfstan','Eadric','Oswald','Alfred','Edmund','Athelstan','Harold','Edward','Beorn'],
@@ -854,13 +860,33 @@ function mkChar(o){
 }
 function randTraits(n){
   const out = [];
-  const keys = Object.keys(TRAITS);
+  const keys = Object.keys(TRAITS).filter(k=>!TRAITS[k].earned);   /* earned traits are won through deeds, not born with */
   while(out.length < n){
     const t = pick(keys);
     if(out.includes(t) || out.includes(TRAITS[t].opp)) continue;
     out.push(t);
   }
   return out;
+}
+/* ---- Deeds shape the ruler: earned reputation traits from the deeds of a reign ---- */
+function deedInc(key, n){ const c=PR(); if(!c) return; c.deeds=c.deeds||{}; c.deeds[key]=(c.deeds[key]||0)+(n||1); checkDeeds(); }
+function checkDeeds(){
+  const c = PR(); if(!c || c.dead) return;
+  const d = c.deeds = c.deeds || {};
+  const nice = { warhardened:'War-Hardened', dread:'A Dreaded Name', saintly:'A Saintly Repute', shrewd:'Ever Watchful', peacemaker:'A Peacemaker' };
+  const grant=(tr,txt)=>{
+    if(c.tr.includes(tr)) return;
+    c.tr.push(tr);
+    if(!G._ff) queueEvent({ who:c.id, title:`✦ ${nice[tr]}`,
+      text:`${txt}<br><br><em>${fullName(c)} earns the trait <b>${esc(nice[tr])}</b> — ${esc(TRAITS[tr].d)}</em>`,
+      choices:[{t:'So it is written.',fx:()=>{}}] });
+    logIt('court',`${fullName(c)} earns a lasting reputation: ${nice[tr].toLowerCase()}.`);
+  };
+  if((d.bat||0)>=2)  grant('warhardened', `<span class="dropcap">Two hard-fought fields, and ${fullName(c)} led from the front on both. Soldiers trust a ruler who bleeds beside them.</span>`);
+  if((d.exe||0)>=3)  grant('dread',       `<span class="dropcap">The block has been busy this reign. Men lower their voices when ${fullName(c)} passes — and think twice before they scheme.</span>`);
+  if((PRL().piety||0)>=80) grant('saintly',`<span class="dropcap">Bishops praise ${fullName(c)} from every pulpit; the commons speak of a ruler blessed by God.</span>`);
+  if((d.plots||0)>=2) grant('shrewd',     `<span class="dropcap">Twice the knife has been turned aside before it fell. ${fullName(c)} has learned to read the shadows of the court.</span>`);
+  if((d.peace||0)>=12) grant('peacemaker',`<span class="dropcap">Twelve years without the banners of war. Under ${fullName(c)} the fields are full and the roads safe — and the people know it.</span>`);
 }
 function mkCourtier(rid, sex){
   const R_ = rl(rid);
@@ -2306,6 +2332,7 @@ function battle(atk, def, provId){
   };
   const wc = casOf(wnA, wnCas), lc = casOf(lsA, lsCas);
   if(w){ w.bp = clamp(w.bp + (atkWins?1:-1)*Math.min(25, 8+Math.floor(lc/120)), -100, 100); }
+  if(wnA.realm===G.player && wnA.cmdr===rl(G.player).ruler){ if(PR().tr.includes('warhardened')) rl(G.player).prs+=5; deedInc('bat'); }
   logIt('war', `⚔ Battle of ${PROVDATA[provId].n}: ${rl(wnA.realm).n} defeats ${rl(lsA.realm).n} (${fmtN(lc)} slain).`);
   /* the loser retreats, or dies */
   let cmdrNote = '';
@@ -2676,6 +2703,7 @@ function plotDiscovered(p, victimRealm){
   }
   if(isPlayer(victimRealm)){
     const inRealm = pl.realm===G.player;
+    deedInc('plots');   /* a plot against you brought to light — the ruler grows watchful */
     queueEvent({ who:pl.id, title:'A Plot Uncovered',
       text:`Your spymaster comes at a late hour. <b>${fullName(pl)}</b> has been plotting <b>${p.type==='murder'?'the murder of':'against'} ${plotTargetName(p)}</b>${p.backers.length?`, with ${p.backers.length} backer${p.backers.length>1?'s':''} in the shadows`:''}. The proofs are good.`,
       choices:[
@@ -4931,13 +4959,13 @@ const Game = {
         }
         break; }
       case 'imprison': if(!this.order('imprison')) return; imprison(ch(a));
-        for(const c of myCourt()) addOp(c, PR().id, -4); break;
+        for(const c of myCourt()) addOp(c, PR().id, -4); deedInc('exe'); break;
       case 'release': { const c=ch(a); c.prison=false; addOp(c,PR().id,25);
         logIt('court',`${fullName(c)} walks free, blinking.`); break; }
       case 'execute': if(!this.order('execute')) return;
         killChar(ch(a),'was put to death at the ruler’s command');
         R_.leg=clamp(R_.leg-8,0,100);
-        for(const c of myCourt()) addOp(c, PR().id, -8); break;
+        for(const c of myCourt()) addOp(c, PR().id, -8); deedInc('exe'); break;
       case 'plotMurder': { const t=ch(a); if(t.realm===G.player&&t.dyn===PR().dyn){ UI.modal('Kinslaying','Even your spymaster refuses to put this in writing. Plotting the murder of your own dynasty is a step the game of thrones forgives — but this game does not require.',[{t:'Withdraw the thought.',fx:()=>{}}]); return; }
         if(G.plots.some(pl=>pl.mine&&pl.type==='murder'&&pl.target===a)){ toast(`🗡 Your men are already at their quiet work against ${esc(fullName(t))}.`); return; }
         if(!this.order('plotMurder')) return;
@@ -5554,6 +5582,7 @@ const Game = {
       R_.piety = clamp((R_.piety!=null?R_.piety:30) + pietyChange(R_.id), 0, 100);
       if(isEmperor(R_.id)) R_.prs += 3;   /* the Imperial dignity lends steady renown */
       if(isPlayer(R_.id) && G.legacyLegend) R_.prs += 2;   /* a completed legacy echoes down the years */
+      if(isPlayer(R_.id)){ const rc=PR(); if(rc){ rc.deeds=rc.deeds||{}; if(atWar(G.player).length) rc.deeds.peace=0; else rc.deeds.peace=(rc.deeds.peace||0)+1; } checkDeeds(); }
       /* Academies: renown, and slow growth of their province */
       { const acad = realmProvs(R_.id).filter(p=>pv(p).bld==='academy');
         if(acad.length){ R_.prs += acad.length;

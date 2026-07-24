@@ -999,6 +999,21 @@ playthrough, giving the dynasty a north star across generations.
   value. Where an Ambition is this ruler's near goal, the Legacy is the whole
   bloodline's — a guiding arc, not a sandbox.
 
+### v5.8 — deeds shape the ruler (SHIPPED)
+Rulers were fixed at birth; now they **evolve through their reign**, earning
+reputation traits from what they actually do — so each ruler leaves a personal
+mark and no two reigns feel the same.
+- **Five earned traits**, won through deeds (never born with): **War-Hardened**
+  (personally command two victorious battles — +1 Martial, extra renown from
+  wins), **A Dreaded Name** (three executions or imprisonments — plotters fear
+  you), **Saintly** (reach piety 80 — the Church reveres you), **Shrewd** (two
+  plots against you foiled — +2 Intrigue), **A Peacemaker** (twelve years without
+  war — a steady, prospering realm).
+- Each is announced with its own event when earned, added to the ruler's trait
+  chips, and carried for the rest of that reign; a new ruler starts fresh, their
+  own deeds writing their own character. It ties every system — battle, intrigue,
+  faith, peace — back into who your ruler *becomes*.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
