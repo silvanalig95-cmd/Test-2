@@ -1074,6 +1074,20 @@ it can summon the life of the hall:
 These ride the existing action-triggered event engine, so the more you hold court,
 the more the realm's small dramas find you.
 
+### v6.3 — tooltips that teach (SHIPPED)
+A pass over the parchment tooltip system so the interface explains itself on hover:
+- **The nine tabs** each carry a one-line tip — Dynasty, Court, Council, Faith,
+  Treasury, Relations, Wars, Plots, Empire — so a new player can find where a
+  system lives without clicking blindly.
+- **Province stats** now explain themselves: Terrain (who it favours in battle),
+  Development (what it does, how to raise it, the cap of 5), Building (one standing
+  improvement per province), Levies (what raises and cuts them) and Tax / season.
+- **A rival realm's Strength** reads as "a rough measure of the levies this realm
+  could field — weigh it before pressing a claim."
+The tooltip engine already backed 300-plus hoverable elements; this fills the
+gaps around the primary navigation and the province panel where a first-time
+player most needs the explanation.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

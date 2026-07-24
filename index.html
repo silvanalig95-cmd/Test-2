@@ -476,17 +476,17 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
 <div id="main">
   <div class="panel" id="leftPanel">
     <div class="tabs">
-      <button id="tabDyn" class="on" onclick="UI.tab('dyn')" data-grp="Court &amp; Kin">Dynasty<i class="tabDot"></i></button>
-      <button id="tabCourt" onclick="UI.tab('court')" data-grp="Court &amp; Kin">Court<i class="tabDot"></i></button>
-      <button id="tabCouncil" onclick="UI.tab('council')" data-grp="Court &amp; Kin">Council<i class="tabDot"></i></button>
-      <button id="tabFaith" onclick="UI.tab('faith')" data-grp="Court &amp; Kin">Faith<i class="tabDot"></i></button>
+      <button id="tabDyn" class="on" onclick="UI.tab('dyn')" data-grp="Court &amp; Kin" data-tip="<b>Dynasty</b><br>Your ruler and realm at a glance — legitimacy, piety, renown, your ambition and your house's legacy. Your starting view.">Dynasty<i class="tabDot"></i></button>
+      <button id="tabCourt" onclick="UI.tab('court')" data-grp="Court &amp; Kin" data-tip="<b>Court</b><br>The living souls around you — heirs, kin, courtiers and guests. Befriend, gift, betroth, or plot against them.">Court<i class="tabDot"></i></button>
+      <button id="tabCouncil" onclick="UI.tab('council')" data-grp="Court &amp; Kin" data-tip="<b>Council</b><br>Appoint your great officers, set the Crown's focus, and give each minister a standing mandate. Read their advice here.">Council<i class="tabDot"></i></button>
+      <button id="tabFaith" onclick="UI.tab('faith')" data-grp="Court &amp; Kin" data-tip="<b>Faith</b><br>Tend your standing with the Church — endow it for piety, proclaim holy wars, send missionaries, bless your heir.">Faith<i class="tabDot"></i></button>
       <span class="tabDiv"></span>
-      <button id="tabTreasury" onclick="UI.tab('treasury')" data-grp="Realm">Treasury<i class="tabDot"></i></button>
+      <button id="tabTreasury" onclick="UI.tab('treasury')" data-grp="Realm" data-tip="<b>Treasury</b><br>The ledger of your coin — where income rises and where it drains. Weigh buildings, upkeep and reserves.">Treasury<i class="tabDot"></i></button>
       <span class="tabDiv"></span>
-      <button id="tabRelations" onclick="UI.tab('relations')" data-grp="Statecraft">Relations<i class="tabDot"></i></button>
-      <button id="tabWars" onclick="UI.tab('wars')" data-grp="Statecraft">Wars<i class="tabDot"></i></button>
-      <button id="tabPlots" onclick="UI.tab('plots')" data-grp="Statecraft">Plots<i class="tabDot"></i></button>
-      <button id="tabEmpire" onclick="UI.tab('empire')" data-grp="Statecraft">Empire<i class="tabDot"></i></button>
+      <button id="tabRelations" onclick="UI.tab('relations')" data-grp="Statecraft" data-tip="<b>Relations</b><br>Every court in Christendom and beyond — their opinion of you, your ties and truces. Send envoys, gifts, marriages and alliances.">Relations<i class="tabDot"></i></button>
+      <button id="tabWars" onclick="UI.tab('wars')" data-grp="Statecraft" data-tip="<b>Wars</b><br>Your campaigns and the wars raging across the wider world — participants, war-score, and the terms to sue for peace.">Wars<i class="tabDot"></i></button>
+      <button id="tabPlots" onclick="UI.tab('plots')" data-grp="Statecraft" data-tip="<b>Plots</b><br>Schemes afoot — your own intrigues in progress and the daggers being sharpened against you.">Plots<i class="tabDot"></i></button>
+      <button id="tabEmpire" onclick="UI.tab('empire')" data-grp="Statecraft" data-tip="<b>Empire</b><br>The Holy Roman Empire — its Emperor, the prince-electors, and your place within or against it.">Empire<i class="tabDot"></i></button>
     </div>
     <div id="leftBody"></div>
   </div>
@@ -4743,11 +4743,11 @@ const UI = {
     let h = `<div class="eyebrow">${mine?'Province of your realm':'Province'+(R_?' of '+esc(R_.n):'')}</div><h3>${esc(pd.n)}</h3>
       <div class="kv"><span>Realm</span><b>${R_?esc(R_.n):'—'}</b></div>
       ${st.occ?`<div class="kv"><span>Occupied by</span><b class="neg">${esc(rl(st.occ).n)}</b></div>`:''}
-      <div class="kv"><span>Terrain</span><b>${TERRAIN[pd.t].n}</b></div>
-      <div class="kv"><span>${STATICO.dev} Development</span><b>${st.dev} / 5</b></div>
-      <div class="kv"><span>${st.bld?BUILDINGS[st.bld].ico:'🏗'} Building</span><b>${st.bld?BUILDINGS[st.bld].n : st.cons?BUILDINGS[st.cons.b].n+' — '+st.cons.left+' season'+(st.cons.left>1?'s':'')+' left' : '—'}</b></div>
-      <div class="kv"><span>${STATICO.levy} Levies</span><b>${fmtN(levyOf(pid))}</b></div>
-      <div class="kv"><span>${STATICO.gold} Tax / season</span><b>${taxOf(pid)}</b></div>`;
+      <div class="kv"><span data-tip="The lie of the land. Hills and mountains favour the defender in battle; open ground and coast do not.">Terrain</span><b>${TERRAIN[pd.t].n}</b></div>
+      <div class="kv"><span data-tip="How built-up and populous the land is. Higher development means more tax and larger levies. Raise it with the Develop action (to a maximum of 5).">${STATICO.dev} Development</span><b>${st.dev} / 5</b></div>
+      <div class="kv"><span data-tip="Each province holds one permanent improvement — a keep, a market, a temple and the like. It gives a standing bonus once built.">${st.bld?BUILDINGS[st.bld].ico:'🏗'} Building</span><b>${st.bld?BUILDINGS[st.bld].n : st.cons?BUILDINGS[st.cons.b].n+' — '+st.cons.left+' season'+(st.cons.left>1?'s':'')+' left' : '—'}</b></div>
+      <div class="kv"><span data-tip="The soldiers this land can raise when you Muster. Cut by low legitimacy, foreign faith and occupation — raised by development, martial culture and a keep.">${STATICO.levy} Levies</span><b>${fmtN(levyOf(pid))}</b></div>
+      <div class="kv"><span data-tip="Coin this province yields each season. Foreign faith and occupation cut it; development and a market raise it.">${STATICO.gold} Tax / season</span><b>${taxOf(pid)}</b></div>`;
     { const wrongF = provWrongFaith(pid), wrongC = provForeignCult(pid);
       h += `<div class="kv"><span>Faith</span><b>${RELICO[st.rel]} ${RELNAME[st.rel]}${wrongF?' <span class="hint" style="margin:0">— not the realm’s</span>':''}</b></div>`;
       h += `<div class="kv"><span>People</span><b>${esc(cap(st.cult||''))}${wrongC?' <span class="hint" style="margin:0">— not the realm’s</span>':''}</b></div>`;
@@ -4792,7 +4792,7 @@ const UI = {
     }
     h += `<div class="kv"><span>Faith</span><b>${RELICO[R_.rel]} ${RELNAME[R_.rel]}${R_.rel!==PRL().rel?' <span class=neg>(not yours)</span>':''}</b></div>`;
     h += `<div class="kv"><span>People</span><b>${esc(cap(R_.cult||''))} <span class="hint" style="margin:0">${ETHOS[cultEthos(rid)].ico} ${ETHOS[cultEthos(rid)].n}</span></b></div>`;
-    h += `<div class="kv"><span>Strength</span><b>~${fmtN(realmStrength(rid))}</b></div>`;
+    h += `<div class="kv"><span data-tip="A rough measure of the levies this realm could field — weigh it against your own before pressing a claim.">Strength</span><b>~${fmtN(realmStrength(rid))}</b></div>`;
     if(al) h += `<div class="kv"><span>Alliance</span><b class="pos">sworn</b></div>`;
     if(tr) h += `<div class="kv"><span>Truce</span><b>until ${tr.until}</b></div>`;
     if(w){
