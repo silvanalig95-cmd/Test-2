@@ -963,6 +963,24 @@ The AI now builds these too, weighted by its ruler's character (the pious raise
 monasteries; the worldly found academies). The build menu picks them up
 automatically, so every province is now a more interesting choice.
 
+### v5.6 — Ambitions (SHIPPED)
+A board-game-style layer of purpose over the sandbox: the ruler pursues a chosen
+**ambition** — a concrete goal that gives your turns direction and a reward on
+fulfilment.
+- **Nine ambitions**, each a clear objective with a reward: *Widen the Realm*
+  (+2 provinces), *Blood and Glory* (win a war), *A Secure Throne* (legitimacy
+  85), *Defender of the Faith* (piety 75), *Fill the Coffers* (180 gold), *Bind
+  the Houses* (3 alliances), *A Name for the Ages* (prestige 220), *Raise Great
+  Works* (4 buildings), *The Imperial Dream* (win the Imperial title).
+- **Chosen, not imposed.** At the start of a reign you're offered three — and the
+  offerings **lean toward the ruler's character** (the brave get *Blood and
+  Glory*, the greedy *Fill the Coffers*, the pious *Defender of the Faith*), so
+  the goal feels like their own. Fulfil it and a celebratory event pays out the
+  reward, then you pick the next; a new ruler on the throne chooses fresh.
+- **Always in view.** The active ambition sits in a gold card at the top of the
+  realm sheet with live progress (*wars won 0/1*, *piety 30/75*…) and a Change
+  button — a guiding point rather than an aimless sandbox.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

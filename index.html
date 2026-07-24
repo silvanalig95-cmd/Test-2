@@ -132,6 +132,11 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 .statMeter .smFill{height:100%; border-radius:5px; transition:width .3s}
 .statMeter .smMark{position:absolute; top:-1px; width:2px; height:11px; background:rgba(43,32,19,.55)}
 .actGroupHd{font-family:var(--disp); font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink2); margin:8px 0 3px; opacity:.8}
+.ambCard{border:1px solid var(--gold2); border-radius:5px; padding:6px 9px; margin:4px 0 7px;
+  background:radial-gradient(ellipse at 90% 0%, rgba(217,185,92,.20), transparent 62%), rgba(217,185,92,.08)}
+.ambTop{display:flex; justify-content:space-between; align-items:center; gap:8px}
+.ambTop b{font-family:var(--disp); color:var(--gold); font-size:13.5px}
+.ambGoal{font-size:12px; margin-top:2px; font-variant-numeric:tabular-nums}
 .stanceBtns{display:grid; grid-template-columns:1fr 1fr; gap:4px}
 .stanceBtn{font-size:11.5px; padding:5px 4px; cursor:pointer}
 .stanceBtn.on{background:linear-gradient(#8c3a31,#6d251f); color:#f3e6c8; border-color:#4c1712; font-weight:bold}
@@ -542,6 +547,37 @@ const BUILDINGS = {
   monastery:{n:'Monastery', ico:'⛪', cost:45, desc:'+0.8 piety and +0.3 legitimacy each year'},
   academy:{n:'Academy', ico:'🎓', cost:55, desc:'+1 prestige each year; the province slowly develops on its own'},
 };
+/* ---- Ambitions: a rotating objective the ruler pursues, rewarded on fulfilment ---- */
+const AMBITIONS = [
+  {id:'expand', n:'Widen the Realm', ico:'🗺', d:'Hold two more provinces than you do now.',
+    goal:a=>`${realmProvs(G.player).length} / ${a.baseProvs+2} provinces`,
+    check:a=>realmProvs(G.player).length>=a.baseProvs+2, reward:R=>{R.prs+=45; return '+45 ☀ prestige';}, cond:()=>true},
+  {id:'warlord', n:'Blood and Glory', ico:'⚔', d:'Win a war — take crown, land, or tribute by the sword.',
+    goal:a=>`wars won ${G.stats.warsWon-a.baseWars} / 1`,
+    check:a=>G.stats.warsWon>a.baseWars, reward:R=>{R.prs+=50; R.leg=clamp(R.leg+5,0,100); return '+50 ☀ prestige, +5 ✠ legitimacy';}, cond:()=>true},
+  {id:'secure', n:'A Secure Throne', ico:'✠', d:'Raise your legitimacy to 85 — a crown beyond question.',
+    goal:a=>`legitimacy ${Math.floor(PRL().leg)} / 85`,
+    check:a=>PRL().leg>=85, reward:R=>{R.prs+=30; return '+30 ☀ prestige';}, cond:R=>R.leg<80},
+  {id:'devout', n:'Defender of the Faith', ico:'☩', d:'Raise your piety to 75.',
+    goal:a=>`piety ${Math.round(PRL().piety||0)} / 75`,
+    check:a=>(PRL().piety||0)>=75, reward:R=>{R.prs+=40; R.leg=clamp(R.leg+8,0,100); return '+40 ☀ prestige, +8 ✠ legitimacy';}, cond:R=>R.rel!=='pagan'&&(R.piety||0)<70},
+  {id:'wealthy', n:'Fill the Coffers', ico:'🪙', d:'Amass 180 gold in your treasury.',
+    goal:a=>`gold ${Math.floor(PRL().gold)} / 180`,
+    check:a=>PRL().gold>=180, reward:R=>{R.prs+=30; return '+30 ☀ prestige';}, cond:R=>R.gold<140},
+  {id:'dynast', n:'Bind the Houses', ico:'⚭', d:'Hold three standing alliances at once.',
+    goal:a=>`alliances ${G.alliances.filter(al=>al.a===G.player||al.b===G.player).length} / 3`,
+    check:a=>G.alliances.filter(al=>al.a===G.player||al.b===G.player).length>=3, reward:R=>{R.prs+=35; return '+35 ☀ prestige';}, cond:()=>true},
+  {id:'renowned', n:'A Name for the Ages', ico:'☀', d:'Raise your prestige to 220.',
+    goal:a=>`prestige ${Math.floor(PRL().prs)} / 220`,
+    check:a=>PRL().prs>=220, reward:R=>{R.gold+=30; R.leg=clamp(R.leg+6,0,100); return '+30 🪙 gold, +6 ✠ legitimacy';}, cond:R=>R.prs<180},
+  {id:'builder', n:'Raise Great Works', ico:'🏛', d:'Have four or more buildings across your provinces.',
+    goal:a=>`buildings ${realmProvs(G.player).filter(p=>pv(p).bld).length} / 4`,
+    check:a=>realmProvs(G.player).filter(p=>pv(p).bld).length>=4, reward:R=>{R.prs+=30; return '+30 ☀ prestige';}, cond:()=>true},
+  {id:'imperial', n:'The Imperial Dream', ico:'⚜', d:'Win the Imperial title from the prince-electors.',
+    goal:a=>isEmperor(G.player)?'the crown is yours':'not yet Emperor',
+    check:a=>isEmperor(G.player), reward:R=>{R.prs+=60; return '+60 ☀ prestige';}, cond:R=>G.empire&&!isEmperor(G.player)&&R.rel==='catholic'},
+];
+function ambitionById(id){ return AMBITIONS.find(a=>a.id===id); }
 const STATICO = { gold:'🪙', prestige:'☀', legitimacy:'✠', opinion:'♥', levy:'⚔', dev:'🌾' };
 const SKILLICO = { dip:'🕊', mar:'⚔', int:'🗡', ste:'🔑' };
 const RELICO = { catholic:'✝', orthodox:'☦', muslim:'☪', pagan:'🌙' };
@@ -818,7 +854,7 @@ function newGame(playerRealm, seed, scenId){
     seed, scen:scenId, year:S.year, endYear:S.year+100, season:0, player:playerRealm,
     realms:{}, provinces:{}, chars:{}, armies:[], wars:[], plots:[], alliances:[], truces:[],
     log:[], chron:[], ordersMax:0, ordersLeft:0, ordersBonus:0, ordersTemp:[], sel:null, moveMode:null, aid:0, wid:0, pid:0, plague:0,
-    flags:{}, over:false, regency:false, eventQueue:[],
+    flags:{}, over:false, regency:false, eventQueue:[], stats:{warsWon:0},
   };
   for(const [pid, pd] of Object.entries(PROVDATA)){
     G.provinces[pid] = { r:null, occ:null, dev:pd.d, bld:null };
@@ -1972,7 +2008,7 @@ function rulerDied(R_, c, causeTxt){
         (minor?` A child cannot rule alone: a regency council will govern until the ${h.sex==='m'?'young king':'young queen'} comes of age. The realm's enemies know this.`:
         ` The magnates swear their oaths — some more slowly than others.`) +
         `</span><br><br><em>You now play as ${fullName(h)}. Legitimacy has fallen; disappointed kin may press their own claims.</em>`,
-      choices:[{t:'The '+(h.sex==='m'?'king':'queen')+' is dead. Long live the '+(h.sex==='m'?'king':'queen')+'.', fx:()=>{}}]
+      choices:[{t:'The '+(h.sex==='m'?'king':'queen')+' is dead. Long live the '+(h.sex==='m'?'king':'queen')+'.', fx:()=>{ R_.ambition=null; if(!G.regency && typeof Game!=='undefined') Game.pickAmbition(true); }}]
     });
   } else if(minor){
     logIt('court', `A child of ${age(h)} now wears the crown of ${R_.n}. Wolves take note.`);
@@ -2313,6 +2349,7 @@ function endWar(w, result, msg){
 }
 function enforceDemands(w, winnerSide){
   const [wr, lr] = winnerSide==='a' ? [w.att, w.def] : [w.def, w.att];
+  if(wr===G.player && G.stats) G.stats.warsWon++;
   if(wr===G.player && ruler(G.player) && age(ruler(G.player))<25) ach('lion');
   if(winnerSide==='a' && w.cb.type==='throne'){
     conquerRealm(wr, w.cb.target, w.claimant);
@@ -2408,6 +2445,7 @@ function strongestAcceptable(w, takerSide){
   return best;
 }
 function settleWar(w, t){
+  if((t.kind==='tribute'||t.kind==='province'||t.kind==='throne') && t.to===G.player && G.stats) G.stats.warsWon++;
   switch(t.kind){
     case 'white': endWar(w,'white','Both crowns keep what they had.'); break;
     case 'tribute': { const g=Math.min(rl(t.from).gold, t.gold); rl(t.from).gold-=g; rl(t.to).gold+=g;
@@ -4410,7 +4448,11 @@ const UI = {
         tid.map(x=>`<div class="tidRow"${x.click?` onclick="${x.click}" style="cursor:pointer"`:''}><span class="ti">${x.i}</span><span class="tt">${x.t}</span></div>`).join('') +
         `</div>`;
     }
-    h += `<div class="eyebrow">Your realm · ${G.scen==='y1066'?'anno 1066':'anno 1187'} start</div><h3>${esc(R_.n)}</h3>
+    h += `<div class="eyebrow">Your realm · ${G.scen==='y1066'?'anno 1066':'anno 1187'} start</div><h3>${esc(R_.n)}</h3>`;
+    { const amb = R_.ambition && ambitionById(R_.ambition.id);
+      if(amb) h += `<div class="ambCard"><div class="ambTop"><b>${amb.ico} Ambition — ${esc(amb.n)}</b><button class="small" onclick="Game.pickAmbition()" data-tip="Set a different ambition">Change</button></div><div class="ambGoal">${esc(amb.goal(R_.ambition))}</div></div>`;
+      else h += `<div class="ambCard"><div class="ambTop"><b>🎯 No ambition set</b><button class="small" onclick="Game.pickAmbition()">Choose one</button></div><div class="ambGoal hint" style="margin:0">A ruler with a goal earns rewards for reaching it.</div></div>`; }
+    h += `
       <div class="kv"><span>Provinces</span><b>${provs.length}</b></div>
       <div class="kv"><span>Season income</span><b>${income} gold</b></div>
       <div class="kv"><span>Total levy pool</span><b>${fmtN(realmStrength(G.player))}</b></div>
@@ -5008,6 +5050,41 @@ const Game = {
           else UI.modal('Rebuffed', `${tn} declines. Their opinion of you is too low, or their ambitions too high.`, [{t:'So be it.',fx:()=>{}}]);
         }})).concat([{t:'— Never mind —', fx:()=>{}}]));
   },
+  pickAmbition(force){
+    if(!force && this.busy()) return;
+    const R_=PRL(); const cur = R_.ambition ? R_.ambition.id : null;
+    const base = {baseProvs:realmProvs(G.player).length, baseWars:G.stats?G.stats.warsWon:0};
+    const opts = AMBITIONS.filter(a=>{ try{ return a.cond(R_) && a.id!==cur && !a.check(base); }catch(e){ return false; } });
+    /* offerings lean toward the ruler's character, so the goal feels their own */
+    const rul = PR(), fit = {
+      expand:['ambitious','brave'], warlord:['brave','wrathful','ambitious'], secure:['content','patient'],
+      devout:['pious'], wealthy:['greedy'], dynast:['kind','honest','patient'], renowned:['ambitious','lustful'],
+      builder:['content','generous'], imperial:['ambitious','genius'] };
+    const wt = a => 1 + (fit[a.id]||[]).filter(t=>rul&&rul.tr.includes(t)).length*3 + R()*1.5;
+    const pool = [...opts].sort((a,b)=>wt(b)-wt(a)).slice(0,3);
+    if(!pool.length) return;
+    UI.modal('Set Your Ambition', `Every ruler is remembered for what they set out to do. Choose the ambition of ${fullName(PR())} — fulfil it, and your house reaps the reward.`,
+      pool.map(a=>({t:`${a.ico} <b>${a.n}</b> — ${esc(a.d)}`, fx:()=>this.setAmbition(a.id)}))
+        .concat(cur?[{t:'— Keep my present ambition —',fx:()=>{}}]:[]));
+  },
+  setAmbition(id){
+    const R_=PRL(); const a=ambitionById(id); if(!a) return;
+    R_.ambition = { id, baseProvs:realmProvs(G.player).length, baseWars:G.stats?G.stats.warsWon:0, set:G.year };
+    toast(`${a.ico} New ambition: <b>${esc(a.n)}</b>`);
+    logIt('court', `${fullName(PR())} sets an ambition: ${a.n.toLowerCase()}.`);
+    UI.renderAll();
+  },
+  checkAmbition(){
+    const R_=PRL(); if(!R_||!R_.ambition||G.over) return;
+    const a=ambitionById(R_.ambition.id); if(!a){ R_.ambition=null; return; }
+    let done=false; try{ done=a.check(R_.ambition); }catch(e){ return; }
+    if(!done) return;
+    const msg=a.reward(R_); R_.ambition=null;
+    queueEvent({ title:`${a.ico} Ambition Fulfilled`,
+      text:`<span class="dropcap">${fullName(PR())} has achieved a life's ambition — <b>${esc(a.n)}</b>. ${esc(a.d)}</span><br><br>The realm rejoices, and your house is the richer for it. <em>(${msg})</em>`,
+      choices:[{t:'On to the next.', fx:()=>{ Game.pickAmbition(true); }}] });
+    chron(`In this year ${fullName(PR())} fulfilled a great ambition: ${a.n.toLowerCase()}.`);
+  },
   pickFocus(){
     if(this.busy()) return;
     const R_ = PRL();
@@ -5394,6 +5471,7 @@ const Game = {
         }
       }
     }
+    this.checkAmbition();
     this.victoryCheck();
     UI.renderAll();
     seasonBanner();
@@ -5513,6 +5591,7 @@ const Game = {
       G = JSON.parse(s);
       G.eventQueue = []; G.sel=null; G.moveMode=null;
       if(!G.empire) empInit();   /* migrate older saves to the Empire system */
+      if(!G.stats) G.stats = {warsWon:0};
       _cid = G._cid||900;
       srand((G.seed + G.year*4 + G.season)>>>0);
       document.getElementById('setup').style.display='none';
@@ -5531,6 +5610,7 @@ const Game = {
         text:`<span class="dropcap">${card.brief}</span><br><br><em>Victory: win the Imperial crown (Empire tab) and be crowned at ${G.impThresh} provinces · keep the dynasty alive to ${G.endYear} · or amass 2500 ☀ prestige.<br>Space ends the season · F hurries quiet ones · Esc deselects · hover anything for detail. The Council Advises panel will point the way.</em>`,
         choices:[{t:'To the matter at hand.', fx:()=>{}}]});
     }
+    Game.pickAmbition(true);   /* the new reign chooses its ambition */
     UI.tab('dyn');
     { const capId = rl(rid).cap;
       if(capId && PROVDATA[capId]){ const L=PROVDATA[capId].lbl, w=560, h=Math.round(w*747/1000);
