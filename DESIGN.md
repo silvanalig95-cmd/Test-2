@@ -1058,6 +1058,22 @@ Playtest fixes and a fuller council advisor.
   how many realms have been drawn in — so you can watch your rivals bleed each
   other (and no war anywhere reads as a "suspicious peace").
 
+### v6.2 — a livelier court (SHIPPED)
+Convening court (and the crown-court) now breathes — beyond its flat legitimacy,
+it can summon the life of the hall:
+- **A Petition at Court** — commons beg relief; grant mercy, judge fairly, or
+  keep the crown's due.
+- **A Quarrel Before the Throne** — two courtiers feud and demand you take a side,
+  or rule for neither and keep a fair peace.
+- **A Stranger Seeks Service** — a hedge-knight, exiled scholar, merchant's
+  daughter, or disgraced spymaster asks a place; take the talent (and the risk).
+- **A Loyal Servant Asks a Boon** — reward loyalty, or teach the hall what refusal
+  costs.
+- **The Wandering Friar** — alms and piety, obedience, or the gate.
+- **A Child of Promise** — a gifted young heir, and how you raise them.
+These ride the existing action-triggered event engine, so the more you hold court,
+the more the realm's small dramas find you.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

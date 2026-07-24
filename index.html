@@ -3488,6 +3488,63 @@ const EVENTS = [
     {t:'Appoint him. (+1 order for the coming year)', fx:()=>{ grantOrders(1,4,'An able seneschal'); }},
     {t:'You prefer to hold every rein yourself. (+4 prestige)', fx:()=>{ PRL().prs+=4; }},
   ]})},
+
+/* ===== Court: petitions, disputes, and arrivals when you convene ===== */
+{id:'courtpetition', w:8, trig:['court','crowncourt'], cond:()=>realmProvs(G.player).length>=1, run:()=>{
+  const p=pick(realmProvs(G.player));
+  return { title:'A Petition at Court',
+  text:`The commons of ${PROVDATA[p].n} kneel before your seat: a hard winter, a broken mill, a lord who taxes past the bone. They beg relief, and the whole hall watches what a ${PR().sex==='m'?'king':'queen'} does with mercy.`,
+  choices:[
+    {t:'Grant relief and remit their dues. (−6 gold, +7 legitimacy)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-6); PRL().leg=clamp(PRL().leg+7,0,100); }},
+    {t:'Hear them, and give fair judgement. (+4 legitimacy)', fx:()=>{ PRL().leg=clamp(PRL().leg+4,0,100); }},
+    {t:'The crown is not a charity. Send them home. (+5 gold, −5 legitimacy)', fx:()=>{ PRL().gold+=5; PRL().leg=clamp(PRL().leg-5,0,100); }},
+  ]};}},
+{id:'courtdispute', w:7, trig:['court'], cond:()=>myCourt().filter(c=>alive(c)&&c.id!==PR().id).length>=2, run:()=>{
+  const two=myCourt().filter(c=>alive(c)&&c.id!==PR().id).sort(()=>R()-.5).slice(0,2);
+  const [a,b]=two;
+  return { title:'A Quarrel Before the Throne',
+  text:`${fullName(a)} and ${fullName(b)} have come to open feud — over land, or honour, or a slight neither will name — and each demands you take their part. The hall leans in; whichever way you rule, one of them will remember.`,
+  choices:[
+    {t:`Find for ${esc(fullName(a))}.`, fx:()=>{ addOp(a,PR().id,18); addOp(b,PR().id,-15); }},
+    {t:`Find for ${esc(fullName(b))}.`, fx:()=>{ addOp(b,PR().id,18); addOp(a,PR().id,-15); }},
+    {t:'Hear both, and rule for neither — a fair peace. (+5 legitimacy, both cool)', fx:()=>{ PRL().leg=clamp(PRL().leg+5,0,100); addOp(a,PR().id,-3); addOp(b,PR().id,-3); }},
+  ]};}},
+{id:'courtarrival', w:6, trig:['court','feast'], cond:()=>myCourt().length<18, run:()=>{
+  const kind=pick(['a hedge-knight of no land and much sword','a scholar exiled from a burning university','a merchant’s clever daughter with a head for numbers','a disgraced spymaster from a rival court']);
+  const sk=kind.includes('sword')?'mar':kind.includes('scholar')?'dip':kind.includes('numbers')?'ste':'int';
+  return { title:'A Stranger Seeks Service',
+  text:`Into your hall comes ${kind}, asking a place at your court. Talent is where you find it — and so is treachery.`,
+  choices:[
+    {t:'Take them into your service.', fx:()=>{ const c=mkCourtier(G.player); if(c){ c.sk[sk]=Math.min(9,c.sk[sk]+3); addOp(c,PR().id,15); toast(`A newcomer joins your court`); } }},
+    {t:'A quiet purse to move along. (−4 gold)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-4); }},
+    {t:'Turn them away.', fx:()=>{}},
+  ]};}},
+{id:'courtboon', w:5, trig:['court','crowncourt'], cond:()=>myCourt().some(c=>alive(c)&&c.id!==PR().id&&opinion(c,PR())>=25), run:()=>{
+  const loyal=pick(myCourt().filter(c=>alive(c)&&c.id!==PR().id&&opinion(c,PR())>=25));
+  return { title:'A Loyal Servant Asks a Boon',
+  text:`${fullName(loyal)}, who has served you well, kneels with a request — a small honour, a word for a kinsman, a token of your favour. To grant it costs little; to refuse it teaches the whole court the price of loyalty.`,
+  choices:[
+    {t:'Grant it gladly. (−3 gold, +15 their loyalty, court warms)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-3); addOp(loyal,PR().id,15); for(const c of myCourt()) addOp(c,PR().id,2); }},
+    {t:'A kind word, but no more. (+5 their loyalty)', fx:()=>{ addOp(loyal,PR().id,5); }},
+    {t:'Refuse. Favour is not owed. (−12 their loyalty)', fx:()=>{ addOp(loyal,PR().id,-12); }},
+  ]};}},
+{id:'wanderingfriar', w:4, trig:['court','rome'], cond:()=>PRL().rel!=='pagan', run:()=>({
+  title:'The Wandering Friar',
+  text:`A road-worn friar preaches in your courtyard — of humility, of the wickedness of princes, of a kingdom not of this earth. The commons weep; your nobles fidget; your steward wonders who is paying for the bread he eats.`,
+  choices:[
+    {t:'Give him alms and a blessing. (−4 gold, +6 piety)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-4); pietyGain(G.player,6); }},
+    {t:'Set him to preach obedience as well as humility. (+4 legitimacy)', fx:()=>{ PRL().leg=clamp(PRL().leg+4,0,100); }},
+    {t:'Run him out of the gates. (−5 piety, the pious mutter)', fx:()=>{ PRL().piety=clamp((PRL().piety||0)-5,0,100); }},
+  ]})},
+{id:'omenchild', w:3, cond:()=>myKids().some(k=>age(k)>=3&&age(k)<=10), run:()=>{
+  const k=pick(myKids().filter(x=>age(x)>=3&&age(x)<=10));
+  return { who:k.id, title:'A Child of Promise',
+  text:`Those who watch such things say your ${k.sex==='m'?'son':'daughter'} ${fullName(k)} is a child apart — quick, fearless, strange in the way that great ${k.sex==='m'?'men':'women'} are said to be as children. Or perhaps it is only a proud parent's eye. How are they raised?`,
+  choices:[
+    {t:'In the yard, with sword and horse. (grows toward Martial)', fx:()=>{ k.sk.mar=Math.min(9,k.sk.mar+1); k._lean='mar'; }},
+    {t:'With tutors, letters and law. (grows toward Diplomacy)', fx:()=>{ k.sk.dip=Math.min(9,k.sk.dip+1); k._lean='dip'; }},
+    {t:'At the steward’s knee, among the ledgers. (grows toward Stewardship)', fx:()=>{ k.sk.ste=Math.min(9,k.sk.ste+1); k._lean='ste'; }},
+  ]};}},
 ];
 function fireEvents(scriptedOnly){
   const eligible = EVENTS.filter(e=>{
