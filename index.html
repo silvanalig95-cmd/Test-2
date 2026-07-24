@@ -118,9 +118,20 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 #log .war::before{content:"⚔ "; opacity:.7} #log .plot::before{content:"🗡 "; opacity:.7} #log .court::before{content:"❧ "; opacity:.7}
 
 /* ---------- tabs & rows ---------- */
-.tabs{display:flex; flex-wrap:wrap; gap:4px; margin-bottom:9px}
-.tabs button{flex:1 1 21%; min-width:58px; font-size:11px; padding:4px 2px; font-family:var(--disp); letter-spacing:.5px; text-transform:uppercase}
+.tabs{display:flex; flex-wrap:wrap; align-items:center; gap:3px; margin-bottom:9px}
+.tabs button{position:relative; flex:1 1 auto; min-width:52px; font-size:10.5px; padding:4px 3px; font-family:var(--disp); letter-spacing:.4px; text-transform:uppercase}
 .tabs button.on{background:linear-gradient(#8c3a31,#6d251f); color:#f3e6c8; border-color:#4c1712}
+.tabDiv{flex:0 0 auto; width:1px; align-self:stretch; margin:2px 2px; background:linear-gradient(rgba(60,45,20,0), rgba(60,45,20,.35), rgba(60,45,20,0))}
+.tabDot{display:none; position:absolute; top:3px; right:3px; width:7px; height:7px; border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, #ffe08a, #c99a2a); box-shadow:0 0 0 1px rgba(80,55,10,.6), 0 0 5px rgba(255,210,110,.9)}
+.tabDot.has{display:block}
+.tabs button.on .tabDot{display:none}
+.statMeter{margin:3px 0 6px}
+.statMeter .smTop{display:flex; justify-content:space-between; font-size:12px; margin-bottom:2px}
+.statMeter .smBar{position:relative; height:9px; border-radius:5px; background:rgba(43,32,19,.2); overflow:hidden}
+.statMeter .smFill{height:100%; border-radius:5px; transition:width .3s}
+.statMeter .smMark{position:absolute; top:-1px; width:2px; height:11px; background:rgba(43,32,19,.55)}
+.actGroupHd{font-family:var(--disp); font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink2); margin:8px 0 3px; opacity:.8}
 .charRow{display:flex; align-items:center; gap:8px; padding:5px 4px; border-bottom:1px dotted var(--line);
   cursor:pointer; border-radius:3px; transition:background .12s}
 .charRow:hover{background:rgba(255,250,220,.6)}
@@ -433,6 +444,7 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
     <span id="goldBox" data-tip="Gold — buildings, mercenaries, bribes"></span>
     <span id="prsBox" data-tip="Prestige — marriages, claims, coronation"></span>
     <span id="legBox" data-tip="Legitimacy — keeps nobles and clergy in line"></span>
+    <span id="pietyBox" data-tip="Piety — standing with your faith"></span>
     <span id="apBox" data-tip="Action points this season"></span>
   </div>
   <div class="spacer"></div>
@@ -448,15 +460,17 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
 <div id="main">
   <div class="panel" id="leftPanel">
     <div class="tabs">
-      <button id="tabDyn" class="on" onclick="UI.tab('dyn')">Dynasty</button>
-      <button id="tabCourt" onclick="UI.tab('court')">Court</button>
-      <button id="tabCouncil" onclick="UI.tab('council')">Council</button>
-      <button id="tabFaith" onclick="UI.tab('faith')">Faith</button>
-      <button id="tabWars" onclick="UI.tab('wars')">Wars</button>
-      <button id="tabTreasury" onclick="UI.tab('treasury')">Treasury</button>
-      <button id="tabRelations" onclick="UI.tab('relations')">Relations</button>
-      <button id="tabPlots" onclick="UI.tab('plots')">Plots</button>
-      <button id="tabEmpire" onclick="UI.tab('empire')">Empire</button>
+      <button id="tabDyn" class="on" onclick="UI.tab('dyn')" data-grp="Court &amp; Kin">Dynasty<i class="tabDot"></i></button>
+      <button id="tabCourt" onclick="UI.tab('court')" data-grp="Court &amp; Kin">Court<i class="tabDot"></i></button>
+      <button id="tabCouncil" onclick="UI.tab('council')" data-grp="Court &amp; Kin">Council<i class="tabDot"></i></button>
+      <button id="tabFaith" onclick="UI.tab('faith')" data-grp="Court &amp; Kin">Faith<i class="tabDot"></i></button>
+      <span class="tabDiv"></span>
+      <button id="tabTreasury" onclick="UI.tab('treasury')" data-grp="Realm">Treasury<i class="tabDot"></i></button>
+      <span class="tabDiv"></span>
+      <button id="tabRelations" onclick="UI.tab('relations')" data-grp="Statecraft">Relations<i class="tabDot"></i></button>
+      <button id="tabWars" onclick="UI.tab('wars')" data-grp="Statecraft">Wars<i class="tabDot"></i></button>
+      <button id="tabPlots" onclick="UI.tab('plots')" data-grp="Statecraft">Plots<i class="tabDot"></i></button>
+      <button id="tabEmpire" onclick="UI.tab('empire')" data-grp="Statecraft">Empire<i class="tabDot"></i></button>
     </div>
     <div id="leftBody"></div>
   </div>
@@ -3668,6 +3682,11 @@ const UI = {
     document.getElementById('goldBox').onclick = ()=>UI.tab('treasury');
     document.getElementById('prsBox').innerHTML = `☀ <b>${Math.floor(R_.prs)}</b><i class="resLbl"> prestige</i>`;
     document.getElementById('legBox').innerHTML = `✠ <b>${Math.floor(R_.leg)}</b><i class="resLbl"> legitimacy</i>`;
+    { const P = Math.round(R_.piety||0); const dpy = pietyChange(G.player);
+      const pb = document.getElementById('pietyBox');
+      pb.innerHTML = `☩ <b>${P}</b><i class="resLbl"> piety</i>`;
+      pb.style.cursor='pointer'; pb.onclick=()=>UI.tab('faith');
+      pb.setAttribute('data-tip', (`<b>Piety ${P}</b> — your standing with ${esc(RELAUTH[R_.rel])}.<br>${dpy>=0?'<span class=pos>Rising</span>':'<span class=neg>Waning</span>'} by ~${Math.abs(Math.round(dpy*10)/10)} a year. Spend it in the <b>Faith</b> tab on holy wars, missions, and blessings; let it collapse and Rome may cast you out.`).replace(/"/g,'&quot;')); }
     { const pen = Math.round((1-legFactor(G.player))*100);
       const w = R_.leg>=70?'<span class=pos>Your crown sits secure; the nobles are content.</span>':R_.leg>=50?'Your rule is accepted, if not beloved.':R_.leg>=35?'<span class=neg>Discontent stirs — plotters find willing hands.</span>':'<span class=neg>Your grip is failing — revolt and deposition loom.</span>';
       const tip = `<b>Legitimacy ${Math.floor(R_.leg)}</b> — how rightful men hold your rule.<br>${w}<br><br>It stiffens your defence against rebellion and deposition. ${pen>0?`<span class=neg>Disrespected vassals withhold their spears — your levies are cut ${pen}% right now.</span>`:'Your vassals answer the muster in full.'}<br>Below 40 the commons may revolt; below 30 Rome may cast you out. It drifts toward 50 yearly — cathedrals, a strong chaplain, crown-courts and just rule raise it.`;
@@ -3688,6 +3707,23 @@ const UI = {
       Array.from({length:oMax},(_,i)=>`<span class="apPip${i<oLeft?' on':''}" data-tip="${esc(otip)}">⚡</span>`).join('') +
       (oLeft===0?` <span class="apNone">all spent — end the season</span>`:'');
     document.getElementById('endBtn').disabled = !!G.over;
+    this.refreshTabBadges();
+  },
+  refreshTabBadges(){
+    const R=PRL(); if(!R) return;
+    const set=(id,on)=>{ const b=document.getElementById(id); if(b){ const d=b.querySelector('.tabDot'); if(d) d.classList.toggle('has', !!on); } };
+    const emptySeat = ['marshal','steward','spymaster','chaplain'].some(s=>{ const c=R.council[s]&&ch(R.council[s]); return !c||!alive(c); });
+    set('tabCouncil', emptySeat);
+    set('tabFaith', !R.excomm && Game.can() && !G.flags['rome'+G.year] && R.gold>=15);
+    set('tabWars', atWar(G.player).length>0);
+    let empAct=false;
+    if(G.empire && Game.can()){
+      if(isEmperor(G.player)) empAct = !G.flags['diet'+G.year];
+      else if(empMember(G.player)||G.empire.pretender===G.player) empAct = R.prs>=60;
+      else if(R.rel==='catholic') empAct = realmProvs(G.player).length>=G.impThresh && R.prs>=80;
+    }
+    set('tabEmpire', empAct);
+    set('tabCourt', Game.can() && myCourt().some(c=>c.id!==PR().id && !c.sp && age(c)>=16 && c.dyn===PR().dyn));
   },
   provTip(pid){
     const pd = PROVDATA[pid], st = pv(pid);
@@ -4329,9 +4365,15 @@ const UI = {
     h += `<div class="kv"><span>Succession law</span><b>${R_.law==='elective'?'Elective':'Primogeniture'}</b></div>`;
     { const wf = realmWrongFaith(G.player).length;
       h += `<div class="kv" style="cursor:pointer" onclick="Game.faith()" data-tip="Your faith and your piety — standing with ${esc(RELAUTH[R_.rel])}. Tend it to earn piety; spend it on holy wars, missions, and blessings.${wf?' '+wf+' of your provinces keep another faith and yield grudgingly until converted.':''}"><span>Faith</span><b>${RELICO[R_.rel]} ${RELNAME[R_.rel]} <span class="hint" style="margin:0">☩${Math.round(R_.piety||0)}${wf?' · '+wf+'✝?':''}</span></b></div>`; }
-    { const s = R_.leg>=70?['Secure','pos']:R_.leg>=50?['Accepted','']:R_.leg>=35?['Uneasy','neg']:['Precarious','neg'];
-      const pen = Math.round((1-legFactor(G.player))*100);
-      h += `<div class="kv" data-tip="Hover the ✠ legitimacy in the top bar for what it governs${pen>0?'. Low legitimacy is cutting your levies '+pen+'% right now':''}"><span>Crown’s standing</span><b class="${s[1]}">${s[0]} <span class="hint" style="margin:0">✠${Math.floor(R_.leg)}${pen>0?' · levies −'+pen+'%':''}</span></b></div>`;
+    { const leg=Math.floor(R_.leg), pen=Math.round((1-legFactor(G.player))*100);
+      const lw = leg>=70?'Secure':leg>=50?'Accepted':leg>=35?'Uneasy':'Precarious';
+      const lc = leg>=70?'#4a8f4a':leg>=50?'#b28a2a':leg>=35?'#b0703a':'#a03a2a';
+      const ltip = `Legitimacy — how rightful men hold your rule. Below 40 the commons may revolt; below 30 Rome may cast you out.${pen>0?' Low legitimacy cuts your levies '+pen+'% now.':''} The marks are 40 (danger) and 85 (an extra order).`;
+      h += `<div class="statMeter" data-tip="${esc(ltip)}"><div class="smTop"><span>✠ Legitimacy</span><b class="${leg>=50?'pos':'neg'}">${leg} · ${lw}${pen>0?' <span class="hint" style="margin:0">levies −'+pen+'%</span>':''}</b></div>
+        <div class="smBar"><div class="smFill" style="width:${leg}%;background:${lc}"></div><div class="smMark" style="left:40%"></div><div class="smMark" style="left:85%"></div></div></div>`;
+      const P=Math.round(R_.piety||0), dpy=pietyChange(G.player);
+      h += `<div class="statMeter" style="cursor:pointer" onclick="UI.tab('faith')" data-tip="${esc('Piety — standing with '+RELAUTH[R_.rel]+'. '+(dpy>=0?'Rising':'Waning')+' about '+Math.abs(Math.round(dpy*10)/10)+' a year. Spend it in the Faith tab on holy wars, missions and blessings.')}"><div class="smTop"><span>☩ Piety</span><b>${P} <span class="hint" style="margin:0">${dpy>=0?'▲':'▼'}${Math.abs(Math.round(dpy*10)/10)}/yr</span></b></div>
+        <div class="smBar"><div class="smFill" style="width:${P}%;background:#8a76c0"></div></div></div>`;
       const rn = R_.prs>=2500?'legendary':R_.prs>=200?'illustrious':R_.prs>=100?'respected':'minor';
       h += `<div class="kv" data-tip="Hover the ☀ prestige in the top bar for what renown buys"><span>House renown</span><b>${rn.charAt(0).toUpperCase()+rn.slice(1)} <span class="hint" style="margin:0">☀${Math.floor(R_.prs)}</span></b></div>`; }
     { const others = Object.values(G.realms).filter(r=>!r.dead && r.id!==G.player && ruler(r.id));
@@ -4339,9 +4381,8 @@ const UI = {
       const nRiv = others.filter(r=>isRival(r.id)).length;
       h += `<div class="kv" style="cursor:pointer" onclick="UI.tab('relations')"><span>Allies / Rivals</span><b><span class="${nAl?'pos':''}">${nAl}</span> / <span class="${nRiv?'neg':''}">${nRiv}</span></b></div>`; }
     if(R_.excomm) h += `<div class="kv"><span>Standing with Rome</span><b class="neg">EXCOMMUNICATE</b></div>`;
-    h += `<div class="actBtns">
+    h += `<div class="actGroupHd">Court &amp; Ceremony</div><div class="actBtns">
       <button onclick="Game.act('feast')" ${!Game.can('feast')||R_.gold<10||G.flags['feast'+G.year]?'disabled':''} data-tip="${G.flags['feast'+G.year]?'You have already held your great feast this year':'+10 prestige, +6 opinion with all the court · once a year'}">Host a feast (⚡ 10🪙)</button>
-      <button onclick="Game.act('retinue')" ${!Game.can('retinue')||R_.gold<12?'disabled':''} data-tip="+100 permanent soldiers who fight year-round. Upkeep 0.5🪙/season; they join your next muster">Recruit retinue +100 (⚡ 12🪙)</button>
       <button onclick="Game.act('court')" ${!Game.can('court')||G.flags['court'+G.year]?'disabled':''} data-tip="${G.flags['court'+G.year]?'You have already convened the court this year':'+4 legitimacy, a courtier warms to you · once a year'}">Convene court (⚡)</button>
       ${[
         `<button class="seasonal" onclick="Game.act('tourney2')" ${!Game.can('tourney2')||R_.gold<12||G.flags['sa'+G.year]?'disabled':''} data-tip="Spring only: lances, wagers and glory. +12 prestige, court +4 opinion">🏇 Spring tournament (⚡ 12🪙)</button>`,
@@ -4349,9 +4390,14 @@ const UI = {
         `<button class="seasonal" onclick="Game.act('harvest')" ${!Game.can('harvest')||G.flags['sa'+G.year+'a']?'disabled':''} data-tip="Autumn only: squeeze the harvest. +${realmProvs(G.player).filter(p=>!pv(p).occ).length} gold now; court -4 opinion, -3 legitimacy">🌾 Harvest levy (⚡)</button>`,
         `<button class="seasonal" onclick="Game.act('crowncourt')" ${!Game.can('crowncourt')||R_.gold<8||G.flags['sa'+G.year+'w']?'disabled':''} data-tip="Winter only: the solemn crown-wearing. +8 legitimacy, court +6 opinion">👑 Crown Court (⚡ 8🪙)</button>`,
       ][G.season]}
+    </div>
+    <div class="actGroupHd">The Church</div><div class="actBtns">
       ${R_.rel==='catholic' && R_.excomm
         ? `<button onclick="Game.act('rome')" ${!Game.can('rome')||R_.gold<40?'disabled':''} data-tip="Barefoot in the snow if need be">☩ Reconcile with Rome (⚡ 40🪙)</button>`
         : `<button onclick="Game.faith()" ${!Game.can()?'disabled':''} data-tip="Open the faith: endow the Church for piety & legitimacy, proclaim a holy war, send missionaries, or bless your heir">${RELICO[R_.rel]} The Faith — ☩${Math.round(R_.piety||0)} piety (⚡)</button>`}
+    </div>
+    <div class="actGroupHd">Crown &amp; Realm</div><div class="actBtns">
+      <button onclick="Game.act('retinue')" ${!Game.can('retinue')||R_.gold<12?'disabled':''} data-tip="+100 permanent soldiers who fight year-round. Upkeep 0.5🪙/season; they join your next muster">Recruit retinue +100 (⚡ 12🪙)</button>
       <button onclick="Game.act('law')" ${!Game.can('law')||R_.prs<50||G.flags['law'+PR().id]?'disabled':''} data-tip="Once per ruler. Elective: magnates crown the ablest adult of the blood — no child regencies, but your sons may be passed over. Costs 50 ☀ and 10 ✠.">⚖ Adopt ${R_.law==='elective'?'primogeniture':'elective succession'} (⚡ 50☀)</button>
     </div>`;
     if(isEmperor(G.player) && provs.length>=G.impThresh && !G.over){

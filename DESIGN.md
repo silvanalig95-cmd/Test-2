@@ -899,6 +899,28 @@ Interface and clarity work.
   the how-to-rule screen gained short sections on Faith &amp; People, the Empire,
   and making peace by negotiation.
 
+### v5.2 — an evolutionary interface pass (SHIPPED)
+Keeping the 3-column parchment shell but tidying the information architecture,
+and adding a discovery layer over thematically-placed actions.
+- **Piety in the top bar.** The at-a-glance state now carries all four core
+  values — gold, prestige, legitimacy, and piety — with a tooltip and a click to
+  the Faith tab. Piety was previously buried.
+- **The realm sheet reads as a dashboard.** Legitimacy and piety are now compact
+  **meters** (legitimacy coloured by how secure the crown is, with danger/‑bonus
+  marks at 40 and 85; piety in faith-purple with its yearly drift), instead of
+  bare numbers in a list.
+- **A grouped, signposted tab bar.** The nine tabs are now clustered — *Court &amp;
+  Kin* (Dynasty/Court/Council/Faith) · *Realm* (Treasury) · *Statecraft*
+  (Relations/Wars/Plots/Empire) — with thin dividers. And each tab shows a small
+  gold **badge dot** when there's an available action there: an empty council
+  seat, an affordable holy work, a contestable election, a match to arrange, a
+  war to negotiate. The eye is guided to *where* to act without any central list.
+- **The discovery principle.** Actions stay in their thematic homes; the advisor,
+  the universal ⚡ order-glyph, the tab badges, and selection-driven context form
+  a discovery layer that points to them. The realm's own actions are now split
+  under subheaders — *Court &amp; Ceremony · The Church · Crown &amp; Realm* — so a
+  cluster of buttons reads as organised rather than a pile.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
