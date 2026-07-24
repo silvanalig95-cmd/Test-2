@@ -261,6 +261,18 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
 .tglyph{stroke:rgba(40,28,10,.4); fill:none; stroke-width:1.5; pointer-events:none}
 #zoomCtl{position:absolute; right:12px; top:12px; display:flex; flex-direction:column; gap:5px; z-index:6}
 #zoomCtl button{width:30px; height:30px; padding:0; font-size:16px; font-family:Georgia,serif}
+#mapModes{position:absolute; left:12px; top:12px; display:flex; gap:0; z-index:6; box-shadow:0 1px 5px rgba(30,20,8,.35); border-radius:5px; overflow:hidden}
+#mapModes button{padding:4px 10px; font-size:11.5px; font-family:var(--disp); letter-spacing:.5px; border:none; border-right:1px solid rgba(30,20,8,.25);
+  background:linear-gradient(#efe6cd,#ddcca2); color:#3a2c14; cursor:pointer}
+#mapModes button:last-child{border-right:none}
+#mapModes button.on{background:linear-gradient(#c9b06a,#b2953f); color:#2b2013; font-weight:bold; text-shadow:0 1px 0 rgba(255,255,255,.25)}
+#mapLegend{position:absolute; left:12px; top:44px; z-index:6; display:none; flex-direction:column; gap:2px;
+  background:rgba(238,227,196,.92); border:1px solid #8a6d1f; border-radius:5px; padding:6px 9px; font-size:11px; color:#3a2c14; max-width:170px; box-shadow:0 1px 5px rgba(30,20,8,.3)}
+#mapLegend.show{display:flex}
+#mapLegend .lgRow{display:flex; align-items:center; gap:6px}
+#mapLegend .lgSw{width:12px; height:12px; border-radius:2px; border:1px solid rgba(30,20,8,.4); flex:0 0 auto}
+#mapLegend .lgHd{font-family:var(--disp); font-weight:bold; letter-spacing:.5px; margin-bottom:2px}
+.provPath.mineOverlay{stroke:#2b2013; stroke-width:1.6}
 #mapWrap{touch-action:none}
 .tglyphF{fill:rgba(35,50,18,.35); stroke:none; pointer-events:none}
 
@@ -455,6 +467,12 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
       <button data-tip="Zoom out" onclick="UI.zoom(1.28)">－</button>
       <button data-tip="Whole map" onclick="UI.resetView()">⌂</button>
     </div>
+    <div id="mapModes">
+      <button id="mmRealm" class="on" data-tip="Colour the map by realm — the political map" onclick="UI.setMapMode('realm')">Realms</button>
+      <button id="mmFaith" data-tip="Colour every province by its faith — spot the land that spurns your religion" onclick="UI.setMapMode('faith')">Faith</button>
+      <button id="mmCulture" data-tip="Colour every province by its people — see cultural borders and unassimilated land" onclick="UI.setMapMode('culture')">Culture</button>
+    </div>
+    <div id="mapLegend"></div>
   </div>
   <div class="panel" id="rightPanel"><div id="rightBody"></div></div>
 </div>
@@ -509,6 +527,10 @@ const STATICO = { gold:'🪙', prestige:'☀', legitimacy:'✠', opinion:'♥', 
 const SKILLICO = { dip:'🕊', mar:'⚔', int:'🗡', ste:'🔑' };
 const RELICO = { catholic:'✝', orthodox:'☦', muslim:'☪', pagan:'🌙' };
 const RELNAME = { catholic:'Catholic', orthodox:'Orthodox', muslim:'Muslim', pagan:'Pagan' };
+const FAITH_COL = { catholic:'#d8c27a', orthodox:'#9a6ab0', muslim:'#3f9e6a', pagan:'#8a7a55' };
+const CULT_COL = { saxon:'#b0913f', norman:'#5a76a8', norse:'#7d5aa0', celtic:'#4f8f6b', german:'#7f7f92',
+  iberian:'#c07850', italian:'#c9a94a', greek:'#a04d8f', slav:'#6b8f3f', magyar:'#a86a3f',
+  turkic:'#3f9a9a', arabic:'#3f8f5f', berber:'#8f8f4e', baltic:'#6b7d9a' };
 function relOf(c){ const r = c && c.realm && rl(c.realm); return (r && r.rel) || 'catholic'; }
 function traitChips(c){
   return c.tr.map(t=>`<span class="trait ${TRAITS[t].opn<0?'bad':''}" data-tip="${esc(TRAITS[t].d)}">${cap(t)}</span>`).join('');
@@ -3652,7 +3674,7 @@ const UI = {
       document.getElementById('legBox').setAttribute('data-tip', tip.replace(/"/g,'&quot;')); }
     { const liv = Object.values(G.realms).filter(x=>!x.dead && ruler(x.id));
       const rank = liv.filter(x=>x.prs > R_.prs).length + 1;
-      const tip = `<b>Prestige ${Math.floor(R_.prs)}</b> — the renown of your house (rank <b>${rank} of ${liv.length}</b> in the known world).<br>Renowned houses win better marriages and alliances, cow plotters, and awe their neighbours.<br><br>At <b>200</b> prestige (and ${G.impThresh} provinces) the bishops will crown you Emperor — a victory. At <b>2500</b> your name alone wins the age. Feasts, tournaments, victories, relics and holy deeds raise it.`;
+      const tip = `<b>Prestige ${Math.floor(R_.prs)}</b> — the renown of your house (rank <b>${rank} of ${liv.length}</b> in the known world).<br>Renowned houses win better marriages and alliances, cow plotters, sway prince-electors, and awe their neighbours.<br><br>Hold the <b>Imperial title</b> (won in the Empire tab) with ${G.impThresh} provinces and 200 prestige to be crowned and win the age; or reach <b>2500</b> prestige and your name alone wins it. Feasts, tournaments, victories, relics and holy deeds raise it.`;
       document.getElementById('prsBox').setAttribute('data-tip', tip.replace(/"/g,'&quot;')); }
     document.getElementById('endBtn').innerHTML = `End ${SEASONS[G.season]} ⏵`;
     const oMax = G.ordersMax||0, oLeft = G.ordersLeft||0, seats = councilSize(G.player);
@@ -3672,6 +3694,7 @@ const UI = {
     let t = `<b>${esc(pd.n)}</b><br>${st.r&&rl(st.r)?esc(rl(st.r).n):'—'}`;
     if(st.occ) t += ` · <span class="neg">occupied by ${esc(rl(st.occ).n)}</span>`;
     t += `<br>${TERRAIN[pd.t].n} · ${STATICO.dev}${st.dev} · ${st.bld?BUILDINGS[st.bld].ico+' '+BUILDINGS[st.bld].n:'no building'}`;
+    t += `<br>${RELICO[st.rel]} ${RELNAME[st.rel]} · ${esc(cap(st.cult||''))}${st.r&&rl(st.r)&&st.rel!==rl(st.r).rel?' <span class="neg">(faith not the realm’s)</span>':''}${st.r&&rl(st.r)&&st.cult!==rl(st.r).cult?' <span class="neg">(foreign culture)</span>':''}`;
     t += `<br>Levies ${fmtN(levyOf(pid))} · Tax ${taxOf(pid)}/season`;
     const here = G.armies.filter(a=>a.prov===pid);
     for(const a of here) t += `<br>⚔ ${esc(rl(a.realm).n)} host — ${fmtN(armySize(a))}${a.siege?` (siege ${Math.min(99,Math.round(a.siege))}%)`:''}`;
@@ -3770,6 +3793,25 @@ const UI = {
     svg.innerHTML = h;
   },
   tokScale(){ const w = (this.view&&this.view.w)||1000; return clamp(Math.sqrt(w/620), .5, 1.15); },
+  mapMode:'realm',
+  setMapMode(m){
+    this.mapMode = m;
+    for(const [k,id] of [['realm','mmRealm'],['faith','mmFaith'],['culture','mmCulture']]){ const b=document.getElementById(id); if(b) b.classList.toggle('on', k===m); }
+    this.renderMapLegend(); this.renderMapDynamic();
+  },
+  renderMapLegend(){
+    const el=document.getElementById('mapLegend'); if(!el) return;
+    const m=this.mapMode||'realm';
+    if(m==='realm'){ el.classList.remove('show'); el.innerHTML=''; return; }
+    const present=new Set();
+    for(const pid in G.provinces){ if(PROVDATA[pid]&&PROVDATA[pid].waste) continue; const st=pv(pid); present.add(m==='faith'?st.rel:st.cult); }
+    const pal = m==='faith'?FAITH_COL:CULT_COL;
+    const nameOf = m==='faith'?(k=>`${RELICO[k]} ${RELNAME[k]}`):(k=>cap(k));
+    let rows=`<div class="lgHd">${m==='faith'?'By faith':'By people'}</div>`;
+    for(const k of Object.keys(pal)) if(present.has(k)) rows+=`<div class="lgRow"><span class="lgSw" style="background:${pal[k]}"></span>${nameOf(k)}</div>`;
+    rows+=`<div class="lgRow" style="margin-top:3px"><span class="lgSw" style="border:1.6px solid #2b2013;background:transparent"></span>your realm</div>`;
+    el.innerHTML=rows; el.classList.add('show');
+  },
   renderMapDynamic(){
     const svg = document.getElementById('mapSvg'); if(!svg) return;
     /* occupation stripe patterns for whoever currently holds foreign ground */
@@ -3792,12 +3834,16 @@ const UI = {
       const el = document.getElementById('p_'+pid); if(!el) continue;
       const st = pv(pid);
       if(pd.waste){ el.setAttribute('class', 'provPath waste' + (hlRealm?' dimmed':'')); continue; }
-      let fill;
-      if(st.occ) fill = `url(#occ_${st.occ})`;
+      const mode = this.mapMode||'realm';
+      let fill, mineMark=false;
+      if(mode==='faith'){ fill = FAITH_COL[st.rel] || '#8a8a80'; mineMark = st.r===G.player; }
+      else if(mode==='culture'){ fill = CULT_COL[st.cult] || '#8a8a80'; mineMark = st.r===G.player; }
+      else if(st.occ) fill = `url(#occ_${st.occ})`;
       else if(st.r && rl(st.r)){ const f = [0.9,0.95,1.0,1.05,1.1][this.dynHash(pid)%5]; fill = this.shade(rl(st.r).col, f); }
       else fill = '#8a8a80';
-      const inHl = hlRealm && st.r===hlRealm;
-      const cls = 'provPath' + (selProv===pid?' sel':'') + (inHl&&selProv!==pid?' hlRealm':'') + (hlRealm&&!inHl?' dimmed':'') + (mtSet.has(pid)?' moveTarget':'');
+      const inHl = mode==='realm' && hlRealm && st.r===hlRealm;
+      const dim = mode==='realm' && hlRealm && !inHl;
+      const cls = 'provPath' + (selProv===pid?' sel':'') + (inHl&&selProv!==pid?' hlRealm':'') + (dim?' dimmed':'') + (mtSet.has(pid)?' moveTarget':'') + (mineMark?' mineOverlay':'');
       el.setAttribute('fill', fill);
       el.setAttribute('class', cls);
       el.setAttribute('data-tip', this.provTip(pid));
@@ -4318,7 +4364,7 @@ const UI = {
         : `The Imperial crown is closed to your faith.`;
       h += `<div class="hint">Toward victory — <b>empire:</b> ${emp} · <b>endure</b> to ${G.endYear} · <b>renown</b> ${Math.floor(R_.prs)}/2500 ☀. <span style="cursor:pointer;text-decoration:underline" onclick="UI.tab('empire')">The Empire ⚜</span></div>`;
     }
-    h += `<div class="hint">Your orders (⚡) are a shared pool — spend them on anything. You hold one for the crown and one for each seated councillor, so a full council lets you do more each season; an empty seat or a child's regency, less.</div>`;
+    h += `<div class="hint">Your orders (⚡) are a shared pool — spend them on anything. Two come from the crown, +1 for a working council (two or more advisors), +1 for a beloved crown (legitimacy 85+); a regency or a bare council gives fewer. A councillor sent on a mandate is occupied and drops from the count while away.</div>`;
     return h;
   },
   provHtml(pid){
@@ -4500,7 +4546,9 @@ const UI = {
   help(){
     this.modal('How to Rule',
     `<h3>The Dynasty</h3>You are a family, not a nation. Lose your last province or your last dynast and the chronicle closes. Heirs, marriages, and legitimacy are life itself.<br><br>
-    <h3>The Season</h3>Each season you have a pool of <b>orders</b> (⚡) to spend on anything — marriages, buildings, wars, plots, envoys. The pool is <b>one for the crown, plus one for every seated councillor</b>: a full council of four gives you five orders, an empty seat or a child's regency fewer. So keeping the council staffed with able people is not just about their skill bonuses — it is your capacity to act. Armies march once a season for free. Muster in spring, strike in summer; autumn and winter maul armies left in the field. Buildings take a year of construction.<br><br>
+    <h3>The Season</h3>Each season you have a small pool of <b>orders</b> (⚡) to spend on anything — marriages, buildings, wars, plots, envoys. You hold <b>two from the crown</b> (one in a regency), <b>+1 for a working council</b> (two or more seated advisors), and <b>+1 for a beloved crown</b> (legitimacy 85+); some events grant temporary extra orders. So a staffed, contented, legitimate realm simply does more each season. Armies march once a season for free. Muster in spring, strike in summer; autumn and winter maul armies left in the field. Buildings take a year of construction.<br><br>
+    <h3>Faith, People &amp; the Empire</h3>Your realm keeps a <b>faith</b> (piety, holy wars, missions — see the Faith tab) and a <b>people</b> (a martial, mercantile, or hardy ethos). Conquered land that spurns your faith pays and musters grudgingly until converted; land of a foreign people drags your legitimacy until it slowly assimilates. The <b>Holy Roman Empire</b> is an elective crown: court its seven prince-electors and win the Imperial title (Empire tab) — the road to a crowning victory.<br><br>
+    <h3>Making Peace</h3>Wars end by negotiation. Open <b>Negotiate peace</b> and each term — white peace, tribute, a ceded province, the whole crown — shows how likely the enemy is to accept it. The harder your demand, the higher your hand must be; when you're losing, you can pay them to depart, or surrender their full demands.<br><br>
     <h3>Hosts in the Field</h3>A large host can be <b>split</b> into two columns under separate captains — garrison a town with one while the other strikes — and co-located columns of yours can be <b>merged</b> to mass for battle. Muster raises fresh levies into a stack that already stands on the muster province, so reinforcement is a matter of mustering or merging.<br><br>
     <h3>Sieges</h3>March onto an undefended enemy province and the siege begins by itself: each season it advances by 30 + 2×your commander's ⚔ + fortune, minus 22 if the province has a castle. At 100% the province is occupied, your treasury takes its loot, and your war score climbs. Occupying everything forces even a stubborn enemy to yield.<br><br>
     <h3>The Game of Thrones</h3><b>Marriage</b> buys alliances · <b>claims</b> make war lawful (the monks can forge one) · <b>legitimacy</b> keeps your nobles honest · <b>opinion</b> decides who joins whose plot — and plots run always, including against you. Your spymaster is your shield; Rome can bless you or cast you out.<br><br>
@@ -5327,7 +5375,7 @@ const Game = {
     const card = SCENARIOS[scenId].cards[rid];
     if(card && card.brief){
       G.eventQueue.unshift({ title:'A Crown Is Heavy',
-        text:`<span class="dropcap">${card.brief}</span><br><br><em>Victory: be crowned Emperor at ${G.impThresh} provinces · keep the dynasty alive to ${G.endYear} · or amass 2500 ☀ prestige.<br>Space ends the season · F hurries quiet ones · Esc deselects · hover anything for detail. The Council Advises panel will point the way.</em>`,
+        text:`<span class="dropcap">${card.brief}</span><br><br><em>Victory: win the Imperial crown (Empire tab) and be crowned at ${G.impThresh} provinces · keep the dynasty alive to ${G.endYear} · or amass 2500 ☀ prestige.<br>Space ends the season · F hurries quiet ones · Esc deselects · hover anything for detail. The Council Advises panel will point the way.</em>`,
         choices:[{t:'To the matter at hand.', fx:()=>{}}]});
     }
     UI.tab('dyn');

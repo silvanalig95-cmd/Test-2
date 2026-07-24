@@ -880,6 +880,25 @@ must swallow it.
   concede. AI-only wars settle on graded terms too, and total occupation still
   forces submission as the backstop.
 
+### v5.1 — map view modes & a consistency pass (SHIPPED)
+Interface and clarity work.
+- **Map view modes.** A control at the top-left of the map switches the whole map
+  between **Realms** (the political map, as before), **Faith** (every province
+  coloured by its religion — Catholic gold, Orthodox purple, Muslim green, Pagan
+  brown), and **Culture** (coloured by people). Your own provinces keep a dark
+  border in the overlay modes, and a legend lists the faiths/peoples actually
+  present — so you can see at a glance which of your conquests spurn your faith or
+  keep a foreign tongue, the land the conversion/assimilation systems act on.
+- **Richer province tooltips.** Every province now shows its faith and people on
+  hover, flagged when they differ from the realm's.
+- **Consistency pass on stale text.** Several help and tooltip texts predated the
+  reworks and were quietly wrong. Fixed: the orders explanation (no longer "a
+  council of four gives five orders" — it now describes the flexible pool), the
+  prestige/victory tooltip and the opening briefing (the imperial victory now
+  correctly requires *winning the Imperial title*, not just province count), and
+  the how-to-rule screen gained short sections on Faith &amp; People, the Empire,
+  and making peace by negotiation.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
