@@ -1391,6 +1391,32 @@ function relationReasons(rid){
   return {realm:R_, rul, op, al, w, tr, sameF, crownClaim, landClaims, myClaims, factors, rival, threat};
 }
 function isRival(rid){ return relationReasons(rid).rival; }
+function sharedEnemy(rid){ return Object.values(G.realms).some(x=>!x.dead && x.id!==rid && x.id!==G.player && warBetween(x.id,G.player) && warBetween(x.id,rid)); }
+function allianceMargin(rid){
+  const R_=rl(rid), rul=ruler(rid), me=PR(); if(!rul||!me) return -100;
+  if(allianceBetween(rid,G.player)) return -100;
+  let m = opinion(rul, me);
+  if(R_.rel!==PRL().rel) m -= 25;
+  if(sharedEnemy(rid)) m += 30;                       /* a common foe binds courts fast */
+  m += Math.round((PRL().prs - R_.prs)/12);           /* the weak seek to shelter under the renowned */
+  m += skill(me,'dip')*2 + Math.round(focusOpinion(G.player)/2);
+  if(rul.tr.includes('content')) m += 6; if(rul.tr.includes('ambitious')) m -= 4; if(rul.tr.includes('honest')) m += 4;
+  if(atWar(G.player).length) m -= 12;                 /* wary of being dragged into your war */
+  return Math.round(m - 15);                           /* a standing pact is a real commitment */
+}
+function tributeSum(rid){ return clamp(Math.round(12 + realmStrength(rid)/300), 8, 45); }
+function tributeMargin(rid){
+  const R_=rl(rid), rul=ruler(rid); if(!rul) return -100;
+  const ratio = realmStrength(G.player)/Math.max(1, realmStrength(rid));
+  let m = (ratio-1)*45;                                /* your dominance over them */
+  if(G.armies.some(a=>a.realm===G.player && (PROVDATA[a.prov].adj||[]).some(q=>pv(q).r===rid))) m += 18; /* a host on their border */
+  m += Math.round(PRL().prs/50) - Math.round(R_.prs/40);
+  if(rul.tr.includes('craven')) m += 18; if(rul.tr.includes('content')) m += 8;
+  if(rul.tr.includes('brave')||rul.tr.includes('wrathful')) m -= 18;
+  if(R_.excomm) m += 10;
+  if(atWar(rid).length) m += 12;                       /* already fighting — cannot afford you too */
+  return Math.round(m - 12);
+}
 function aiFillCouncil(rid){
   const R_ = rl(rid);
   const court = Object.values(G.chars).filter(c=>alive(c)&&c.realm===rid&&c.id!==R_.ruler&&age(c)>=16);
@@ -4507,6 +4533,8 @@ const UI = {
       <button class="small" ${!Game.can('envoy')||G.flags['env'+rid+G.year]?'disabled':''} onclick="Game.act('envoy','${rid}')" data-tip="${G.flags['env'+rid+G.year]?'Already received this year — courts tire of flattery':'Improve their ruler’s opinion of you. One embassy per court per year.'}">Send envoy (⚡)</button>
       <button class="small" ${!Game.can('gift')||PRL().gold<10||G.flags['gift'+rid+G.year]?'disabled':''} onclick="Game.act('gift','${rid}')" data-tip="${G.flags['gift'+rid+G.year]?'Already sent gifts to this court this year':'+20 opinion with their ruler · once a year per court'}">Send gift (⚡ 10🪙)</button>
       <button class="small" ${!Game.can('marry')?'disabled':''} onclick="Game.marryMenu('${rid}')" data-tip="${(()=>{ const o2=rul?opinion(rul,PR()):0; const est=clamp(Math.round((o2+(PRL().prs-R_.prs)/8+(PRL().rank==='kingdom'?15:0)+skill(PR(),'dip')*3+focusAccept(G.player)+10)/50*100),2,98); return 'Their disposition: roughly '+est+'% likely to accept a fair match'; })()}">Arrange marriage (⚡)</button>`;
+    if(!al) h += `<button class="small" ${!Game.can()?'disabled':''} onclick="Game.proposeAlliance('${rid}')" data-tip="Offer a standing alliance without a marriage — weighed by their opinion, a shared enemy, and your renown">🤝 Propose alliance (⚡)</button>`;
+    h += `<button class="small" ${!Game.can()?'disabled':''} onclick="Game.demandTribute('${rid}')" data-tip="Threaten a weaker realm into paying tribute — coin now, but they will resent you (or defy you)">💰 Demand tribute (⚡)</button>`;
     for(const cl of claimants){
       h += `<button class="small" ${!Game.can('war')||tr||G.regency?'disabled':''} onclick="Game.act('war','${rid}','${cl.id}')" data-tip="${G.regency?'A regency cannot declare war':''}">⚔ Press ${esc(cl.nm)}’s claim (⚡)</button>`;
     }
@@ -4893,6 +4921,37 @@ const Game = {
     ]);
   },
   abandonPlot(pid){ G.plots = G.plots.filter(p=>p.id!==pid); UI.renderAll(); },
+  proposeAlliance(rid){
+    if(this.busy()) return;
+    const R_=rl(rid), rul=ruler(rid); if(!rul) return;
+    if(allianceBetween(rid,G.player)){ toast('You are already allied.'); return; }
+    if(warBetween(rid,G.player)){ toast('You are at war — make peace before you make a pact.'); return; }
+    if(R_.rel!==PRL().rel){ UI.modal('No Common Cause', `${esc(R_.n)} keeps the ${RELNAME[R_.rel]} rite and yours the ${RELNAME[PRL().rel]} — no lasting pact binds courts of a different faith.`, [{t:'A pity.',fx:()=>{}}]); return; }
+    const m = allianceMargin(rid); const [lbl,cls]=acceptLabel(m);
+    UI.modal('Propose an Alliance', `Offer ${esc(R_.n)} a standing alliance — your banners answer each other's wars.${sharedEnemy(rid)?' You share an enemy in the field, which weighs heavily in your favour.':''}<br><br>Their inclination: <span class="${cls}">${lbl}</span> (${m>=0?'+':''}${m}).`,
+      [{t:'⚭ Send the offer (⚡)', fx:()=>{ if(!this.order()) return;
+          if(allianceMargin(rid)>=0){ addAlliance(G.player, rid, null); addOp(rul, PR().id, 10);
+            toast(`⚭ <b>${esc(R_.n)}</b> swears alliance with you`); logIt('court',`${R_.n} and ${PRL().n} swear a standing alliance.`);
+            chron(`In this year ${PRL().n} and ${R_.n} swore a standing alliance, banners pledged to banners.`); }
+          else { addOp(rul, PR().id, -4); UI.modal('Declined', `${esc(R_.n)} declines your offer of alliance — for now. Warm them with envoys and gifts, or find a common enemy.`, [{t:'So be it.',fx:()=>{}}]); }
+          UI.renderAll(); }},
+       {t:'— Not now —', fx:()=>{}}]);
+  },
+  demandTribute(rid){
+    if(this.busy()) return;
+    const R_=rl(rid), rul=ruler(rid); if(!rul) return;
+    if(warBetween(rid,G.player)||allianceBetween(rid,G.player)){ toast('Not while you are at war or allied.'); return; }
+    const sum = tributeSum(rid); const m = tributeMargin(rid); const [lbl,cls]=acceptLabel(m);
+    UI.modal('Demand Tribute', `Send a threatening embassy to ${esc(R_.n)}: pay <b>${sum} gold</b>, or face your wrath. A weak realm in your shadow pays up; a proud or well-armed one bristles — and remembers.<br><br>Their inclination to submit: <span class="${cls}">${lbl}</span> (${m>=0?'+':''}${m}).`,
+      [{t:'⚔ Make the demand (⚡)', fx:()=>{ if(!this.order()) return;
+          if(tributeMargin(rid)>=0){ const g=Math.min(rl(rid).gold, sum); rl(rid).gold-=g; PRL().gold+=g;
+            PRL().prs+=6; addOp(rul, PR().id, -12);
+            toast(`💰 <b>${esc(R_.n)}</b> pays <b>${g} gold</b> rather than face war`); logIt('court',`${R_.n} pays ${g} gold in tribute to ${PRL().n}, swallowing its pride.`); }
+          else { addOp(rul, PR().id, -18); PRL().prs=Math.max(0,PRL().prs-4);
+            UI.modal('Defiance', `${esc(R_.n)} spurns your demand. “${esc(fullName(rul))} bows to no one,” the envoy says — and now they hate you the more.`, [{t:'They will regret it.',fx:()=>{}}]); }
+          UI.renderAll(); }},
+       {t:'— Withdraw the threat —', fx:()=>{}}]);
+  },
   marryMenu(rid){
     if(this.busy()) return;
     const mine = marriageCandidates(G.player), theirs = marriageCandidates(rid);

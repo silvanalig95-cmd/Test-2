@@ -937,6 +937,20 @@ commanders pick a stance from their temperament** — the brave and wrathful pre
 aggressively, the craven dig in, cunning captains manoeuvre. So who you appoint to
 command, and the posture you set, now matter as much as raw numbers.
 
+### v5.4 — peacetime diplomacy: alliances & tribute (SHIPPED)
+Filling the between-wars gap. Diplomacy was envoy/gift (opinion) and marriage
+(alliance); two new acceptance-weighed actions on any foreign court:
+- **Propose an alliance** directly, without needing a marriageable pair — the
+  ruler weighs your standing offer by their opinion of you, a shared enemy in the
+  field (a big pull), your relative renown, their temper, and faith. Shows the
+  same *Certain/Likely/Unlikely* verdict as peace terms. Fills a real gap: you
+  could want an ally with no cousin to wed.
+- **Demand tribute** — a threatening embassy to a weaker neighbour: pay gold or
+  face war. Their willingness to submit scales with your dominance in strength, a
+  host on their border, your prestige, and their ruler's nerve (cravens fold,
+  the brave and wrathful defy you and hate you the more). Coin now, at the cost
+  of their goodwill.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
