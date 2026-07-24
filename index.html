@@ -501,6 +501,7 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
       <button id="mmRealm" class="on" data-tip="Colour the map by realm — the political map" onclick="UI.setMapMode('realm')">Realms</button>
       <button id="mmFaith" data-tip="Colour every province by its faith — spot the land that spurns your religion" onclick="UI.setMapMode('faith')">Faith</button>
       <button id="mmCulture" data-tip="Colour every province by its people — see cultural borders and unassimilated land" onclick="UI.setMapMode('culture')">Culture</button>
+      <button id="mmDiplo" data-tip="Colour realms by their standing with you — ally, rival, at war, under truce, or neutral" onclick="UI.setMapMode('diplo')">Relations</button>
     </div>
     <div id="mapLegend"></div>
   </div>
@@ -1488,6 +1489,15 @@ function relationReasons(rid){
   return {realm:R_, rul, op, al, w, tr, sameF, crownClaim, landClaims, myClaims, factors, rival, threat};
 }
 function isRival(rid){ return relationReasons(rid).rival; }
+function diploRelColor(rid){
+  if(rid===G.player) return '#d9b95c';
+  if(warBetween(rid,G.player)) return '#b0392a';
+  if(allianceBetween(rid,G.player)) return '#3f8f5f';
+  if(truceBetween(rid,G.player)) return '#5a8fb0';
+  const rul=ruler(rid); const op=rul?opinion(rul,PR()):0;
+  if((rul && rul.claims.includes(G.player)) || op<=-35) return '#c9772a';
+  return '#9a9a8a';
+}
 function sharedEnemy(rid){ return Object.values(G.realms).some(x=>!x.dead && x.id!==rid && x.id!==G.player && warBetween(x.id,G.player) && warBetween(x.id,rid)); }
 function allianceMargin(rid){
   const R_=rl(rid), rul=ruler(rid), me=PR(); if(!rul||!me) return -100;
@@ -4003,13 +4013,18 @@ const UI = {
   mapMode:'realm',
   setMapMode(m){
     this.mapMode = m;
-    for(const [k,id] of [['realm','mmRealm'],['faith','mmFaith'],['culture','mmCulture']]){ const b=document.getElementById(id); if(b) b.classList.toggle('on', k===m); }
+    for(const [k,id] of [['realm','mmRealm'],['faith','mmFaith'],['culture','mmCulture'],['diplo','mmDiplo']]){ const b=document.getElementById(id); if(b) b.classList.toggle('on', k===m); }
     this.renderMapLegend(); this.renderMapDynamic();
   },
   renderMapLegend(){
     const el=document.getElementById('mapLegend'); if(!el) return;
     const m=this.mapMode||'realm';
     if(m==='realm'){ el.classList.remove('show'); el.innerHTML=''; return; }
+    if(m==='diplo'){
+      const rows=[['#d9b95c','Your realm'],['#3f8f5f','Ally'],['#5a8fb0','Truce'],['#c9772a','Rival / claimant'],['#b0392a','At war'],['#9a9a8a','Neutral']];
+      el.innerHTML=`<div class="lgHd">Relations</div>`+rows.map(([c,n])=>`<div class="lgRow"><span class="lgSw" style="background:${c}"></span>${n}</div>`).join('');
+      el.classList.add('show'); return;
+    }
     const present=new Set();
     for(const pid in G.provinces){ if(PROVDATA[pid]&&PROVDATA[pid].waste) continue; const st=pv(pid); present.add(m==='faith'?st.rel:st.cult); }
     const pal = m==='faith'?FAITH_COL:CULT_COL;
@@ -4037,6 +4052,8 @@ const UI = {
       else if(G.sel.t==='char'){ const c = ch(G.sel.id); hlRealm = c ? c.realm : null; }
       else if(G.sel.t==='army'){ const a = G.armies.find(x=>x.id===G.sel.id); hlRealm = a ? a.realm : null; }
     }
+    let diploCols = null;
+    if((this.mapMode||'realm')==='diplo'){ diploCols={}; for(const rid in G.realms){ if(!rl(rid).dead) diploCols[rid]=diploRelColor(rid); } }
     for(const [pid, pd] of Object.entries(PROVDATA)){
       const el = document.getElementById('p_'+pid); if(!el) continue;
       const st = pv(pid);
@@ -4045,6 +4062,7 @@ const UI = {
       let fill, mineMark=false;
       if(mode==='faith'){ fill = FAITH_COL[st.rel] || '#8a8a80'; mineMark = st.r===G.player; }
       else if(mode==='culture'){ fill = CULT_COL[st.cult] || '#8a8a80'; mineMark = st.r===G.player; }
+      else if(mode==='diplo'){ fill = (st.r&&rl(st.r)&&!rl(st.r).dead) ? (diploCols[st.r]||'#9a9a8a') : '#8a8a80'; mineMark = st.r===G.player; }
       else if(st.occ) fill = `url(#occ_${st.occ})`;
       else if(st.r && rl(st.r)){ const f = [0.9,0.95,1.0,1.05,1.1][this.dynHash(pid)%5]; fill = this.shade(rl(st.r).col, f); }
       else fill = '#8a8a80';
@@ -4303,6 +4321,21 @@ const UI = {
           <div class="actBtns">
             <button class="small" onclick="Game.offerPeace('${w.id}')">Negotiate peace</button>
           </div></div>`;
+      }
+      /* wars elsewhere in the world — the wider game of thrones */
+      const otherWars = G.wars.filter(w=>!w.sides.a.includes(G.player)&&!w.sides.b.includes(G.player));
+      if(otherWars.length){
+        h += `<h3 style="margin-top:12px">Wars in the Wider World</h3>`;
+        for(const w of otherWars.slice(0,12)){
+          const s = warScore(w);
+          const lead = Math.abs(s)<20 ? 'evenly matched' : (s>0?rl(w.att).n:rl(w.def).n)+' ahead';
+          const extra = (w.sides.a.length-1)+(w.sides.b.length-1);
+          h += `<div class="warRow" style="border-left-color:#8a7d5a"><b>${esc(rl(w.att).n)} vs ${esc(rl(w.def).n)}</b>
+            <span class="hint" style="margin:0"> · ${Math.max(1,Math.round(warAge(w)/4*10)/10)} yr</span><br>
+            <span class="hint">${w.cb.type==='throne'?'for the throne of '+esc(rl(w.cb.target).n):w.cb.type==='province'?'for '+esc(PROVDATA[w.cb.target]?.n||''):'without just cause'}${extra>0?' · '+extra+' other realm'+(extra>1?'s':'')+' drawn in':''} · ${esc(lead)}</span></div>`;
+        }
+      } else if(ws.length===0){
+        h += `<div class="hint" style="margin-top:8px">And no war stirs anywhere in the known world — a rare and suspicious peace.</div>`;
       }
       el.innerHTML = h;
     }

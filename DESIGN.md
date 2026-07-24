@@ -1048,6 +1048,16 @@ Playtest fixes and a fuller council advisor.
   mandate — so the advisor guides you across diplomacy, faith, schemes, and the
   Empire, not just war and marriage.
 
+### v6.1 — Relations map mode & the wider war (SHIPPED)
+- **A Relations map overlay.** A fourth map mode colours realms by their standing
+  with you — gold (yours), green (ally), blue (truce), orange (rival or claimant),
+  red (at war), grey (neutral) — with a legend, so the whole diplomatic board is
+  legible at a glance alongside Realms / Faith / Culture.
+- **The wider game of thrones.** The Wars tab now lists **wars elsewhere in the
+  world** below your own — who fights whom, for what, how long, who's ahead, and
+  how many realms have been drawn in — so you can watch your rivals bleed each
+  other (and no war anywhere reads as a "suspicious peace").
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
