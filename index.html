@@ -555,6 +555,7 @@ const BUILDINGS = {
   cathedral:{n:'Cathedral', ico:'✟', cost:55, desc:'+1 legitimacy each year, +prestige'},
   monastery:{n:'Monastery', ico:'⛪', cost:45, desc:'+0.8 piety and +0.3 legitimacy each year'},
   academy:{n:'Academy', ico:'🎓', cost:55, desc:'+1 prestige each year; the province slowly develops on its own'},
+  harbour:{n:'Harbour', ico:'⚓', cost:48, coastal:true, desc:'Trade income that grows with every other port in your realm — a maritime network enriches each of its harbours (coastal only)'},
 };
 /* ---- Ambitions: a rotating objective the ruler pursues, rewarded on fulfilment ---- */
 const AMBITIONS = [
@@ -836,7 +837,12 @@ function realmStrength(rid){
 }
 function legFactor(rid){ const r = rl(rid); return r ? Math.min(1, 0.7 + r.leg/150) : 1; } /* below ~45 legitimacy, vassals withhold spears */
 function levyOf(p){ const pr=pv(p); return Math.round((200 + pr.dev*110 + (pr.bld==='castle'?150:0)) * legFactor(pr.r) * focusLevy(pr.r) * faithPenalty(p) * cultureLevy(pr.r)); }
-function taxOf(p){ const pr=pv(p); return Math.round((pr.dev + (pr.bld==='market'?2:0)) * faithPenalty(p)); }
+function harboursOf(rid){ let n=0; for(const p of realmProvs(rid)) if(pv(p).bld==='harbour') n++; return n; }
+function harbourTrade(p){ const pr=pv(p); if(pr.bld!=='harbour') return 0;
+  let t = 2 + Math.min(harboursOf(pr.r)-1, 4);
+  if(pr.r===G.player && G.flags && G.flags.corsairYr===G.year) t = Math.max(1, t-2); /* corsairs prey on your lanes this year */
+  return t; }
+function taxOf(p){ const pr=pv(p); return Math.round((pr.dev + (pr.bld==='market'?2:0) + harbourTrade(p)) * faithPenalty(p)); }
 function realmFinances(rid){
   const R_ = rl(rid);
   let baseTax = 0, occLost = 0; const rows = [];
@@ -3055,6 +3061,25 @@ const EVENTS = [
   title:'A Fat Convoy',
   text:`Wool out, wine in, and the tolls collected on both. Your market towns have had a golden season. <em>(+12 gold)</em>`,
   choices:[{t:'The best sound in the world is other men’s money arriving.', fx:()=>{ PRL().gold+=12; }}]})},
+{id:'stapletrade', w:5, trig:['build','court'], cond:()=>realmProvs(G.player).some(p=>pv(p).bld==='harbour'), run:()=>{
+  const ports=realmProvs(G.player).filter(p=>pv(p).bld==='harbour');
+  const p=pick(ports); const many=ports.length>=2;
+  return { title:'A League of Merchants',
+  text:`The traders of ${PROVDATA[p].n} — and ${many?'the other ports of your realm':'their factors abroad'} — ask leave to bind themselves into a sworn league: shared warehouses, shared convoys, a common purse against pirates. They offer the crown a handsome fee for the charter, and a cut of every cargo thereafter.`,
+  choices:[
+    {t:'Grant the charter. (+18 gold now, harbours prosper)', fx:()=>{ PRL().gold+=18; ports.forEach(q=>{ if(pv(q).dev<5&&chance(.5)) pv(q).dev++; }); toast('⚓ The merchant league is chartered — coin now, and busier quays to come.'); }},
+    {t:'Take the fee, grant nothing. (+30 gold, the merchants sour)', fx:()=>{ PRL().gold+=30; PRL().prs=Math.max(0,PRL().prs-8); toast('The merchants pay, and remember.'); }},
+    {t:'Guilds answer to the crown, not the reverse.', fx:()=>{ PRL().leg=clamp(PRL().leg+3,0,100); }},
+  ]}; }},
+{id:'corsairs', w:4, trig:['court'], cond:()=>realmProvs(G.player).some(p=>pv(p).bld==='harbour'), run:()=>{
+  const p=pick(realmProvs(G.player).filter(x=>pv(x).bld==='harbour'));
+  return { title:'Corsairs off the Coast',
+  text:`Sails without colours haunt the sea-lanes off ${PROVDATA[p].n}. Two cogs are already taken, their crews held for ransom, and no convoy will sail until the crown answers the raiders.`,
+  choices:[
+    {t:'Fit out a squadron to hunt them. (-16 gold, the lanes reopen)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-16); PRL().prs+=6; toast('⚓ The corsairs are scattered; the merchants bless your name.'); }},
+    {t:'Pay their ransom and buy a season’s peace. (-10 gold)', fx:()=>{ PRL().gold=Math.max(0,PRL().gold-10); }},
+    {t:'The sea keeps its own accounts. (harbour trade suffers this year)', fx:()=>{ G.flags['corsairYr']=G.year; PRL().gold=Math.max(0,PRL().gold-6); toast('Trade thins while the corsairs prowl.'); }},
+  ]}; }},
 {id:'fire', w:3, cond:()=>true, run:()=>{
   const p = PRL().cap;
   return { title:'Fire in '+PROVDATA[p].n,
@@ -3607,9 +3632,12 @@ function aiTurn(rid){
   if(!wars.length && R_.gold > 75 && chance(.5)){
     const slot = realmProvs(rid).filter(p=>!pv(p).bld && !pv(p).cons).sort((a,b)=>pv(b).dev-pv(a).dev)[0];
     if(slot){
-      const b = pious ? (chance(.4)?'cathedral':'monastery')
+      const coastal = PROVDATA[slot].coast;
+      let b = pious ? (chance(.4)?'cathedral':'monastery')
         : greedy ? (chance(.6)?'market':'castle')
         : chance(.2) ? 'academy' : chance(.5) ? 'market' : 'castle';
+      /* seafaring realms grow their trade network */
+      if(coastal && (greedy||harboursOf(rid)>0) && chance(harboursOf(rid)>0?.55:.3)) b='harbour';
       R_.gold -= BUILDINGS[b].cost; pv(slot).cons = {b, left:4};
     }
   }
@@ -4262,7 +4290,8 @@ const UI = {
       const cons = f.rows.filter(r=>pv(r.p).cons);
       if(cons.length){ h += `<h3 style="margin-top:10px">Under Construction</h3>`;
         for(const r of cons){ const c=pv(r.p).cons; h += `<div class="kv"><span>${BUILDINGS[c.b].ico} ${BUILDINGS[c.b].n} · ${esc(PROVDATA[r.p].n)}</span><b>${c.left} season${c.left>1?'s':''}</b></div>`; } }
-      h += `<div class="hint">Develop provinces (each level adds tax) and raise markets (+2 tax) to grow revenue. Autumn’s harvest doubles the yield — time your spending around it. Retinue and hosts in the field draw pay every season.</div>`;
+      { const nh=harboursOf(G.player); const hb = nh?` You keep ${nh} harbour${nh>1?'s':''}; each is worth ${2+Math.min(nh-1,4)}🪙 a season, and every new port on the coast enriches the rest.`:` Coastal provinces can raise a ⚓ harbour — trade income that compounds as your maritime network grows.`;
+      h += `<div class="hint">Develop provinces (each level adds tax) and raise markets (+2 tax) to grow revenue.${hb} Autumn’s harvest doubles the yield — time your spending around it. Retinue and hosts in the field draw pay every season.</div>`; }
       el.innerHTML = h;
     }
     if(t==='relations'){
@@ -4747,7 +4776,7 @@ const UI = {
       <div class="kv"><span data-tip="How built-up and populous the land is. Higher development means more tax and larger levies. Raise it with the Develop action (to a maximum of 5).">${STATICO.dev} Development</span><b>${st.dev} / 5</b></div>
       <div class="kv"><span data-tip="Each province holds one permanent improvement — a keep, a market, a temple and the like. It gives a standing bonus once built.">${st.bld?BUILDINGS[st.bld].ico:'🏗'} Building</span><b>${st.bld?BUILDINGS[st.bld].n : st.cons?BUILDINGS[st.cons.b].n+' — '+st.cons.left+' season'+(st.cons.left>1?'s':'')+' left' : '—'}</b></div>
       <div class="kv"><span data-tip="The soldiers this land can raise when you Muster. Cut by low legitimacy, foreign faith and occupation — raised by development, martial culture and a keep.">${STATICO.levy} Levies</span><b>${fmtN(levyOf(pid))}</b></div>
-      <div class="kv"><span data-tip="Coin this province yields each season. Foreign faith and occupation cut it; development and a market raise it.">${STATICO.gold} Tax / season</span><b>${taxOf(pid)}</b></div>`;
+      <div class="kv"><span data-tip="Coin this province yields each season. Foreign faith and occupation cut it; development, a market and a coastal harbour raise it.">${STATICO.gold} Tax / season</span><b>${taxOf(pid)}</b></div>`;
     { const wrongF = provWrongFaith(pid), wrongC = provForeignCult(pid);
       h += `<div class="kv"><span>Faith</span><b>${RELICO[st.rel]} ${RELNAME[st.rel]}${wrongF?' <span class="hint" style="margin:0">— not the realm’s</span>':''}</b></div>`;
       h += `<div class="kv"><span>People</span><b>${esc(cap(st.cult||''))}${wrongC?' <span class="hint" style="margin:0">— not the realm’s</span>':''}</b></div>`;
@@ -4760,8 +4789,10 @@ const UI = {
     if(mine){
       h += `<div class="actBtns">`;
       if(!st.bld && !st.cons) for(const [bid,b] of Object.entries(BUILDINGS)){
+        if(b.coastal && !PROVDATA[pid].coast) continue;
         const bc = Math.round(b.cost*focusBuild(G.player));
-        h += `<button class="small" ${!Game.can('build')||PRL().gold<bc?'disabled':''} onclick="Game.act('build','${pid}','${bid}')" data-tip="${b.desc}">${b.ico} ${b.n} (⚡ ${bc}🪙)</button>`;
+        const tip = bid==='harbour' ? esc(b.desc+` — here it would yield ${2+Math.min(harboursOf(G.player),4)}🪙 a season.`) : b.desc;
+        h += `<button class="small" ${!Game.can('build')||PRL().gold<bc?'disabled':''} onclick="Game.act('build','${pid}','${bid}')" data-tip="${tip}">${b.ico} ${b.n} (⚡ ${bc}🪙)</button>`;
       }
       if(st.dev<5) h += `<button class="small" ${!Game.can('develop')||PRL().gold<30+st.dev*12?'disabled':''} onclick="Game.act('develop','${pid}')">Develop (⚡ ${30+st.dev*12}🪙)</button>`;
       h += `<button class="small" ${!Game.can('muster')?'disabled':''} onclick="Game.act('muster','${pid}')" data-tip="Raise all realm levies here">Muster levies (⚡)</button>`;

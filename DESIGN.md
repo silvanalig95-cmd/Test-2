@@ -1088,6 +1088,26 @@ The tooltip engine already backed 300-plus hoverable elements; this fills the
 gaps around the primary navigation and the province panel where a first-time
 player most needs the explanation.
 
+### v6.4 — the sea as a source of wealth (SHIPPED)
+The first pillar of the naval system: **maritime trade**. Coastal provinces can
+now raise a **⚓ Harbour** (48🪙) — but its worth is not fixed. A harbour yields
+trade income that *compounds with every other port in the same realm*: one port
+is worth 2🪙 a season, two are worth 3🪙 each, rising to a cap of 6🪙 each at five
+ports. A seafaring realm that invests in a network of quays grows genuinely rich
+from the water, while a single lonely harbour is a modest thing — the reward
+tracks the ambition.
+- Only coastal provinces may build it; the build menu hides it inland and quotes
+  the exact yield the new port would fetch.
+- The AI builds harbours too — greedy or already-seafaring realms grow their
+  trade networks along the coast.
+- Two trade events ride the new building: **A League of Merchants** (charter a
+  sworn merchant league for coin and busier quays) and **Corsairs off the Coast**
+  (raiders throttle your sea-lanes until you answer — and if you don't, harbour
+  trade suffers for the year).
+- Treasury and province tooltips explain the mechanic on hover.
+Naval *combat* — fleets, interception and blockade — remains the second pillar,
+still to come.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
