@@ -1026,6 +1026,28 @@ The procedural character faces gained real variety and meaning.
   the war-hardened, and a harder brow and scowl for the dreaded (as for the cruel
   and wrathful), while the kind, saintly, and peace-making wear a gentler look.
 
+### v6.0 — a batch of fixes & richer advice (SHIPPED)
+Playtest fixes and a fuller council advisor.
+- **Feast no longer double-advised.** The Council stops recommending a feast once
+  you've already held one this year.
+- **Envoy return names the right court.** The return-embassy event now comes from
+  the realm you actually sent your envoy or gift to, not a random one.
+- **Fabricate penalty scaled to the crime.** A discovered forged claim now costs
+  far less prestige/legitimacy (−10/−3) than an exposed murder plot (−30/−10);
+  slander and suborning vassals sit in between. Forgery is embarrassing, not
+  monstrous.
+- **Naval range capped.** A fleet only reaches coasts within a season's sail — no
+  more shipping an army from Norway to Sicily in one turn.
+- **Better war logging.** Seasonal **attrition** (autumn rains, winter cold) is
+  now written to the log whenever it bites, and battle lines report **both sides'**
+  fallen, not just the loser's.
+- **A fuller council advisor.** New recommendations across every system: appoint
+  to an empty office, gift a dangerous claimant, propose an alliance (especially
+  with a shared enemy), demand tribute from a weak neighbour, send missionaries or
+  raise a holy banner, pursue the Imperial crown, and set an idle councillor a
+  mandate — so the advisor guides you across diplomacy, faith, schemes, and the
+  Empire, not just war and marriage.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

@@ -2343,7 +2343,7 @@ function battle(atk, def, provId){
   const wc = casOf(wnA, wnCas), lc = casOf(lsA, lsCas);
   if(w){ w.bp = clamp(w.bp + (atkWins?1:-1)*Math.min(25, 8+Math.floor(lc/120)), -100, 100); }
   if(wnA.realm===G.player && wnA.cmdr===rl(G.player).ruler){ if(PR().tr.includes('warhardened')) rl(G.player).prs+=5; deedInc('bat'); }
-  logIt('war', `⚔ Battle of ${PROVDATA[provId].n}: ${rl(wnA.realm).n} defeats ${rl(lsA.realm).n} (${fmtN(lc)} slain).`);
+  logIt('war', `⚔ Battle of ${PROVDATA[provId].n}: ${rl(wnA.realm).n} defeats ${rl(lsA.realm).n} — ${fmtN(lc)} of ${rl(lsA.realm).n} fall, ${fmtN(wc)} of ${rl(wnA.realm).n}.`);
   /* the loser retreats, or dies */
   let cmdrNote = '';
   const lsCmdr = ch(lsA.cmdr);
@@ -2570,9 +2570,9 @@ function warUpkeep(){
       const own = pv(a.prov).r===a.realm && !pv(a.prov).occ;
       let rate = (G.season===2? .08 : .22) * (own? .4 : 1);
       const lost = Math.floor(armySize(a)*rate);
-      if(lost>40){
+      if(lost>0){
         a.levies = Math.max(0, a.levies-lost);
-        if(isPlayer(a.realm)) logIt('war', `${G.season===2?'Autumn rains':'Winter'} claim ${fmtN(lost)} of your men in the field.`);
+        if(isPlayer(a.realm) && lost>=8) logIt('war', `⚕ ${G.season===2?'Autumn rains and sickness':'Winter cold and hunger'} claim <b>${fmtN(lost)}</b> of your men in the field at ${PROVDATA[a.prov].n}.`);
       }
     }
     if(armySize(a)<80){ G.armies = G.armies.filter(x=>x!==a); logIt('war', `The remnant of the ${rl(a.realm).n} host disbands.`); }
@@ -2702,12 +2702,16 @@ function plotDiscovered(p, victimRealm){
   G.plots = G.plots.filter(x=>x!==p);
   const pl = ch(p.plotter);
   if(p.mine && victimRealm!==G.player){
-    /* player's own plot busted */
-    rl(G.player).prs = Math.max(0, rl(G.player).prs-30);
-    rl(G.player).leg = clamp(rl(G.player).leg-10,0,100);
-    addOp(ruler(victimRealm), rl(G.player).ruler, -40);
+    /* player's own plot busted — the shame fits the crime: forging a charter is not murder */
+    const sev = p.type==='murder' ? {prs:30, leg:10, op:40, txt:'a plot of murder'}
+      : p.type==='fabricate' ? {prs:10, leg:3, op:18, txt:'a forged charter'}
+      : p.type==='defection' ? {prs:16, leg:5, op:28, txt:'suborning their vassals'}
+      : {prs:16, leg:5, op:25, txt:'your slanders'};
+    rl(G.player).prs = Math.max(0, rl(G.player).prs-sev.prs);
+    rl(G.player).leg = clamp(rl(G.player).leg-sev.leg,0,100);
+    addOp(ruler(victimRealm), rl(G.player).ruler, -sev.op);
     queueEvent({ title:'The Plot Is Blown',
-      text:`Your scheme against ${plotTargetName(p)} has been dragged into daylight. ${rl(victimRealm).n} knows, the courts of Europe whisper, and your name is spat in two languages. <em>(-30 prestige, -10 legitimacy)</em>`,
+      text:`Your ${p.type==='fabricate'?'forgery concerning':'scheme against'} ${plotTargetName(p)} has been dragged into daylight — ${sev.txt}, laid bare. ${rl(victimRealm).n} knows, and the courts whisper. <em>(−${sev.prs} prestige, −${sev.leg} legitimacy)</em>`,
       choices:[{t:'Deny everything.', fx:()=>{}}]});
     return;
   }
@@ -3319,7 +3323,10 @@ const EVENTS = [
     {t:'Consecrate the ground and raise a chapel over it. (+5 legitimacy)', fx:()=>{ PRL().leg=clamp(PRL().leg+5,0,100); }},
   ]};}},
 {id:'envoyreturn', w:6, trig:['envoy','gift'], cond:()=>Object.values(G.realms).some(r=>!r.dead&&r.id!==G.player&&!warBetween(r.id,G.player)), run:()=>{
-  const r = pick(Object.values(G.realms).filter(x=>!x.dead&&x.id!==G.player&&!warBetween(x.id,G.player)));
+  /* the realm you just engaged answers in kind (falls back to any at-peace court) */
+  const r = (G._diploTarget && rl(G._diploTarget) && !rl(G._diploTarget).dead && !warBetween(G._diploTarget,G.player))
+    ? rl(G._diploTarget)
+    : pick(Object.values(G.realms).filter(x=>!x.dead&&x.id!==G.player&&!warBetween(x.id,G.player)));
   return { title:'A Return Embassy',
   text:`Hard on the heels of your own envoy, ${esc(r.n)} sends one back — with gifts, flattery, and a proposal folded inside the courtesy: a common cause, if you are minded to it.`,
   choices:[
@@ -4456,7 +4463,50 @@ const UI = {
       }).sort((a,b)=>realmStrength(pv(a).r)-realmStrength(pv(b).r))[0];
       if(border) add(`Your house holds no claims — no lawful road to war. The monks could remedy that, given a candle and a quiet scriptorium. ${PROVDATA[border].n} looks… historically yours.`, `📜 Fabricate claim`, `Game.act('fabricate','${border}')`, 'spymaster');
     }
-    if(!out.length && Game.can('feast') && R_.gold>=10)
+    /* an empty council office — work undone and fewer orders */
+    if(out.length<3){ const emptySeat=['marshal','steward','spymaster','chaplain'].find(s=>{ const c=R_.council[s]&&ch(R_.council[s]); return !c||!alive(c); });
+      if(emptySeat && myCourt().some(c=>c.id!==PR().id&&!c.prison&&age(c)>=16))
+        add(`The office of ${cap(emptySeat)} sits empty — its work undone, and your council the smaller for it.`, `Appoint ${cap(emptySeat)}`, `Game.pickCouncil('${emptySeat}')`, emptySeat); }
+    /* a dangerous claimant on your crown — buy time or bind them */
+    if(out.length<3 && !wars.length){
+      const threat = Object.values(G.realms).filter(r=>!r.dead&&r.id!==G.player&&ruler(r.id)&&!allianceBetween(r.id,G.player)&&!warBetween(r.id,G.player)&&!truceBetween(r.id,G.player)&&ruler(r.id).claims.includes(G.player))
+        .sort((a,b)=>realmStrength(b.id)-realmStrength(a.id))[0];
+      if(threat && Game.can('gift') && R_.gold>=10 && !G.flags['gift'+threat.id+G.year])
+        add(`${esc(rl(threat.id).n)} holds a claim on your crown${realmStrength(threat.id)>realmStrength(G.player)*.8?' — and the strength to press it':''}. Warm them, or bind them by marriage, before they move.`, `🎁 Gift to ${esc(rl(threat.id).n)}`, `Game.act('gift','${threat.id}')`, 'chaplain');
+    }
+    /* isolated with a common enemy — an alliance is cheap insurance */
+    if(out.length<3 && Game.can() && G.alliances.filter(al=>al.a===G.player||al.b===G.player).length<2){
+      const ally = Object.values(G.realms).filter(r=>!r.dead&&r.id!==G.player&&ruler(r.id)&&r.rel===R_.rel&&!allianceBetween(r.id,G.player)&&!warBetween(r.id,G.player)&&allianceMargin(r.id)>=0)
+        .sort((a,b)=>allianceMargin(b.id)-allianceMargin(a.id))[0];
+      if(ally) add(`${esc(rl(ally.id).n)} would swear to you${sharedEnemy(ally.id)?' — and you share an enemy in the field':''}. Banners pledged now are spears when the storm breaks.`, `🤝 Propose alliance`, `Game.proposeAlliance('${ally.id}')`, 'chaplain');
+    }
+    /* a weak neighbour ripe for extortion */
+    if(out.length<3 && !wars.length && Game.can()){
+      const weak = borderRealms(G.player).filter(id=>rl(id)&&ruler(id)&&!allianceBetween(id,G.player)&&!warBetween(id,G.player)&&tributeMargin(id)>=12)
+        .sort((a,b)=>realmStrength(a)-realmStrength(b))[0];
+      if(weak) add(`${esc(rl(weak).n)} is weak and under your shadow. A threatening embassy might fill your coffers without a battle.`, `💰 Demand tribute`, `Game.demandTribute('${weak}')`, 'marshal');
+    }
+    /* faith: convert conquered land, or wage a blessed war */
+    if(out.length<3 && Game.can() && R_.rel!=='pagan' && !R_.excomm){
+      const heretic = realmWrongFaith(G.player);
+      if(heretic.length && (R_.piety||0)>=20 && R_.gold>=20)
+        add(`${heretic.length} of your provinces keep another faith — they pay and muster grudgingly. Missionaries would win them over.`, `✝ Send missionaries`, `Game.faithMissionaries()`, 'chaplain');
+      else if((R_.piety||0)>=45 && !G.flags.holyBanner && borderRealms(G.player).some(r=>rl(r).rel!==R_.rel))
+        add(`You have piety to spend and an infidel neighbour. A holy banner would sanctify the next war — fervour, and God's blessing.`, `⚔ The Faith`, `UI.tab('faith')`, 'chaplain');
+    }
+    /* imperial politics */
+    if(out.length<3 && G.empire && Game.can()){
+      if(isEmperor(G.player) && !G.flags['diet'+G.year])
+        add(`As Emperor you may summon the Imperial Diet — renown, legitimacy, and perhaps an extra order this year.`, `⚜ The Empire`, `UI.tab('empire')`, 'steward');
+      else if(!isEmperor(G.player) && (empMember(G.player)||G.empire.pretender===G.player) && R_.prs>=60)
+        add(`The Imperial crown is within your reach — court the prince-electors, then contest the election.`, `⚜ The Empire`, `UI.tab('empire')`, 'chaplain');
+    }
+    /* an idle councillor could be set a standing task */
+    if(out.length<3 && Game.can() && councilSize(G.player)>=3){
+      const seat=['marshal','steward','spymaster','chaplain'].find(s=>{ const c=R_.council[s]&&ch(R_.council[s]); return c&&alive(c)&&!c.mandate; });
+      if(seat) add(`Your ${cap(seat)} idles at court. Set them a standing task — drill the host, develop a province, watch a rival, or minister abroad.`, `Set a mandate`, `UI.tab('council')`, seat);
+    }
+    if(!out.length && Game.can('feast') && R_.gold>=10 && !G.flags['feast'+G.year])
       add(`A quiet season. Quiet seasons are for making friends before you need them.`, '🍖 Host a feast', `Game.act('feast')`, 'ruler');
     return out.slice(0,3);
   },
@@ -4921,11 +4971,11 @@ const Game = {
         if(!this.order('envoy')) return;
         G.flags['env'+a+G.year] = 1;
         const eop = 10+skill(PR(),'dip')+focusOpinion(G.player);
-        addOp(ruler(a), PR().id, eop);
+        addOp(ruler(a), PR().id, eop); G._diploTarget = a;
         logIt('court',`Your envoy flatters the court of ${rl(a).n}.`);
         toast(`🕊 Envoy to ${esc(rl(a).n)}: <b>+${eop} opinion</b>`); break; }
       case 'gift': if(G.flags['gift'+a+G.year]){ toast(`🎁 You have already sent gifts to ${esc(rl(a).n)} this year.`); return; }
-        if(R_.gold<10||!this.order('gift')) return; G.flags['gift'+a+G.year]=1; R_.gold-=10;
+        if(R_.gold<10||!this.order('gift')) return; G.flags['gift'+a+G.year]=1; R_.gold-=10; G._diploTarget = a;
         addOp(ruler(a), PR().id, 20+focusOpinion(G.player));
         logIt('court',`Gold and falcons for ${rl(a).n}; their ruler smiles.`);
         toast(`🎁 Gift to ${esc(rl(a).n)}: <b>+${20+focusOpinion(G.player)} opinion</b>`); break;
@@ -5382,8 +5432,14 @@ const Game = {
     const ok = p => { const st=pv(p); return st.r===a.realm || hostile(st.r, a.realm) || st.occ===a.realm; };
     const land = (PROVDATA[a.prov].adj||[]).filter(ok);
     let sea = [];
-    if(PROVDATA[a.prov].coast && PRL().gold>=15)
-      sea = Object.keys(PROVDATA).filter(p=>p!==a.prov && PROVDATA[p].coast && ok(p) && !land.includes(p));
+    if(PROVDATA[a.prov].coast && PRL().gold>=15){
+      /* a fleet sails only so far in a season — coastal provinces within reach, not clear across the map */
+      const [ax,ay] = PROVDATA[a.prov].lbl, MAXD = 215;
+      sea = Object.keys(PROVDATA).filter(p=>{
+        if(p===a.prov || !PROVDATA[p].coast || land.includes(p) || !ok(p)) return false;
+        const [bx,by] = PROVDATA[p].lbl; return Math.hypot(bx-ax, by-ay) <= MAXD;
+      });
+    }
     return {land, sea};
   },
   tryMove(pid){
