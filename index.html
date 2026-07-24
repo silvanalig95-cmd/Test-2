@@ -539,6 +539,8 @@ const BUILDINGS = {
   castle:{n:'Castle', ico:'♜', cost:60, desc:'+150 levy, sieges last far longer'},
   market:{n:'Market', ico:'⚖', cost:50, desc:'+2 gold each season'},
   cathedral:{n:'Cathedral', ico:'✟', cost:55, desc:'+1 legitimacy each year, +prestige'},
+  monastery:{n:'Monastery', ico:'⛪', cost:45, desc:'+0.8 piety and +0.3 legitimacy each year'},
+  academy:{n:'Academy', ico:'🎓', cost:55, desc:'+1 prestige each year; the province slowly develops on its own'},
 };
 const STATICO = { gold:'🪙', prestige:'☀', legitimacy:'✠', opinion:'♥', levy:'⚔', dev:'🌾' };
 const SKILLICO = { dip:'🕊', mar:'⚔', int:'🗡', ste:'🔑' };
@@ -1482,6 +1484,7 @@ function pietyChange(rid){
   d += councilBonus(rid,'chaplain')*0.5;              /* a diligent chaplain keeps the realm devout */
   if(hasFocus(rid,'altar')) d += 2;
   d += realmProvs(rid).filter(p=>pv(p).bld==='cathedral').length*0.6;
+  d += realmProvs(rid).filter(p=>pv(p).bld==='monastery').length*0.8;   /* houses of prayer keep the realm devout */
   if(rul){ if(rul.tr.includes('pious')) d += 1.5; if(rul.tr.includes('cynical')) d -= 1; }
   if(R_.excomm) d -= 3;
   d -= Math.min(3, realmWrongFaith(rid).length*0.4);   /* ruling the faithless strains devotion */
@@ -3430,7 +3433,9 @@ function aiTurn(rid){
   if(!wars.length && R_.gold > 75 && chance(.5)){
     const slot = realmProvs(rid).filter(p=>!pv(p).bld && !pv(p).cons).sort((a,b)=>pv(b).dev-pv(a).dev)[0];
     if(slot){
-      const b = pious&&chance(.4) ? 'cathedral' : greedy||chance(.5) ? 'market' : 'castle';
+      const b = pious ? (chance(.4)?'cathedral':'monastery')
+        : greedy ? (chance(.6)?'market':'castle')
+        : chance(.2) ? 'academy' : chance(.5) ? 'market' : 'castle';
       R_.gold -= BUILDINGS[b].cost; pv(slot).cons = {b, left:4};
     }
   }
@@ -5406,10 +5411,16 @@ const Game = {
       if(R_.dead) continue;
       let d = (50 - R_.leg)*.06 + councilBonus(R_.id,'chaplain')*.4 + focusLegYr(R_.id);
       d += realmProvs(R_.id).filter(p=>pv(p).bld==='cathedral').length;
+      d += realmProvs(R_.id).filter(p=>pv(p).bld==='monastery').length*0.3;
       if(R_.excomm) d -= 4;
       R_.leg = clamp(R_.leg + d, 0, 100);
       R_.piety = clamp((R_.piety!=null?R_.piety:30) + pietyChange(R_.id), 0, 100);
       if(isEmperor(R_.id)) R_.prs += 3;   /* the Imperial dignity lends steady renown */
+      /* Academies: renown, and slow growth of their province */
+      { const acad = realmProvs(R_.id).filter(p=>pv(p).bld==='academy');
+        if(acad.length){ R_.prs += acad.length;
+          for(const p of acad){ const pr=pv(p); if(pr.dev<5){ pr._adev=(pr._adev||0)+1;
+            if(pr._adev>=3){ pr._adev=0; pr.dev++; if(isPlayer(R_.id)&&!G._ff) toast(`🎓 <b>${esc(PROVDATA[p].n)}</b> flourishes under its academy`); } } } } }
       /* Culture: land of a foreign people drags on the crown, and slowly takes up its ruler's ways */
       { const fc = realmForeignCult(R_.id);
         if(fc.length){ let drag = Math.min(2.2, fc.length*0.3); if(cultHardy(R_.id)) drag*=0.5;

@@ -951,6 +951,18 @@ Filling the between-wars gap. Diplomacy was envoy/gift (opinion) and marriage
   the brave and wrathful defy you and hate you the more). Coin now, at the cost
   of their goodwill.
 
+### v5.5 — two new buildings (SHIPPED)
+Provinces held one of three buildings (castle/market/cathedral) — narrow choices,
+and gold had few long-term sinks. Two new types, each tied to a system:
+- **⛪ Monastery** (45g) — houses of prayer: +0.8 piety and +0.3 legitimacy each
+  year. A cheaper, faith-focused counterpart to the cathedral, and the first
+  building to feed piety.
+- **🎓 Academy** (55g) — +1 prestige each year, and the province **slowly develops
+  on its own** (a level every few years, up to 5). A growth-and-renown investment.
+The AI now builds these too, weighted by its ruler's character (the pious raise
+monasteries; the worldly found academies). The build menu picks them up
+automatically, so every province is now a more interesting choice.
+
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
