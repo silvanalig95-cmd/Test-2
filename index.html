@@ -837,7 +837,12 @@ function realmStrength(rid){
 }
 function legFactor(rid){ const r = rl(rid); return r ? Math.min(1, 0.7 + r.leg/150) : 1; } /* below ~45 legitimacy, vassals withhold spears */
 function levyOf(p){ const pr=pv(p); return Math.round((200 + pr.dev*110 + (pr.bld==='castle'?150:0)) * legFactor(pr.r) * focusLevy(pr.r) * faithPenalty(p) * cultureLevy(pr.r)); }
-function harboursOf(rid){ let n=0; for(const p of realmProvs(rid)) if(pv(p).bld==='harbour') n++; return n; }
+/* a blockaded (occupied) port trades with nobody — it drops out of the network entirely */
+function harboursOf(rid){ let n=0; for(const p of realmProvs(rid)) if(pv(p).bld==='harbour' && !pv(p).occ) n++; return n; }
+/* what a realm can put to sea: every coast counts, a harbour counts for much more */
+function navalPower(rid){ let n=0; for(const p of realmProvs(rid)){ const st=pv(p); if(st.occ) continue;
+  if(PROVDATA[p].coast) n+=1; if(st.bld==='harbour') n+=3; } return n; }
+function navalWord(n){ return n>=18?'formidable':n>=12?'strong':n>=6?'modest':n>=1?'slight':'none'; }
 function harbourTrade(p){ const pr=pv(p); if(pr.bld!=='harbour') return 0;
   let t = 2 + Math.min(harboursOf(pr.r)-1, 4);
   if(pr.r===G.player && G.flags && G.flags.corsairYr===G.year) t = Math.max(1, t-2); /* corsairs prey on your lanes this year */
@@ -2287,6 +2292,50 @@ function disbandArmy(a){
 function enemiesIn(provId, rid){
   return G.armies.filter(a=>a.prov===provId && hostile(a.realm, rid));
 }
+/* Who watches the water between two shores — a hostile realm with ports near the crossing. */
+function seaGuardian(a, dest){
+  const [ax,ay]=PROVDATA[a.prov].lbl, [bx,by]=PROVDATA[dest].lbl;
+  const mx=(ax+bx)/2, my=(ay+by)/2, reach=Math.max(140, Math.hypot(bx-ax,by-ay)*0.75);
+  let best=null, bestPow=0;
+  for(const rid of Object.keys(G.realms)){
+    const R=rl(rid); if(!R || R.dead || rid===a.realm) continue;
+    if(!hostile(rid, a.realm)) continue;
+    const pow = navalPower(rid); if(pow<4) continue;         /* a realm without ships guards nothing */
+    const near = realmProvs(rid).some(p=>{ if(!PROVDATA[p].coast || pv(p).occ) return false;
+      const [px,py]=PROVDATA[p].lbl; return Math.hypot(px-mx,py-my)<=reach; });
+    if(near && pow>bestPow){ bestPow=pow; best=rid; }
+  }
+  return best ? {rid:best, pow:bestPow} : null;
+}
+/* Resolve a contested crossing. Returns false if the host is turned back. */
+function navalCrossing(a, dest){
+  const g = seaGuardian(a, dest); if(!g) return true;
+  const mine = navalPower(a.realm);
+  /* what matters is the advantage, not the raw tonnage: matched fleets mostly pass each other by */
+  const adv = (g.pow - mine) / Math.max(1, g.pow + mine);
+  if(!chance(clamp(.10 + adv*.45, .04, .50))) return true;    /* the fleet slips past */
+  const gn = rl(g.rid).n, mn = rl(a.realm).n;
+  /* the sea fight: the weaker fleet bleeds harder */
+  const sev = clamp(.10 + adv*.30, .05, .35);
+  const lost = Math.floor(armySize(a)*sev*(0.7+Math.random()*0.6));
+  const lev = Math.min(a.levies, lost); a.levies-=lev;
+  const mrc = Math.min(a.mercs||0, lost-lev); if(mrc>0) a.mercs-=mrc;
+  const turned = adv>.25 && chance(.45);
+  logIt('war', `⚓ ${gn} ships fall upon the ${mn} crossing${lost>0?` — ${fmtN(lost)} men lost at sea`:''}${turned?'; the host is driven back to port.':'.'}`);
+  if(isPlayer(a.realm)){
+    toast(`⚓ <b>Intercepted at sea</b> by ${esc(gn)} — ${fmtN(lost)} lost${turned?', the crossing fails':''}`);
+    chron(`In this year the ships of ${gn} met the king's host upon the water, and there was killing between the waves.`);
+  } else if(isPlayer(g.rid)){
+    toast(`⚓ Your ships intercept a <b>${esc(mn)}</b> crossing — ${fmtN(lost)} of theirs lost at sea`);
+    PRL().prs += 4;
+  }
+  /* a victory at sea tells in the war, on whichever side the guardian fights */
+  const w = warBetween(a.realm, g.rid);
+  if(w){ const gain = Math.min(6, 2+Math.floor(lost/300));
+    const sign = w.sides.a.includes(g.rid) ? 1 : -1;
+    w.bp = clamp(w.bp + sign*gain, -100, 100); }
+  return !turned;
+}
 function moveArmy(a, dest, naval){
   if(a.moved){
     if(a.extraMove) a.extraMove = false;
@@ -2303,6 +2352,7 @@ function moveArmy(a, dest, naval){
       logIt('war', `Storms scatter the ${rl(a.realm).n} fleet; ${fmtN(lost)} men feed the fishes.`);
       if(isPlayer(a.realm)) chron(`In this year the sea rose against the king's ships and many good men were drowned unshriven.`);
     }
+    if(armySize(a) > 0 && !navalCrossing(a, dest)) return true;  /* turned back at sea — the host stays put */
   }
   a.prov = dest; a.moved = true; a.siege = 0;
   const foes = enemiesIn(dest, a.realm);
@@ -4824,6 +4874,7 @@ const UI = {
     h += `<div class="kv"><span>Faith</span><b>${RELICO[R_.rel]} ${RELNAME[R_.rel]}${R_.rel!==PRL().rel?' <span class=neg>(not yours)</span>':''}</b></div>`;
     h += `<div class="kv"><span>People</span><b>${esc(cap(R_.cult||''))} <span class="hint" style="margin:0">${ETHOS[cultEthos(rid)].ico} ${ETHOS[cultEthos(rid)].n}</span></b></div>`;
     h += `<div class="kv"><span data-tip="A rough measure of the levies this realm could field — weigh it against your own before pressing a claim.">Strength</span><b>~${fmtN(realmStrength(rid))}</b></div>`;
+    { const np=navalPower(rid); if(np>0) h += `<div class="kv"><span data-tip="What they can put to sea — every coast counts, a harbour counts for much more. A strong fleet intercepts crossings through the waters it watches.">At sea</span><b>⚓ ${cap(navalWord(np))}${np>=4&&hostile(rid,G.player)?' <span class="hint" style="margin:0">— they patrol these waters</span>':''}</b></div>`; }
     if(al) h += `<div class="kv"><span>Alliance</span><b class="pos">sworn</b></div>`;
     if(tr) h += `<div class="kv"><span>Truce</span><b>until ${tr.until}</b></div>`;
     if(w){
@@ -4924,7 +4975,12 @@ const UI = {
       }
       h += `</div><div class="hint" style="margin-top:3px">${esc(STANCES[cur].d)}</div>`;
       if(others.length) h += `<div class="hint">${others.length===1?'Another column of yours stands here':others.length+' more columns of yours stand here'} — merge to mass, or leave split to hold more ground.</div>`;
-      if(G.moveMode) h += `<div class="hint">Click a highlighted province. Dashed = by sea (15🪙, storm risk). Marching into an enemy host gives battle at once.</div>`;
+      if(G.moveMode){
+        h += `<div class="hint">Click a highlighted province. Dashed = by sea (15🪙, storm risk). Marching into an enemy host gives battle at once.</div>`;
+        const foes = Object.keys(G.realms).filter(r=>hostile(r,G.player) && navalPower(r)>=4)
+          .sort((x,y)=>navalPower(y)-navalPower(x));
+        if(foes.length) h += `<div class="hint neg">⚓ ${esc(rl(foes[0]).n)} keeps a ${navalWord(navalPower(foes[0]))} fleet — a crossing near their coasts may be intercepted at sea.</div>`;
+      }
       h += `<div class="hint">Armies move once a season. Split a large host to hold ground while you strike elsewhere; muster or merge to reinforce. Autumn and winter kill the unhoused — bring them home or press hard.</div>`;
     }
     return h;

@@ -1105,8 +1105,26 @@ tracks the ambition.
   (raiders throttle your sea-lanes until you answer — and if you don't, harbour
   trade suffers for the year).
 - Treasury and province tooltips explain the mechanic on hover.
-Naval *combat* — fleets, interception and blockade — remains the second pillar,
-still to come.
+### v6.5 — the sea contested (SHIPPED)
+The second naval pillar: **fleets, interception and blockade**. Harbours are now
+dual-purpose — they enrich you *and* they arm you.
+- **Naval power** is what a realm can put to sea: every unoccupied coastal
+  province counts 1, every working harbour counts 3. A rival's panel reports it
+  in words (slight · modest · strong · formidable) and warns when they patrol.
+- **Interception.** Sailing is no longer merely a storm risk. A hostile realm
+  with ports near your crossing may catch your host on the water. What decides it
+  is the *advantage* between the two fleets, not raw tonnage: evenly-matched
+  navies mostly pass each other by (~10% risk, ~10% losses), while sailing into
+  the home waters of a naval power that outclasses you is genuinely dangerous
+  (~27% risk and ~22% losses at 18-vs-8; up to ~47%/35% when overwhelmed). A
+  decisively beaten crossing is **turned back to port** — the host never lands.
+  A victory at sea also tells in the war score, on whichever side won it.
+- **Blockade** falls out of the trade rules rather than bolting on: an occupied
+  port drops out of the realm's trade network entirely, so seizing one coastal
+  province now shrinks the income of *every other harbour* that realm holds.
+  Taking a port is an economic act as much as a military one.
+- The army panel warns which enemy keeps a fleet before you commit to a crossing.
+Both pillars of the naval system are now in.
 
 ### v3 candidates (still cut)
 Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
