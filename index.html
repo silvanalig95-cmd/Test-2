@@ -281,13 +281,14 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
 @keyframes selPulse{50%{stroke-opacity:.55}}
 .zoomedOut .provName.small{display:none}
 .zoomedOut .provName.crowded{display:none}
+.notClose .provName.crowded{display:none}
 .provName.crowded{font-size:calc(var(--pnfs, 9.5px) * .84); opacity:.9}
 .zoomedOut .bldIco.small{display:none}
 .bldIco{font-size:var(--bifs, 9px); fill:#f6eed6; text-anchor:middle; pointer-events:none;
   paint-order:stroke; stroke:rgba(30,20,8,.8); stroke-width:2px}
 .fx .fxw{font-size:.85em}
 .bigIco{font-size:15px; width:22px; display:inline-block; text-align:center}
-.provName{font-size:var(--pnfs, 9.5px); fill:#f6eed6; text-anchor:middle; pointer-events:none;
+.provName{font-size:var(--pnfs, 8.4px); fill:#f6eed6; text-anchor:middle; pointer-events:none;
   font-family:var(--body); paint-order:stroke; stroke:rgba(30,20,8,.8); stroke-width:2.8px; letter-spacing:.4px}
 .armyTok{cursor:pointer; opacity:.84; transition:opacity .12s}
 .armyTok:hover, .armyTok.seldTok{opacity:1}
@@ -973,6 +974,91 @@ function applyProvinceSplits(){
   }
 }
 applyProvinceSplits();
+
+/* ---------- A second level of density ----------
+   Naming another two hundred provinces from history is beyond what a table can
+   carry, but the period named its own subdivisions directionally all the time —
+   Upper and Lower Bavaria, East Anglia, West Francia — so large lordships are
+   sliced along their longer reach and the parts take those names. */
+const DIRN2 = { y:['Upper','Lower'], x:['West','East'] };
+const DIRN3 = { y:['Upper','Middle','Lower'], x:['West','Central','East'] };
+function sliceRings(polys, axis, cuts){
+  const out = [];
+  const bounds = [-Infinity, ...cuts, Infinity];
+  for(let i=0;i<bounds.length-1;i++){
+    const lo = bounds[i], hi = bounds[i+1];
+    const set = [];
+    for(const r of polys){
+      let piece = r;
+      if(lo > -Infinity){ piece = clipRing(piece, axis, lo, false); if(!piece) continue; }
+      if(hi <  Infinity){ piece = clipRing(piece, axis, hi, true);  if(!piece) continue; }
+      set.push(piece);
+    }
+    out.push(set);
+  }
+  return out;
+}
+function autoSubdivide(minArea){
+  for(const pid of Object.keys(PROVDATA).slice()){
+    const pd = PROVDATA[pid];
+    if(pd.waste || !pd.polys || pd.area < minArea) continue;
+    const [lx, ly] = pd.lbl;
+    if(lx < 150 || lx > 660 || ly < 95 || ly > 530) continue;      /* Europe only, for now */
+    /* cut across whichever way the land runs longer */
+    let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+    for(const r of pd.polys) for(const p of r){
+      if(p[0]<x0)x0=p[0]; if(p[0]>x1)x1=p[0]; if(p[1]<y0)y0=p[1]; if(p[1]>y1)y1=p[1]; }
+    const axis = (x1-x0) >= (y1-y0) ? 'x' : 'y';
+    const lo = axis==='x'?x0:y0, hi = axis==='x'?x1:y1, span = hi-lo;
+    if(span < 14) continue;
+    const n = pd.area > minArea*2.1 ? 3 : 2;
+    const cuts = n===3 ? [lo+span/3, lo+2*span/3] : [lo+span/2];
+    const sets = sliceRings(pd.polys, axis, cuts).filter(set=>set.length && set.reduce((t,r)=>t+ringArea(r),0) > 55);
+    if(sets.length < 2) continue;
+    const names = (sets.length===3 ? DIRN3 : DIRN2)[axis];
+    const stem = pd.n.replace(/^The\s+/i, '');      /* "The Banat" reads as "Upper Banat", not "Upper The Banat" */
+    const ids = [];
+    sets.forEach((set, i) => {
+      const area = set.reduce((t,r)=>t+ringArea(r), 0);
+      if(i === 0){                                   /* the parent keeps its shape's first part */
+        pd.polys = set; pd.area = area; pd.lbl = ringCentroid(set[0]);
+        pd.n = `${names[0]} ${stem}`;
+        ids.push(pid);
+      } else {
+        const nid = pid + '~' + i;
+        PROVDATA[nid] = { n:`${names[i]} ${stem}`, t:pd.t, d:pd.d,
+          coast:pd.coast||0, polys:set, lbl:ringCentroid(set[0]), area, adj:[] };
+        ids.push(nid);
+      }
+    });
+    /* the slices border one another in order; the old neighbours go to whoever they touch */
+    const oldAdj = (pd.adj||[]).slice();
+    for(let i=0;i<ids.length;i++){
+      const me = PROVDATA[ids[i]];
+      me.adj = [];
+      if(i>0) me.adj.push(ids[i-1]);
+      if(i<ids.length-1) me.adj.push(ids[i+1]);
+    }
+    for(const q of oldAdj){
+      const qd = PROVDATA[q]; if(!qd) continue;
+      qd.adj = (qd.adj||[]).filter(x=>x!==pid);
+      let best=null, bestD=Infinity;
+      for(const id of ids){
+        const dd = ringsMinDist(PROVDATA[id].polys, qd.polys);
+        if(dd < bestD){ bestD = dd; best = id; }
+        if(dd <= 24 && !PROVDATA[id].adj.includes(q)){ PROVDATA[id].adj.push(q); qd.adj.push(q===id?null:id); }
+      }
+      qd.adj = qd.adj.filter(Boolean);
+      if(best && !qd.adj.includes(best)){ qd.adj.push(best); if(!PROVDATA[best].adj.includes(q)) PROVDATA[best].adj.push(q); }
+    }
+    /* the new slices are held by whoever held the whole */
+    const addAfter = arr => { const i = arr.indexOf(pid); if(i<0) return;
+      ids.slice(1).forEach((nid,k)=>{ if(!arr.includes(nid)) arr.splice(i+1+k, 0, nid); }); };
+    for(const rd of Object.values(REALMDATA)) if(rd.provs) addAfter(rd.provs);
+    for(const sc of Object.values(SCENARIOS)) if(sc.provs) for(const arr of Object.values(sc.provs)) addAfter(arr);
+  }
+}
+autoSubdivide(420);
 
 /* ---------- Heraldry: the real arms of the age, drawn rather than fetched ----------
    Charges are authored in a 0..100 box and placed into the shield by transform,
@@ -4884,8 +4970,8 @@ const UI = {
     for(const [pid, pd] of named){
       const [cx, cy] = pd.lbl;
       const small = pd.area < 430;
-      const fs = small ? 8 : 9.5;
-      const w = pd.n.length * fs * 0.47, hh = fs * 1.02;
+      const fs = small ? 6.6 : 8.4;
+      const w = pd.n.length * fs * 0.60 + 3, hh = fs * 1.35;   /* measured: 0.47 under-estimated real glyph widths and let names collide anyway */
       let y = cy + 3, room = false;
       for(const dy of [0, -8, 8, -15, 15]){
         if(fits(cx, y + dy, w, hh)){ y += dy; claim(cx, y, w, hh); room = true; break; }
@@ -5065,6 +5151,7 @@ const UI = {
     }
     const armyEl = document.getElementById('armyLayer'); if(armyEl) armyEl.innerHTML = am;
     svg.classList.toggle('zoomedOut', this.view.w > 620);
+    svg.classList.toggle('notClose', this.view.w > 210);   /* names that found no room wait for a close look */
   },
   renderLog(){
     const el = document.getElementById('log');
@@ -7008,6 +7095,7 @@ UI.applyView = function(){
   if(!s) return;
   s.setAttribute('viewBox', `${this.view.x} ${this.view.y} ${this.view.w} ${this.view.h}`);
   s.classList.toggle('zoomedOut', this.view.w > 620);
+  s.classList.toggle('notClose', this.view.w > 210);
   s.style.setProperty('--pnfs', (9.5*Math.pow(this.view.w/1000, .55)).toFixed(2)+'px');
   s.style.setProperty('--bifs', (9*Math.pow(this.view.w/1000, .55)).toFixed(2)+'px');
 };

@@ -1531,6 +1531,35 @@ progress rate, but forgery recruits no conspirators, so it crawled while
 carrying a discovery risk every season. Scribes now work at their own pace, set
 by the spymaster and the ruler's cunning: **about a year**.
 
+### v6.20 — a second level of density (SHIPPED)
+Europe goes from **293 provinces to 458**. Naming another 165 from history is
+beyond what a hand-written table can carry, but the period named its own
+subdivisions directionally all the time — Upper and Lower Bavaria, East Anglia,
+West Francia — so any lordship still above 420 area is sliced along its longer
+reach into two or three parts that take those names: *Upper Saxony*, *West
+Bohemia*, *Central Austria*, *Middle Banat*.
+
+The splitter reuses the v6.10 machinery, so the same guarantees hold and were
+re-measured: **no bad geometry, every ring closed, adjacency fully symmetric, no
+orphaned province in either scenario**, and ownership inherited correctly.
+Repaint costs 7.3ms against 2.4ms before, with a one-time 33.8ms base build —
+comfortably inside a frame.
+
+**The density broke the labels, and fixing that was most of the work.** Three
+faults compounded:
+1. The type was sized for 293 provinces. Reduced from 9.5/8 to 8.4/6.6.
+2. Names that could not be placed were revealed as soon as the map was not
+   *zoomed out*, which at this density meant a wall of overlapping text at
+   ordinary play zooms. They now wait until the view is genuinely close.
+3. Worst and least visible: the placement pass estimated glyph width at
+   `0.47 × fontSize`, which **under-estimated real text**, so names it believed
+   it had placed cleanly still collided. Measuring rendered boxes showed **73
+   real overlaps among 310 "placed" labels**. At a conservative `0.60 × fontSize
+   + 3` with taller line boxes, that falls to **3 overlaps among 230 shown**.
+
+The lesson worth keeping: the collision pass must be checked against *rendered*
+geometry, not its own estimate — it was confidently wrong.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
