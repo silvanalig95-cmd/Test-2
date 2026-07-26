@@ -1479,6 +1479,34 @@ dynamic layer and do not take part in the placement, so a shield can still sit
 over a neighbouring name. Reserving their boxes needs the two layers to share
 placement state.
 
+### v6.18 — what the numbers actually do, and two exploits closed (SHIPPED)
+**Tooltips now state mechanics, not only flavour.** Traits carried real numbers
+the interface never showed — a trait tooltip gave its description and nothing
+else. It now lists the skill modifiers, how much better or worse others think of
+the bearer, which trait is its opposite, and whether it was earned by deeds.
+Terrain, which silently swung every battle fought on it, now gives its attacking
+and defending percentages and says plainly when ground rewards the defender. A
+province's character states its exact effect on tax, levies, conversion and
+assimilation.
+
+**Two exploits, both reported from play:**
+- *Tribute could be demanded repeatedly.* Envoys and gifts were capped to once
+  per court per year but tribute was not, so a player could drain a realm's
+  treasury and farm renown with every order. Now one demand per court per year,
+  whether they yield or refuse, with the button disabled and saying why. The
+  fealty demand got the same cap.
+- *Marriages appeared twice in the season report.* `doMarriage` called `wed()`,
+  which logs "X and Y are wed", and then logged its own fuller line about the
+  alliance — one marriage, two entries, both matching the digest filter. The
+  plain line is now suppressed for cross-realm matches.
+
+**Balance confirmed for v6.16** (2 runs × 100 years, 0 errors): the legitimacy
+fix holds exactly — median **70 → 70/71**, flat across a century where it used to
+drift to 85. Gold plateaus at **726**, the living cast settles at **1,222** (down
+from 1,926 before the court pruning), realms drift 55 → 44 with the top three
+holding 25% of the map. Lifecycle, province character and war weariness
+destabilised nothing.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

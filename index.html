@@ -663,7 +663,7 @@ const CULT_LOOK = { saxon:'north', norman:'north', german:'north', baltic:'north
   arabic:'east', berber:'east', turkic:'east', magyar:'east' };
 function relOf(c){ const r = c && c.realm && rl(c.realm); return (r && r.rel) || 'catholic'; }
 function traitChips(c){
-  return c.tr.map(t=>`<span class="trait ${TRAITS[t].opn<0?'bad':''}" data-tip="${esc(TRAITS[t].d)}">${cap(t)}</span>`).join('');
+  return c.tr.map(t=>`<span class="trait ${TRAITS[t].opn<0?'bad':''}" data-tip="${traitTip(t)}">${cap(t)}</span>`).join('');
 }
 function fmtFx(html){
   /* decorate stat changes with their symbols and colour */
@@ -1100,6 +1100,29 @@ function armsMapGlyph(rid, cx, cy, s){
   const svg = armsSvg(rid, 'x');
   const inner = svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
   return `<g class="capArms" transform="translate(${(cx-17*s).toFixed(1)} ${(cy-19*s).toFixed(1)}) scale(${s})" style="pointer-events:none">${inner}</g>`;
+}
+/* Traits carried real numbers the interface never showed. Spell them out. */
+const SKILLNAME = {dip:'Diplomacy', mar:'Martial', int:'Intrigue', ste:'Stewardship'};
+function traitTip(t){
+  const T = TRAITS[t]; if(!T) return '';
+  let h = `<b>${cap(t)}</b><br>${T.d}`;
+  const mods = [];
+  for(const k of ['dip','mar','int','ste']) if(T[k]) mods.push(`${T[k]>0?'+':''}${T[k]} ${SKILLNAME[k]}`);
+  if(mods.length) h += `<br><span class="pos">${mods.join(' · ')}</span>`;
+  if(T.opn) h += `<br>Others think ${T.opn>0?'better':'worse'} of them: <span class="${T.opn>0?'pos':'neg'}">${T.opn>0?'+':''}${T.opn} opinion</span>`;
+  if(T.opp) h += `<br><span class="hint" style="margin:0">Its opposite is ${cap(T.opp)} — those who bear it will clash.</span>`;
+  if(T.earned) h += `<br><span class="hint" style="margin:0">Earned by deeds, not born with.</span>`;
+  return h.replace(/"/g,'&quot;');
+}
+/* and terrain, which silently swung every battle fought on it */
+function terrainTip(tk){
+  const T = TERRAIN[tk]; if(!T) return '';
+  const pc = v => `${v>1?'+':''}${Math.round((v-1)*100)}%`;
+  return (`<b>${T.n}</b><br>The lie of the land tells in every battle fought here.` +
+    `<br>Attacking: <span class="${T.atk>=1?'pos':'neg'}">${pc(T.atk)}</span>` +
+    `<br>Defending: <span class="${T.def>=1?'pos':'neg'}">${pc(T.def)}</span>` +
+    (T.def>T.atk ? `<br><span class="hint" style="margin:0">Ground that rewards the defender — costly to take, cheap to hold.</span>` : '')
+  ).replace(/"/g,'&quot;');
 }
 const SHIELD_D = 'M3 3 h28 v18 q0 8 -14 14 q-14 -6 -14 -14 z';
 let _armUid = 0;
@@ -2758,7 +2781,9 @@ function doMarriage(a, b){
   const ra = a.realm, rb = b.realm;
   /* an alliance is sworn only when the marriage binds two ruling houses — a courtier's match does not commit realms */
   const dynastic = ra!==rb && isDynastic(a, ra) && isDynastic(b, rb);
-  wed(a.id, b.id);
+  /* a match between two realms already gets its own, fuller line below — logging the
+     plain "are wed" here as well put every such marriage in the season report twice */
+  wed(a.id, b.id, ra!==rb);
   /* the bride joins the groom's court */
   const groom = a.sex==='m'?a:b, bride = a.sex==='m'?b:a;
   bride.realm = groom.realm;
@@ -5694,8 +5719,16 @@ const UI = {
     let h = `<div class="eyebrow">${mine?'Province of your realm':'Province'+(R_?' of '+esc(R_.n):'')}</div><h3>${esc(pd.n)}</h3>
       <div class="kv"><span>Realm</span><b>${R_?esc(R_.n):'—'}</b></div>
       ${st.occ?`<div class="kv"><span>Occupied by</span><b class="neg">${esc(rl(st.occ).n)}</b></div>`:''}
-      <div class="kv"><span data-tip="The lie of the land. Hills and mountains favour the defender in battle; open ground and coast do not.">Terrain</span><b>${TERRAIN[pd.t].n}</b></div>
-      ${(()=>{ const ch=provCharOf(pid); return ch?`<div class="kv"><span data-tip="${esc(ch.d)}">Its people</span><b>${ch.ico} ${esc(ch.n)}</b></div>`:''; })()}
+      <div class="kv"><span data-tip="${terrainTip(pd.t)}">Terrain</span><b>${TERRAIN[pd.t].n}</b></div>
+      ${(()=>{ const ch=provCharOf(pid); if(!ch) return '';
+        const pc = v => `${v>1?'+':''}${Math.round((v-1)*100)}%`;
+        const bits=[];
+        if(charTax(pid)!==1)  bits.push(`Tax <span class="${charTax(pid)>1?'pos':'neg'}">${pc(charTax(pid))}</span>`);
+        if(charLevy(pid)!==1) bits.push(`Levies <span class="${charLevy(pid)>1?'pos':'neg'}">${pc(charLevy(pid))}</span>`);
+        if(charConv(pid)!==1) bits.push(`Conversion <span class="${charConv(pid)>1?'pos':'neg'}">${pc(charConv(pid))}</span>`);
+        if(charAsm(pid)!==1)  bits.push(`Assimilation <span class="${charAsm(pid)>1?'pos':'neg'}">${pc(charAsm(pid))}</span>`);
+        const tip = (`<b>${ch.ico} ${ch.n}</b><br>${ch.d}` + (bits.length?`<br>${bits.join('<br>')}`:'')).replace(/"/g,'&quot;');
+        return `<div class="kv"><span data-tip="${tip}">Its people</span><b>${ch.ico} ${esc(ch.n)}</b></div>`; })()}
       <div class="kv"><span data-tip="How built-up and populous the land is. Higher development means more tax and larger levies. Raise it with the Develop action (to a maximum of 5).">${STATICO.dev} Development</span><b>${st.dev} / 5</b></div>
       <div class="kv"><span data-tip="Each province holds one permanent improvement — a keep, a market, a temple and the like. It gives a standing bonus once built.">${st.bld?BUILDINGS[st.bld].ico:'🏗'} Building</span><b>${st.bld?BUILDINGS[st.bld].n : st.cons?BUILDINGS[st.cons.b].n+' — '+st.cons.left+' season'+(st.cons.left>1?'s':'')+' left' : '—'}</b></div>
       <div class="kv"><span data-tip="The soldiers this land can raise when you Muster. Cut by low legitimacy, foreign faith and occupation — raised by development, martial culture and a keep.">${STATICO.levy} Levies</span><b>${fmtN(levyOf(pid))}</b></div>
@@ -5769,7 +5802,7 @@ const UI = {
       <button class="small" ${!Game.can('gift')||PRL().gold<10||G.flags['gift'+rid+G.year]?'disabled':''} onclick="Game.act('gift','${rid}')" data-tip="${G.flags['gift'+rid+G.year]?'Already sent gifts to this court this year':'+20 opinion with their ruler · once a year per court'}">Send gift (⚡ 10🪙)</button>
       <button class="small" ${!Game.can('marry')?'disabled':''} onclick="Game.marryMenu('${rid}')" data-tip="${(()=>{ const o2=rul?opinion(rul,PR()):0; const est=clamp(Math.round((o2+(PRL().prs-R_.prs)/8+(PRL().rank==='kingdom'?15:0)+skill(PR(),'dip')*3+focusAccept(G.player)+10)/50*100),2,98); return 'Their disposition: roughly '+est+'% likely to accept a fair match'; })()}">Arrange marriage (⚡)</button>`;
     if(!al) h += `<button class="small" ${!Game.can()?'disabled':''} onclick="Game.proposeAlliance('${rid}')" data-tip="Offer a standing alliance without a marriage — weighed by their opinion, a shared enemy, and your renown">🤝 Propose alliance (⚡)</button>`;
-    h += `<button class="small" ${!Game.can()?'disabled':''} onclick="Game.demandTribute('${rid}')" data-tip="Threaten a weaker realm into paying tribute — coin now, but they will resent you (or defy you)">💰 Demand tribute (⚡)</button>`;
+    h += `<button class="small" ${!Game.can()||G.flags['trib'+rid+G.year]?'disabled':''} onclick="Game.demandTribute('${rid}')" data-tip="${G.flags['trib'+rid+G.year]?'Already demanded of this court this year':'Threaten a weaker realm into paying tribute — coin now, but they will resent you (or defy you). One demand per court per year.'}">💰 Demand tribute (⚡)</button>`;
     if(!isVassal(rid) && !wouldCycle(rid, G.player)){
       const fm = fealtyMargin(rid), [fl,fc] = acceptLabel(fm);
       h += `<button class="small" ${!Game.can()?'disabled':''} onclick="Game.demandFealty('${rid}')" data-tip="${esc('Require their oath: they keep their crown but render a quarter of their taxes, march at your summons, and make no wars of their own. Their inclination: '+fl+' ('+(fm>=0?'+':'')+fm+')')}">⚜ Demand fealty (⚡) <span class="hint" style="margin:0">— <span class="${fc}">${fl}</span></span></button>`;
@@ -5800,7 +5833,7 @@ const UI = {
       <div style="flex:1"><h3 style="margin:0">${esc(fullName(c))}${c.dead?' †':''}</h3>
       <div class="hint" style="margin:0">${esc(title(c))} · ${c.dead?('died '+c.dead+' aged '+(c.dead-c.by)):('age '+age(c))} · ${c.sex==='m'?'♂':'♀'} ${esc(c.dyn?('House '+c.dyn):'lowborn')}<br>${esc(cap(c.cult||''))} · ${RELICO[relOf(c)]} ${RELNAME[relOf(c)]}</div></div>
       ${c.dyn?`<span data-tip="Arms of House ${esc(c.dyn)}">${this.medallion(c)}</span>`:''}</div>`;
-    h += `<div style="margin:7px 0">` + c.tr.map(t=>`<span class="trait ${TRAITS[t].opn<0?'bad':''}" data-tip="${esc(TRAITS[t].d)}">${cap(t)}</span>`).join('') + `</div>`;
+    h += `<div style="margin:7px 0">` + c.tr.map(t=>`<span class="trait ${TRAITS[t].opn<0?'bad':''}" data-tip="${traitTip(t)}">${cap(t)}</span>`).join('') + `</div>`;
     h += `<div class="card">${this.sklBar(SKILLICO.dip+' Diplomacy',skill(c,'dip'))}${this.sklBar(SKILLICO.mar+' Martial',skill(c,'mar'))}${this.sklBar(SKILLICO.int+' Intrigue',skill(c,'int'))}${this.sklBar(SKILLICO.ste+' Stewardship',skill(c,'ste'))}</div>`;
     if(!c.dead){
       if(c.id!==PR().id) h += `<div class="kv"><span>Opinion of you</span><b class="${o1>=0?'pos':'neg'}">${o1>0?'+':''}${o1}</b></div>`;
@@ -6210,9 +6243,13 @@ const Game = {
     if(this.busy()) return;
     const R_=rl(rid), rul=ruler(rid); if(!rul) return;
     if(warBetween(rid,G.player)||allianceBetween(rid,G.player)){ toast('Not while you are at war or allied.'); return; }
+    /* A court can be squeezed once a year. Without this the demand could be repeated
+       every order — draining a realm dry and farming renown off the same threat. */
+    if(G.flags['trib'+rid+G.year]){ toast(`💰 You have already had tribute of ${esc(R_.n)} this year — a threat repeated is a threat cheapened.`); return; }
     const sum = tributeSum(rid); const m = tributeMargin(rid); const [lbl,cls]=acceptLabel(m);
-    UI.modal('Demand Tribute', `Send a threatening embassy to ${esc(R_.n)}: pay <b>${sum} gold</b>, or face your wrath. A weak realm in your shadow pays up; a proud or well-armed one bristles — and remembers.<br><br>Their inclination to submit: <span class="${cls}">${lbl}</span> (${m>=0?'+':''}${m}).`,
+    UI.modal('Demand Tribute', `Send a threatening embassy to ${esc(R_.n)}: pay <b>${sum} gold</b>, or face your wrath. A weak realm in your shadow pays up; a proud or well-armed one bristles — and remembers.<br><br>Their inclination to submit: <span class="${cls}">${lbl}</span> (${m>=0?'+':''}${m}).<br><br><span class="hint" style="margin:0">One demand per court per year, whether they yield or refuse.</span>`,
       [{t:'⚔ Make the demand (⚡)', fx:()=>{ if(!this.order()) return;
+          G.flags['trib'+rid+G.year] = 1;
           if(tributeMargin(rid)>=0){ const g=Math.min(rl(rid).gold, sum); rl(rid).gold-=g; PRL().gold+=g;
             PRL().prs+=6; addOp(rul, PR().id, -12);
             toast(`💰 <b>${esc(R_.n)}</b> pays <b>${g} gold</b> rather than face war`); logIt('court',`${R_.n} pays ${g} gold in tribute to ${PRL().n}, swallowing its pride.`); }
@@ -6239,10 +6276,12 @@ const Game = {
     const R_=rl(rid), rul=ruler(rid); if(!rul) return;
     if(warBetween(rid,G.player)||allianceBetween(rid,G.player)){ toast('Not while you are at war or allied.'); return; }
     if(isVassal(rid)){ toast(`${R_.n} is already sworn to ${esc(rl(liegeOf(rid)).n)}.`); return; }
+    if(G.flags['feal'+rid+G.year]){ toast(`⚜ You have already put the demand to ${esc(R_.n)} this year.`); return; }
     if(wouldCycle(rid, G.player)){ toast('You cannot take the oath of your own liege.'); return; }
     const m = fealtyMargin(rid); const [lbl,cls]=acceptLabel(m);
     UI.modal('Demand Fealty', `Send to ${esc(R_.n)} and require their oath: they keep their crown, their court and their lands, but render a quarter of their taxes to you, march when you summon them, and make no wars of their own.<br><br>It is a far heavier thing to ask than tribute, and only a realm deep in your shadow will swallow it.<br><br>Their inclination to submit: <span class="${cls}">${lbl}</span> (${m>=0?'+':''}${m}).`,
       [{t:'⚜ Require the oath (⚡)', fx:()=>{ if(!this.order()) return;
+          G.flags['feal'+rid+G.year] = 1;
           if(fealtyMargin(rid)>=0){
             swearFealty(rid, G.player);
             PRL().prs+=25; addOp(rul, PR().id, -20);
