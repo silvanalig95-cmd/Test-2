@@ -1347,8 +1347,35 @@ caught two faults invisible to any short test:
 - The world stayed healthy through the change: realms 55 → 44-46, top-three
   share 22-27%, no orphaned provinces, vassalage spreading naturally to 9-11
   sworn realms.
-- Still open: median legitimacy drifts up 70 → 81-85 over a century, so
-  legitimacy slowly stops being a pressure. Noted, not yet addressed.
+- Legitimacy drift **has since been fixed** (see v6.13).
+
+### v6.13 — the Imperial border, arms on the map, and honest legitimacy (SHIPPED)
+**The Imperial border.** The gold hatch marking Imperial land was thrown out on
+sight: occupation already uses 45° stripes, so the Empire read as besieged
+territory. The replacement needs no shared polygon edges — all Imperial shapes go
+into one group as an alpha source, and an SVG filter dilates that union,
+subtracts the original and floods the remainder with gold, leaving a single ring
+around the outside. Internal borders vanish; the dilation closes the polygon gaps
+that defeated the first geometric attempt.
+
+**Arms on the map.** Capitals bore a generic ♛. They now carry the realm's own
+blazon, scaled against the zoom so they stay small on screen — Poland's white
+eagle, Bohemia's lion, Croatia's chequy and the rest identify a realm at a glance.
+A first pass at 0.62 scale covered the province labels and doubled the repaint
+cost; at 0.40 × the token scale it costs little and reads cleanly.
+
+**Legitimacy stopped being a pressure.** The balance harness found median
+legitimacy climbing 70 → 85 over a century. The first guess — uncapped cathedral
+bonuses — was wrong: measuring the actual terms showed the **chaplain** supplying
+1.7/yr on average and up to 3.2, dwarfing everything else, against a restoring
+pull of only 0.06. The holy-building contribution is now capped at 1.6, the
+restoring pull raised to 0.10, and a new drag of 0.15 per point above 70 means
+the higher a crown stands the more is expected of it.
+
+Legitimacy now settles across a real range instead of converging on 85+:
+**51** with no chaplain and no church, **68** with an average chaplain, **76**
+with cathedrals too, **82** at best, and **44** under excommunication. The
+*A Secure Throne* ambition at 85 is now an achievement rather than a default.
 
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
