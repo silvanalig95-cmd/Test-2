@@ -1207,13 +1207,23 @@ turns negative, and **Plots** when someone is scheming against you. The
 band reflows to two columns.
 
 ### v6.9 — three more map modes, and the Empire made visible (SHIPPED)
-**The Empire on the political map.** Imperial extent now reads at a glance
-*without* changing mode: every province of the Empire carries a faint gold
-diagonal wash and a gold edge on the default Realms map, so the federation shows
-as one bloc while each prince keeps his own colour underneath. (A computed
-single outer border was the first instinct and was rejected on evidence — only
-492 of 2121 polygon edges are shared exactly between neighbours, so a union
-outline would have come out gappy.)
+**The Empire on the political map.** Imperial extent reads at a glance *without*
+changing mode: a single gold **Imperial border** traces the outer edge of all
+Imperial land on the default Realms map, while each prince keeps his own colour
+inside it.
+
+Two earlier attempts were wrong and are worth recording. A computed union
+outline was rejected because only 492 of 2,121 polygon edges are shared exactly
+between neighbours. The replacement — a gold diagonal hatch over every Imperial
+province — shipped and was then thrown out on sight: **occupation already uses
+45° stripes**, so the Empire looked like besieged territory.
+
+The working answer needs no shared edges at all. All Imperial province shapes go
+into one group as an alpha source; an SVG filter dilates that union, subtracts
+the original from it, and floods what remains with gold — leaving exactly one
+ring around the outside. Internal borders vanish because the union is continuous
+there, and the dilation closes the small gaps between polygons that defeated the
+geometric approach.
 
 **Three new modes**, bringing the total to seven:
 - **Empire** — the Emperor in gold, his princes in violet, any pretender in

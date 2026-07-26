@@ -4665,9 +4665,16 @@ const UI = {
         <rect width="9" height="9" fill="#b7b2a0"/><rect width="9" height="3.5" fill="#a5a08e"/></pattern>
       <pattern id="desertPat" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
         <rect width="10" height="10" fill="#dcc79a"/><rect width="10" height="3.6" fill="#cbb079"/></pattern>
-      <!-- the Imperial wash: a faint gold hatch laid over every province of the Empire -->
-      <pattern id="empPat" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-        <rect width="7" height="7" fill="none"/><rect width="7" height="2" fill="rgba(214,176,74,.42)"/></pattern>
+      <!-- The Imperial border: dilate the union of Imperial land, subtract it from itself,
+           and what remains is a single outer ring around the whole Empire. Diagonal hatching
+           was tried first and abandoned — it read as siege, which uses the same stripes. -->
+      <filter id="empOutline" x="-6%" y="-6%" width="112%" height="112%">
+        <feMorphology operator="dilate" radius="2.2" in="SourceAlpha" result="fat"/>
+        <feComposite in="fat" in2="SourceAlpha" operator="out" result="ring"/>
+        <feFlood flood-color="#e2be55" flood-opacity=".95" result="gold"/>
+        <feComposite in="gold" in2="ring" operator="in" result="line"/>
+        <feDropShadow dx="0" dy="0" stdDeviation="1.4" flood-color="#4a3208" flood-opacity=".55"/>
+      </filter>
       <filter id="parchtex"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" result="n"/>
         <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.42 0 0 0 0 0.33 0 0 0 0 0.18 0 0 0 0.06 0"/>
         <feComposite in2="SourceGraphic" operator="over"/></filter>
@@ -4846,9 +4853,10 @@ const UI = {
           for(const pid of Object.keys(G.provinces)){
             const r0 = pv(pid).r; if(!r0 || !empMember(r0)) continue;
             const d = this._dCache && this._dCache[pid]; if(!d) continue;
-            e += `<path d="${d}" fill-rule="evenodd" fill="url(#empPat)" stroke="rgba(196,158,60,.55)" stroke-width="0.7"/>`;
+            e += `<path d="${d}" fill-rule="evenodd" fill="#000"/>`;   /* alpha source only */
           }
-          eL.innerHTML = e;
+          /* the filter keeps the outer ring and throws the fills away */
+          eL.innerHTML = e ? `<g filter="url(#empOutline)">${e}</g>` : '';
         }
       } }
     /* marks: buildings, capitals, sieges */
