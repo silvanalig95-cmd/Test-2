@@ -1460,6 +1460,25 @@ multiplier **rounded straight back out of existence** on development-1 land —
 which is most of the map. Tax is now kept to one decimal, and the character of a
 place actually reaches the treasury.
 
+### v6.17 — labels that do not fight each other (SHIPPED)
+Dividing Europe finer in v6.10 made several province names unreadable —
+Thuringia over Meissen, Luxembourg over Lorraine, the whole Italian cluster.
+Labels are drawn in map units, so a collision between two of them **persists at
+every zoom level**; there was no zoom at which they came apart.
+
+Placement is now computed once, at base render. Names are laid down largest
+lordship first, each nudged up or down to clear whatever is already placed, and a
+name that still cannot find room is marked *crowded* — drawn a little smaller and
+held back entirely until the map is zoomed in.
+
+Measured across 284 province names: **48 held back, 236 shown, and only 2
+overlaps remaining** among them, against a great many before.
+
+Known and not yet solved: the capital **arms** added in v6.13 are drawn in the
+dynamic layer and do not take part in the placement, so a shield can still sit
+over a neighbouring name. Reserving their boxes needs the two layers to share
+placement state.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

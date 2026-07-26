@@ -280,6 +280,8 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
 .provName.waste{opacity:.65; font-style:italic}
 @keyframes selPulse{50%{stroke-opacity:.55}}
 .zoomedOut .provName.small{display:none}
+.zoomedOut .provName.crowded{display:none}
+.provName.crowded{font-size:calc(var(--pnfs, 9.5px) * .84); opacity:.9}
 .zoomedOut .bldIco.small{display:none}
 .bldIco{font-size:var(--bifs, 9px); fill:#f6eed6; text-anchor:middle; pointer-events:none;
   paint-order:stroke; stroke:rgba(30,20,8,.8); stroke-width:2px}
@@ -4822,13 +4824,35 @@ const UI = {
       forest:(x,y)=>`<path class="tglyphF" d="M${x-8} ${y} l4 -8 l4 8 z M${x+1} ${y} l4 -8 l4 8 z"/>`,
       marsh:(x,y)=>`<path class="tglyph" d="M${x-8} ${y-3} h7 M${x+1} ${y-3} h7 M${x-4} ${y+1} h8"/>`,
     };
+    /* Labels are drawn in map units, so a collision between two of them persists at
+       every zoom — dividing Europe finer made several unreadable. Place them once,
+       biggest realm-shapes first, nudging a crowded name off its neighbour; a name
+       that still cannot find room is held back until the map is zoomed in. */
     h += `<g id="labelLayer">`;
-    for(const [pid, pd] of Object.entries(PROVDATA)){
+    const placed = [];
+    const fits = (x, y, w, hh) => !placed.some(b =>
+      !(x + w/2 < b.x1 || x - w/2 > b.x2 || y < b.y1 || y - hh > b.y2));
+    const claim = (x, y, w, hh) => placed.push({x1:x-w/2, x2:x+w/2, y1:y-hh, y2:y+2});
+    const named = Object.entries(PROVDATA).filter(([,pd])=>!pd.waste)
+      .sort((a,b)=>b[1].area - a[1].area);          /* great lordships get first refusal */
+    let lbls = '';
+    for(const [pid, pd] of named){
       const [cx, cy] = pd.lbl;
-      if(pd.waste){ if(!{alps2:1,sahara_w:1}[pid]) h += `<text class="provName waste" x="${cx}" y="${cy+3}" text-anchor="middle">${esc(pd.n)}</text>`; continue; }
-      h += `<text class="provName${pd.area<430?' small':''}" x="${cx}" y="${cy+3}">${esc(pd.n)}</text>`;
-      if(TG[pd.t] && pd.area>500) h += TG[pd.t](cx, cy-11);
+      const small = pd.area < 430;
+      const fs = small ? 8 : 9.5;
+      const w = pd.n.length * fs * 0.47, hh = fs * 1.02;
+      let y = cy + 3, room = false;
+      for(const dy of [0, -8, 8, -15, 15]){
+        if(fits(cx, y + dy, w, hh)){ y += dy; claim(cx, y, w, hh); room = true; break; }
+      }
+      lbls += `<text class="provName${small?' small':''}${room?'':' crowded'}" x="${cx}" y="${y}">${esc(pd.n)}</text>`;
+      if(TG[pd.t] && pd.area > 500) lbls += TG[pd.t](cx, cy-11);
     }
+    for(const [pid, pd] of Object.entries(PROVDATA)){
+      if(!pd.waste || {alps2:1, sahara_w:1}[pid]) continue;
+      lbls += `<text class="provName waste" x="${pd.lbl[0]}" y="${pd.lbl[1]+3}" text-anchor="middle">${esc(pd.n)}</text>`;
+    }
+    h += lbls;
     h += `</g><g id="markLayer"></g><g id="armyLayer"></g>`;
     svg.innerHTML = h;
   },
