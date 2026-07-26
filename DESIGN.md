@@ -1507,6 +1507,30 @@ from 1,926 before the court pruning), realms drift 55 → 44 with the top three
 holding 25% of the map. Lifecycle, province character and war weariness
 destabilised nothing.
 
+### v6.19 — marriages worth negotiating, claims worth forging (SHIPPED)
+Three faults reported from play, all real.
+
+**Suitors came from two or three courts.** The list walked realms in storage
+order and took every candidate from each until it had ten, so a couple of
+fertile houses filled it. It now takes **at most two from any one house** and
+ranks courts by what makes them worth marrying — neighbours, existing allies,
+great powers, and their regard for you. Measured: twelve suitors from **twelve
+different realms**, one apiece.
+
+**Any match was as good as accepted.** The estimate and the actual answer were
+computed separately and had drifted apart, and neither weighed the standing of
+the two houses — so a neutral court accepted around 95% of the time, a mighty
+one as readily as a weak one. There is now **one shared reckoning** used by both,
+with the balance of power as its heaviest term. As a middling duchy: England,
+five times stronger, sits at **36%** — possible but never a formality; Poland at
+**11%**; realms three times weaker around **71%**. Average across 41 courts fell
+from near-certain to **27%**, with none above 90%.
+
+**A forged charter took over four years.** Fabrication reused the murder-plot
+progress rate, but forgery recruits no conspirators, so it crawled while
+carrying a discovery risk every season. Scribes now work at their own pace, set
+by the spymaster and the ruler's cunning: **about a year**.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

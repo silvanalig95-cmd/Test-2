@@ -2762,18 +2762,33 @@ function ensureMarriageMarket(){
     }
   }
 }
-function proposeMarriage(myChar, theirChar){
-  if(relOf(myChar) !== relOf(theirChar)) return false; /* no priest will read these banns */
+/* One reckoning, shared by the estimate shown and the answer given — they used to
+   drift apart. Standing between the two houses now weighs heavily: a great power
+   does not hand its daughters to a minor count as a matter of course, though it
+   happens often enough that the attempt is always worth making. */
+function marriageOdds(myChar, theirChar){
   const myR = rl(G.player), tR = rl(theirChar.realm);
   const tr = ruler(theirChar.realm);
-  let acc = opinion(tr, ruler(G.player)) + (myR.prs - tR.prs)/8 + (myR.rank==='kingdom'?15:0);
-  if(theirChar.id===tr.id) acc -= 20;
-  acc += skill(ruler(G.player),'dip')*3;
-  if(acc > ri(-10, 40)){
+  if(!tr || !tR) return -99;
+  let acc = opinion(tr, ruler(G.player)) + (myR.prs - tR.prs)/10 + (myR.rank==='kingdom'?8:0);
+  acc += skill(ruler(G.player),'dip')*2 + focusAccept(G.player);
+  /* the balance of power between the houses — the heaviest term by far */
+  const pow = realmStrength(G.player) / Math.max(1, realmStrength(theirChar.realm));
+  acc += clamp((pow-1)*22, -40, 25);
+  if(theirChar.id===tr.id) acc -= 20;              /* their own ruler is the hardest hand to win */
+  if(allianceBetween(theirChar.realm, G.player)) acc += 12;
+  if(warBetween(theirChar.realm, G.player)) acc -= 40;
+  return Math.round(acc);
+}
+function marriageChance(myChar, theirChar){ return clamp(Math.round(marriageOdds(myChar,theirChar) / 55 * 100), 2, 96); }
+function proposeMarriage(myChar, theirChar){
+  if(relOf(myChar) !== relOf(theirChar)) return false; /* no priest will read these banns */
+  const tr = ruler(theirChar.realm);
+  if(marriageOdds(myChar, theirChar) > ri(0, 55)){
     doMarriage(myChar, theirChar);
     return true;
   }
-  addOp(tr, ruler(G.player).id, -5);
+  if(tr) addOp(tr, ruler(G.player).id, -5);
   return false;
 }
 function isDynastic(c, realmId){ const rul=ruler(realmId); return !!(rul && (c.id===rul.id || (c.dyn && c.dyn===rul.dyn))); }
@@ -3424,7 +3439,12 @@ function plotTick(){
         && (c.tr.includes('ambitious')||c.tr.includes('deceitful')||c.tr.includes('greedy')));
       if(pool.length && chance(.35)) p.backers.push(pick(pool).id);
     }
-    p.progress += plotPower(p)/8 + ri(0,6);
+    /* A forgery is clerks and ink, not conspirators — it gained no backers and so
+       crawled at a murder plot's pace, taking four years and more. */
+    if(p.type==='fabricate'){
+      const scribes = councilBonus(p.benef||pl.realm, 'spymaster');
+      p.progress += 9 + scribes*1.6 + skill(pl,'int')*0.8 + ri(0,5);
+    } else p.progress += plotPower(p)/8 + ri(0,6);
     /* discovery */
     const victimRealm = (p.type==='defection'||p.type==='fabricate') ? pv(p.target).r : ch(p.target).realm;
     if(victimRealm && rl(victimRealm) && !rl(victimRealm).dead){
@@ -6324,19 +6344,29 @@ const Game = {
   marryMenuChar(cid){
     if(this.busy()) return;
     const m = ch(cid);
+    /* Suitors used to be taken realm by realm in storage order, so two or three
+       courts filled the whole list. Take at most two from any one house, and put
+       the courts that matter — neighbours, friends, great powers — first. */
+    const realmsBy = Object.values(G.realms).filter(r=>!r.dead && r.id!==G.player && ruler(r.id));
+    const nb = new Set(borderRealms(G.player));
+    const worth = r => (nb.has(r.id)?60:0) + (allianceBetween(r.id,G.player)?25:0)
+      + (r.rel===PRL().rel?30:-100) + Math.min(30, realmStrength(r.id)/400)
+      + (ruler(r.id)?opinion(ruler(r.id), PR())/3:0) + R()*18;
+    realmsBy.sort((a,b)=>worth(b)-worth(a));
     const options = [];
-    for(const r of Object.values(G.realms)){
-      if(r.dead||r.id===G.player) continue;
-      for(const t of marriageCandidates(r.id)) if(t.sex!==m.sex && options.length<10) options.push(t);
+    for(const r of realmsBy){
+      if(options.length>=12) break;
+      let taken = 0;
+      for(const t of marriageCandidates(r.id)){
+        if(t.sex===m.sex || taken>=2 || options.length>=12) continue;
+        options.push(t); taken++;
+      }
     }
     if(!options.length){ UI.modal('No Match Found','No foreign court offers a marriageable partner this season.',[{t:'Wait, then.',fx:()=>{}}]); return; }
-    const accP2 = t => { const tr2 = ruler(t.realm); if(!tr2) return 50;
-      let acc = opinion(tr2, PR()) + (PRL().prs - rl(t.realm).prs)/8 + (PRL().rank==='kingdom'?15:0) + skill(PR(),'dip')*3 + focusAccept(G.player);
-      if(t.id===tr2.id) acc -= 20;
-      return clamp(Math.round((acc+10)/50*100), 2, 98); };
+    const accP2 = t => marriageChance(m, t);
     const accWord2 = p2 => p2>=75?'<span class=pos>near certain</span>':p2>=50?'<span class=pos>likely</span>':p2>=25?'<span class=oddsEven>uncertain</span>':'<span class=neg>unlikely</span>';
     UI.modal('A Match for '+fullName(m), 'Whose hand shall be sought?',
-      options.map(t=>({t:`${fullName(t)} of ${rl(t.realm).n} (${age(t)}${age(t)<16?', betrothal':''}, ${t.tr.map(cap).join(', ')}) — ${accWord2(accP2(t))}`,
+      options.map(t=>({t:`${fullName(t)} of ${rl(t.realm).n} (${age(t)}${age(t)<16?', betrothal':''}, ${t.tr.map(cap).join(', ')}) — ${accWord2(accP2(t))} <span class="hint" style="margin:0">${accP2(t)}%${realmStrength(t.realm)>realmStrength(G.player)*1.4?' · a greater house':''}</span>`,
         fx:()=>{ if(!this.order('marry')) return;
           const tn = rl(t.realm).n; /* capture before the bride joins the groom's realm */
           if(proposeMarriage(m,t)) UI.modal('The Banns Are Read', `${tn} accepts the match.`, [{t:'Good.',fx:()=>{}}]);
