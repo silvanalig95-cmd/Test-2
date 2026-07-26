@@ -118,10 +118,15 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
 #log .war::before{content:"⚔ "; opacity:.7} #log .plot::before{content:"🗡 "; opacity:.7} #log .court::before{content:"❧ "; opacity:.7}
 
 /* ---------- tabs & rows ---------- */
-.tabs{display:flex; flex-wrap:wrap; align-items:center; gap:3px; margin-bottom:9px}
-.tabs button{position:relative; flex:1 1 auto; min-width:52px; font-size:10.5px; padding:4px 3px; font-family:var(--disp); letter-spacing:.4px; text-transform:uppercase}
+/* three labelled bands — house, realm, world — so nine tabs read as three ideas */
+.tabs{display:flex; flex-direction:column; gap:3px; margin-bottom:9px}
+.tabBand{display:grid; grid-template-columns:34px 1fr; align-items:center; gap:0 6px}
+.tabBandL{font-family:var(--disp); font-size:8px; letter-spacing:1px; text-transform:uppercase;
+  color:var(--ink2); opacity:.62; text-align:right; user-select:none}
+.tabBandR{display:grid; gap:3px}
+.tabs button{position:relative; min-width:0; font-size:10.5px; padding:4px 3px; font-family:var(--disp); letter-spacing:.4px; text-transform:uppercase;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .tabs button.on{background:linear-gradient(#8c3a31,#6d251f); color:#f3e6c8; border-color:#4c1712}
-.tabDiv{flex:0 0 auto; width:1px; align-self:stretch; margin:2px 2px; background:linear-gradient(rgba(60,45,20,0), rgba(60,45,20,.35), rgba(60,45,20,0))}
 .tabDot{display:none; position:absolute; top:3px; right:3px; width:7px; height:7px; border-radius:50%;
   background:radial-gradient(circle at 35% 35%, #ffe08a, #c99a2a); box-shadow:0 0 0 1px rgba(80,55,10,.6), 0 0 5px rgba(255,210,110,.9)}
 .tabDot.has{display:block}
@@ -447,7 +452,12 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
 .oddsGood{color:#2e5e2e; font-weight:bold} .oddsBad{color:#8c2f26; font-weight:bold} .oddsEven{color:#7a6218; font-weight:bold}
 .resLbl{font-style:normal}
 @media (max-width:1360px){ .resLbl{display:none} #topbar{gap:9px} #topbar .res > span{padding:2px 7px} #topbar .title{font-size:14px; letter-spacing:2px} }
-@media (max-width:1050px){ .panel{width:235px} }
+@media (max-width:1050px){ .panel{width:235px}
+  /* the narrow panel cannot spare a label gutter — the bands stack, still grouped by their gaps */
+  .tabBand{grid-template-columns:1fr}
+  .tabBandL{text-align:left; font-size:7.5px; opacity:.55; margin-left:1px}
+  .tabs button{font-size:9.5px; letter-spacing:.2px; padding:4px 2px}
+}
 </style>
 </head>
 <body>
@@ -476,17 +486,24 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
 <div id="main">
   <div class="panel" id="leftPanel">
     <div class="tabs">
-      <button id="tabDyn" class="on" onclick="UI.tab('dyn')" data-grp="Court &amp; Kin" data-tip="<b>Dynasty</b><br>Your ruler and realm at a glance — legitimacy, piety, renown, your ambition and your house's legacy. Your starting view.">Dynasty<i class="tabDot"></i></button>
-      <button id="tabCourt" onclick="UI.tab('court')" data-grp="Court &amp; Kin" data-tip="<b>Court</b><br>The living souls around you — heirs, kin, courtiers and guests. Befriend, gift, betroth, or plot against them.">Court<i class="tabDot"></i></button>
-      <button id="tabCouncil" onclick="UI.tab('council')" data-grp="Court &amp; Kin" data-tip="<b>Council</b><br>Appoint your great officers, set the Crown's focus, and give each minister a standing mandate. Read their advice here.">Council<i class="tabDot"></i></button>
-      <button id="tabFaith" onclick="UI.tab('faith')" data-grp="Court &amp; Kin" data-tip="<b>Faith</b><br>Tend your standing with the Church — endow it for piety, proclaim holy wars, send missionaries, bless your heir.">Faith<i class="tabDot"></i></button>
-      <span class="tabDiv"></span>
-      <button id="tabTreasury" onclick="UI.tab('treasury')" data-grp="Realm" data-tip="<b>Treasury</b><br>The ledger of your coin — where income rises and where it drains. Weigh buildings, upkeep and reserves.">Treasury<i class="tabDot"></i></button>
-      <span class="tabDiv"></span>
-      <button id="tabRelations" onclick="UI.tab('relations')" data-grp="Statecraft" data-tip="<b>Relations</b><br>Every court in Christendom and beyond — their opinion of you, your ties and truces. Send envoys, gifts, marriages and alliances.">Relations<i class="tabDot"></i></button>
-      <button id="tabWars" onclick="UI.tab('wars')" data-grp="Statecraft" data-tip="<b>Wars</b><br>Your campaigns and the wars raging across the wider world — participants, war-score, and the terms to sue for peace.">Wars<i class="tabDot"></i></button>
-      <button id="tabPlots" onclick="UI.tab('plots')" data-grp="Statecraft" data-tip="<b>Plots</b><br>Schemes afoot — your own intrigues in progress and the daggers being sharpened against you.">Plots<i class="tabDot"></i></button>
-      <button id="tabEmpire" onclick="UI.tab('empire')" data-grp="Statecraft" data-tip="<b>Empire</b><br>The Holy Roman Empire — its Emperor, the prince-electors, and your place within or against it.">Empire<i class="tabDot"></i></button>
+      <div class="tabBand"><span class="tabBandL" data-tip="Your own person, your blood, and the officers who serve you">House</span>
+        <div class="tabBandR" style="grid-template-columns:repeat(3,1fr)">
+          <button id="tabDyn" class="on" onclick="UI.tab('dyn')" data-tip="<b>Dynasty</b><br>Your ruler and realm at a glance — legitimacy, piety, renown, your ambition and your house's legacy. Your starting view.">Dynasty<i class="tabDot"></i></button>
+          <button id="tabCourt" onclick="UI.tab('court')" data-tip="<b>Court</b><br>The living souls around you — heirs, kin, courtiers and guests. Befriend, gift, betroth, or plot against them.">Court<i class="tabDot"></i></button>
+          <button id="tabCouncil" onclick="UI.tab('council')" data-tip="<b>Council</b><br>Appoint your great officers, set the Crown's focus, and give each minister a standing mandate. Read their advice here.">Council<i class="tabDot"></i></button>
+        </div></div>
+      <div class="tabBand"><span class="tabBandL" data-tip="The instruments of rule at home — coin, God, and the knife">Realm</span>
+        <div class="tabBandR" style="grid-template-columns:repeat(3,1fr)">
+          <button id="tabTreasury" onclick="UI.tab('treasury')" data-tip="<b>Treasury</b><br>The ledger of your coin — where income rises and where it drains. Weigh buildings, upkeep and reserves.">Treasury<i class="tabDot"></i></button>
+          <button id="tabFaith" onclick="UI.tab('faith')" data-tip="<b>Faith</b><br>Tend your standing with the Church — endow it for piety, proclaim holy wars, send missionaries, bless your heir.">Faith<i class="tabDot"></i></button>
+          <button id="tabPlots" onclick="UI.tab('plots')" data-tip="<b>Plots</b><br>Your spymaster's work — the intrigues you have afoot, and the daggers being sharpened against you.">Plots<i class="tabDot"></i></button>
+        </div></div>
+      <div class="tabBand"><span class="tabBandL" data-tip="Every crown beyond your borders — friend, rival, and enemy">World</span>
+        <div class="tabBandR" id="tabBandWorld" style="grid-template-columns:repeat(3,1fr)">
+          <button id="tabRelations" onclick="UI.tab('relations')" data-tip="<b>Relations</b><br>Every court in Christendom and beyond — their opinion of you, your ties and truces. Send envoys, gifts, marriages and alliances.">Relations<i class="tabDot"></i></button>
+          <button id="tabWars" onclick="UI.tab('wars')" data-tip="<b>Wars</b><br>Your campaigns and the wars raging across the wider world — participants, war-score, and the terms to sue for peace.">Wars<i class="tabDot"></i></button>
+          <button id="tabEmpire" onclick="UI.tab('empire')" data-tip="<b>Empire</b><br>The Holy Roman Empire — its Emperor, the prince-electors, and your place within or against it.">Empire<i class="tabDot"></i></button>
+        </div></div>
     </div>
     <div id="leftBody"></div>
   </div>
@@ -4259,6 +4276,15 @@ const UI = {
     }
     set('tabEmpire', empAct);
     set('tabCourt', Game.can() && myCourt().some(c=>c.id!==PR().id && !c.sp && age(c)>=16 && c.dyn===PR().dyn));
+    set('tabPlots', (G.plots||[]).some(p=>!p.mine && p.target===G.player) || (G.plots||[]).some(p=>p.mine && p.ready));
+    set('tabTreasury', realmFinances(G.player).net < 0);   /* the coffers are draining */
+    /* the Empire tab is only meaningful while there is an Empire */
+    { const eb = document.getElementById('tabEmpire'), band = document.getElementById('tabBandWorld');
+      if(eb && band){ const show = !!G.empire;
+        eb.style.display = show ? '' : 'none';
+        band.style.gridTemplateColumns = `repeat(${show?3:2},1fr)`;
+        if(!show && UI.tabSel==='empire') UI.tab('dyn');
+      } }
   },
   provTip(pid){
     const pd = PROVDATA[pid], st = pv(pid);

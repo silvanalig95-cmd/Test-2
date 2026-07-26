@@ -1184,6 +1184,28 @@ Also fixed along the way: `opinion()` crashed the entire interface on an unknown
 trait key — one bad character definition white-screened the game. It now
 tolerates the bad key instead.
 
+### v6.8 — the tab bar, regrouped (SHIPPED)
+Nine tabs had grown into a flex row that wrapped into three ragged lines, with
+**Empire stranded alone across the bottom** looking like a section header rather
+than a peer. The `data-grp` attributes that were supposed to convey grouping
+were never rendered at all.
+
+The navigation is now **three labelled bands**, balanced three-and-three-and-three:
+- **House** — Dynasty · Court · Council (your person, your blood, your officers)
+- **Realm** — Treasury · Faith · Plots (the instruments of rule at home: coin,
+  God, and the knife)
+- **World** — Relations · Wars · Empire (every crown beyond your borders)
+
+The bands align perfectly, cost **no extra vertical space** (78px, exactly as
+before), and each label carries its own tooltip. Below 1050px the label gutter
+folds above each band and the type steps down, so nothing clips at any width —
+measured clean from 1440px down to 900px.
+
+Two new alert dots earn their place: **Treasury** lights when your net income
+turns negative, and **Plots** when someone is scheming against you. The
+**Empire** tab now hides itself entirely when there is no Empire, and the World
+band reflows to two columns.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
