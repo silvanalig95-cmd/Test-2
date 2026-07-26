@@ -1126,8 +1126,35 @@ dual-purpose — they enrich you *and* they arm you.
 - The army panel warns which enemy keeps a fleet before you commit to a crossing.
 Both pillars of the naval system are now in.
 
+### v6.6 — vassalage: crowns that bend without breaking (SHIPPED)
+Until now conquest was all or nothing: annex a realm entirely, or leave it be.
+**Vassalage** is the middle path, and the foundation the Imperial rework needs.
+A sworn realm keeps its crown, its ruler, its court and its lands — but renders
+a quarter of its taxes each season, answers its liege's summons to war, and may
+make no wars of its own.
+- **Three ways to take an oath.** Demand it in a peace (a term between a tribute
+  and outright conquest); demand it in peacetime from a realm deep enough in your
+  shadow (`fealtyMargin` weighs strength, renown, legitimacy, faith and their
+  ruler's temper — bending the knee unforced is a far greater humiliation than
+  paying tribute); or inherit it when a liege falls.
+- **Loyalty** is the whole game of it. It rises with your legitimacy, their
+  ruler's regard for you, and the passing years; it falls if they keep another
+  faith, grow over-mighty beside you, or simply dislike you. The devoted send
+  their banners in force and their dues in full; the sullen send excuses; the
+  **rebellious forswear you outright and go to war for their independence**.
+- **Independence wars** resolve properly: the rebel wins and stays free, or the
+  liege wins and the collar goes back on.
+- **Chains of fealty** work — sub-vassals, oaths passing up when a liege falls,
+  and hard guards against cycles or self-vassalage.
+- **The AI understands it**: sworn realms make no foreign policy of their own,
+  and few will attack a realm under a strong liege's protection.
+- Full UI: vassals and their loyalty in the overview, dues on both sides of the
+  treasury ledger, oath status and a fealty demand in the relations panel, a
+  release-from-fealty act of generosity, purple on the Relations map, and council
+  advice both for taking oaths and for shoring up a vassal about to break one.
+
 ### v3 candidates (still cut)
-Vassal sub-realms with their own courts · gavelkind partition · 1328 Hundred
+Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
 
 ---

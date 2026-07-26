@@ -501,7 +501,7 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
       <button id="mmRealm" class="on" data-tip="Colour the map by realm — the political map" onclick="UI.setMapMode('realm')">Realms</button>
       <button id="mmFaith" data-tip="Colour every province by its faith — spot the land that spurns your religion" onclick="UI.setMapMode('faith')">Faith</button>
       <button id="mmCulture" data-tip="Colour every province by its people — see cultural borders and unassimilated land" onclick="UI.setMapMode('culture')">Culture</button>
-      <button id="mmDiplo" data-tip="Colour realms by their standing with you — ally, rival, at war, under truce, or neutral" onclick="UI.setMapMode('diplo')">Relations</button>
+      <button id="mmDiplo" data-tip="Colour realms by their standing with you — sworn vassal, liege, ally, rival, at war, under truce, or neutral" onclick="UI.setMapMode('diplo')">Relations</button>
     </div>
     <div id="mapLegend"></div>
   </div>
@@ -835,6 +835,83 @@ function realmStrength(rid){
   s += rl(rid).retinue||0;
   return s;
 }
+/* ---------- Vassalage: realms that keep their crown but owe another ---------- */
+function liegeOf(rid){ const R=rl(rid); return R && R.liege && rl(R.liege) && !rl(R.liege).dead ? R.liege : null; }
+function isVassal(rid){ return !!liegeOf(rid); }
+function vassalsOf(rid){ return Object.keys(G.realms).filter(r=>!rl(r).dead && liegeOf(r)===rid); }
+function topLiege(rid){ let c=rid, guard=0; while(liegeOf(c) && guard++<8) c=liegeOf(c); return c; }
+/* Would making `v` a vassal of `lg` close a ring of fealty? */
+function wouldCycle(v, lg){ let c=lg, guard=0; while(c && guard++<8){ if(c===v) return true; c=liegeOf(c); } return false; }
+/* How well a vassal keeps its oath: opinion of the liege, his standing, and the passing of years. */
+function vassalLoyalty(rid){
+  const lg = liegeOf(rid); if(!lg) return 100;
+  const vr = ruler(rid), lr2 = ruler(lg);
+  let v = 50;
+  if(vr && lr2) v += opinion(vr, lr2)*0.5;
+  v += (rl(lg).leg - 50)*0.3;
+  const vs = realmProvs(rid).length, ls = realmProvs(lg).length;
+  if(ls && vs > ls*0.6) v -= 15;                       /* an over-mighty vassal chafes */
+  if(rl(rid).rel !== rl(lg).rel) v -= 15;              /* a lord of another faith is barely a lord */
+  if(rl(rid).cult !== rl(lg).cult) v -= 6;
+  v += Math.min(20, (G.year - (rl(rid).liegeSince||G.year)) * 0.6);  /* time knits an oath */
+  return clamp(Math.round(v), 0, 100);
+}
+function loyaltyWord(v){ return v>=75?'devoted':v>=55?'loyal':v>=35?'restless':v>=20?'sullen':'rebellious'; }
+/* What a vassal renders to its liege each season, and what the liege may call to war. */
+function vassalDues(rid){
+  let g=0; for(const v of vassalsOf(rid)){
+    const loy = vassalLoyalty(v);
+    let base=0; for(const p of realmProvs(v)) if(!pv(p).occ) base += taxOf(p);
+    g += base * 0.25 * clamp(loy/70, 0, 1);
+  }
+  return Math.round(g*10)/10;
+}
+function vassalLevies(rid){
+  let n=0; for(const v of vassalsOf(rid)){
+    const loy = vassalLoyalty(v); if(loy < 30) continue;   /* a sullen vassal sends excuses */
+    n += Math.round(realmStrength(v) * 0.4 * clamp(loy/80, 0, 1));
+  }
+  return n;
+}
+function swearFealty(v, lg, quiet){
+  if(!rl(v) || !rl(lg) || v===lg || wouldCycle(v, lg)) return false;
+  for(const x of vassalsOf(v)) if(x===lg) rl(x).liege = null;   /* never both ways */
+  rl(v).liege = lg; rl(v).liegeSince = G.year;
+  G.alliances = G.alliances.filter(al=>!((al.a===v&&al.b===lg)||(al.a===lg&&al.b===v)));
+  for(const w of [...G.wars]) if((w.att===v&&w.def===lg)||(w.att===lg&&w.def===v)) endWar(w,'white',`${rl(v).n} swears fealty.`);
+  if(!quiet) logIt('war', `⚜ ${rl(v).n} swears fealty to ${rl(lg).n}.`);
+  return true;
+}
+/* Each year the sworn weigh their oath. The sullen throw it off. */
+function vassalYear(){
+  for(const v of Object.keys(G.realms)){
+    const R=rl(v); if(!R || R.dead) continue;
+    const lg = liegeOf(v); if(!lg) continue;
+    const loy = vassalLoyalty(v);
+    if(loy >= 22) continue;
+    /* the weaker they are beside their liege, the less they dare */
+    const dare = clamp(realmStrength(v) / Math.max(1, realmStrength(lg)), .15, 1.4);
+    if(!chance(clamp((22-loy)*0.02 * dare, .02, .45))) continue;
+    releaseVassal(v, 'the oath is thrown off');
+    const w = declareWar(v, lg, {type:'independence', target:v});
+    if(isPlayer(lg)){
+      queueEvent({ title:'A Vassal Forswears You',
+        text:`<span class="dropcap">${esc(R.n)} has thrown off its oath. Their ruler stands before their own hall with your banner on the floor and their sword drawn, and calls it liberty. The other sworn houses are watching to see what an oath to you is worth.</span>`,
+        choices:[{t:'Then it will be settled in the field.', fx:()=>{}}] });
+      chron(`In this year ${R.n} forswore its oath to us, and there was war for it.`);
+    } else if(isPlayer(v)){
+      queueEvent({ title:'You Throw Off the Yoke',
+        text:`<span class="dropcap">Enough. The dues, the summons, the slow humiliation of holding your crown at another man's pleasure — done. Your banner rises alone, and ${esc(rl(lg).n)} will come to take it down.</span>`,
+        choices:[{t:'Let them come.', fx:()=>{}}] });
+    }
+    if(w) logIt('war', `⚔ ${R.n} rises against ${rl(lg).n} for its independence.`);
+  }
+}
+function releaseVassal(v, why){
+  const lg = liegeOf(v); if(!lg) return;
+  rl(v).liege = null; rl(v).liegeSince = null;
+  logIt('war', `${rl(v).n} is no longer sworn to ${rl(lg).n}${why?' — '+why:''}.`);
+}
 function legFactor(rid){ const r = rl(rid); return r ? Math.min(1, 0.7 + r.leg/150) : 1; } /* below ~45 legitimacy, vassals withhold spears */
 function levyOf(p){ const pr=pv(p); return Math.round((200 + pr.dev*110 + (pr.bld==='castle'?150:0)) * legFactor(pr.r) * focusLevy(pr.r) * faithPenalty(p) * cultureLevy(pr.r)); }
 /* a blockaded (occupied) port trades with nobody — it drops out of the network entirely */
@@ -865,8 +942,15 @@ function realmFinances(rid){
     const cost = Math.ceil(a.levies/350) + Math.ceil(a.mercs/160);
     armyUpkeep += cost; hosts.push({a, cost});
   }
-  const net = Math.round((grossTax - retUpkeep - armyUpkeep)*10)/10;
-  return {rows, baseTax, occLost, stewPct, seasonMult, grossTax, retUpkeep, armyUpkeep, hosts, net};
+  /* what vassals render, and what a vassal owes its own liege */
+  const dues = vassalDues(rid);
+  let owed = 0;
+  if(isVassal(rid)){
+    let base=0; for(const p of realmProvs(rid)) if(!pv(p).occ) base += taxOf(p);
+    owed = Math.round(base * 0.25 * clamp(vassalLoyalty(rid)/70, 0, 1) * 10)/10;
+  }
+  const net = Math.round((grossTax + dues - owed - retUpkeep - armyUpkeep)*10)/10;
+  return {rows, baseTax, occLost, stewPct, seasonMult, grossTax, dues, owed, retUpkeep, armyUpkeep, hosts, net};
 }
 
 let _cid = 0;
@@ -935,6 +1019,7 @@ function newGame(playerRealm, seed, scenId){
     G.realms[rid] = { id:rid, n:rd.n, col:rd.col, cap:rd.cap, cult:rd.cult, rel:rd.rel||'catholic',
       gold:20+provs.length*8, prs:S.cards[rid]?100:60, leg:70, ruler:null, retinue:0, law:'primo', focus:defaultFocus(rid),
       excomm:false, council:{marshal:null,steward:null,spymaster:null,chaplain:null},
+      liege:null, liegeSince:null,
       rank: provs.length>=3 ? 'kingdom':'duchy', dead: provs.length?0:'unformed' };
     for(const p of provs) G.provinces[p].r = rid;
   }
@@ -1502,6 +1587,8 @@ function relationReasons(rid){
 function isRival(rid){ return relationReasons(rid).rival; }
 function diploRelColor(rid){
   if(rid===G.player) return '#d9b95c';
+  if(liegeOf(rid)===G.player) return '#8e6fc0';        /* sworn to you */
+  if(liegeOf(G.player)===rid) return '#6a4fa0';        /* your liege */
   if(warBetween(rid,G.player)) return '#b0392a';
   if(allianceBetween(rid,G.player)) return '#3f8f5f';
   if(truceBetween(rid,G.player)) return '#5a8fb0';
@@ -1534,6 +1621,23 @@ function tributeMargin(rid){
   if(R_.excomm) m += 10;
   if(atWar(rid).length) m += 12;                       /* already fighting — cannot afford you too */
   return Math.round(m - 12);
+}
+/* Bending the knee unforced is a far greater humiliation than paying tribute. */
+function fealtyMargin(rid){
+  const R_=rl(rid), rul=ruler(rid); if(!rul) return -100;
+  const ratio = realmStrength(G.player)/Math.max(1, realmStrength(rid));
+  let m = (ratio-1)*32;
+  if(G.armies.some(a=>a.realm===G.player && (PROVDATA[a.prov].adj||[]).some(q=>pv(q).r===rid))) m += 14;
+  m += Math.round(PRL().prs/45) - Math.round(R_.prs/30);
+  m += Math.round((PRL().leg-50)/6);                    /* a doubted crown commands no oaths */
+  if(rul.tr.includes('craven')) m += 20; if(rul.tr.includes('content')) m += 10;
+  if(rul.tr.includes('brave')||rul.tr.includes('wrathful')||rul.tr.includes('ambitious')) m -= 20;
+  if(R_.rel !== PRL().rel) m -= 22;                     /* few swear to a lord of another faith */
+  if(R_.excomm) m += 12;
+  if(atWar(rid).length) m += 16;
+  if(realmProvs(rid).length >= realmProvs(G.player).length) m -= 25;
+  m += Math.round(opinion(rul, PR())/4);
+  return Math.round(m - 40);                            /* the standing price of a crown */
 }
 function aiFillCouncil(rid){
   const R_ = rl(rid);
@@ -2198,7 +2302,8 @@ function declareWar(att, def, cb, claimantId){
   rl(att).leg = clamp(rl(att).leg + (cb.type==='none' ? -20 : 0), 0, 100);
   addOp(ruler(def), ruler(att).id, -50);
   const cbTxt = cb.type==='throne' ? `pressing the claim of ${fullName(ch(w.claimant))} to the throne of ${rl(cb.target).n}` :
-    cb.type==='province' ? `claiming the province of ${PROVDATA[cb.target].n}` : 'without just cause, God forgive them';
+    cb.type==='province' ? `claiming the province of ${PROVDATA[cb.target].n}` :
+    cb.type==='independence' ? `to throw off the oath that bound them` : 'without just cause, God forgive them';
   logIt('war', `⚔ ${rl(att).n} declares war on ${rl(def).n}, ${cbTxt}.`);
   chron(`In this year ${title(ruler(att))} ${fullName(ruler(att))} raised his banners against ${rl(def).n}, ${cbTxt}.`);
   /* the defender must be told, plainly and at once, when the war is against them */
@@ -2250,12 +2355,27 @@ function declareWar(att, def, cb, claimantId){
       } else if(chance(.7)){ w.sides[side].push(m); logIt('war',`${rl(m).n} answers the Imperial summons.`); }
     }
   }
+  /* sworn men are dragged into their liege's quarrels — but never against their own liege */
+  for(const [rid, side] of [[att,'a'],[def,'b']]){
+    const foe = side==='a'?def:att;
+    for(const v of vassalsOf(rid)){
+      if(v===foe || w.sides.a.includes(v) || w.sides.b.includes(v)) continue;
+      if(cb.type==='independence') continue;
+      if(vassalLoyalty(v) < 35) continue;             /* the sullen find reasons to stay home */
+      w.sides[side].push(v);
+      logIt('war', `${rl(v).n} answers its liege's summons.`);
+    }
+  }
+  return w;
 }
 function raiseArmy(rid, provId){
   const own = realmProvs(rid).filter(p=>!pv(p).occ);
   let levies = 0;
   for(const p of own) levies += levyOf(p);
   levies = Math.floor(levies * (0.85 + councilBonus(rid,'marshal')*0.02));
+  /* sworn men answer their liege's summons — the loyal in force, the sullen not at all */
+  const called = vassalLevies(rid);
+  levies += called;
   /* men already in the field cannot be raised twice */
   const fielded = G.armies.filter(a=>a.realm===rid).reduce((s,a)=>s+a.levies, 0);
   levies = Math.max(0, levies - fielded);
@@ -2263,6 +2383,7 @@ function raiseArmy(rid, provId){
     if(isPlayer(rid)) toast('⚔ The levies are already in the field — the villages hold only greybeards and boys.');
     return false;
   }
+  if(called>0 && isPlayer(rid)) toast(`⚜ Your vassals send <b>${fmtN(called)}</b> men to the muster`);
   const existing = G.armies.find(a=>a.realm===rid && a.prov===provId);
   if(existing){ existing.levies += levies; existing.retinue += rl(rid).retinue; }
   else G.armies.push({ id:'a'+(++G.aid), realm:rid, prov:provId, levies, retinue:rl(rid).retinue,
@@ -2478,7 +2599,19 @@ function enforceDemands(w, winnerSide){
   const [wr, lr] = winnerSide==='a' ? [w.att, w.def] : [w.def, w.att];
   if(wr===G.player && G.stats) G.stats.warsWon++;
   if(wr===G.player && ruler(G.player) && age(ruler(G.player))<25) ach('lion');
-  if(winnerSide==='a' && w.cb.type==='throne'){
+  if(w.cb.type==='independence'){
+    /* the rebel is already free; only a liege's victory puts the collar back on */
+    if(winnerSide==='b'){
+      rl(lr).leg = clamp(rl(lr).leg-10,0,100); rl(wr).prs += Math.round(40*focusWinPrs(wr));
+      endWar(w, 'submission', `${rl(lr).n} is brought to heel and swears again.`);
+      swearFealty(lr, wr);
+      if(wr===G.player) chron(`In this year we broke the rebellion of ${rl(lr).n}, and took their oath a second time.`);
+    } else {
+      rl(wr).prs += Math.round(40*focusWinPrs(wr)); rl(lr).prs = Math.max(0, rl(lr).prs-25);
+      endWar(w, 'independence', `${rl(wr).n} wins its independence.`);
+      if(wr===G.player) chron(`In this year we threw off the oath that bound us, and kept our crown for ourselves alone.`);
+    }
+  } else if(winnerSide==='a' && w.cb.type==='throne'){
     conquerRealm(wr, w.cb.target, w.claimant);
     endWar(w, 'conquest', `The crown of ${rl(w.cb.target).n} changes heads.`);
   } else if(winnerSide==='a' && w.cb.type==='province'){
@@ -2500,6 +2633,7 @@ function termCost(w, t, giver){
     case 'tribute': return 8 + t.gold/6;
     case 'province':{ const p=t.prov; return 30 + (pv(p)?pv(p).dev*6:0) + (rl(giver)&&rl(giver).cap===p?45:0); }
     case 'throne':  return 120;
+    case 'vassal':  return 70;                /* the crown is kept, but bent */
     case 'buyout':  return -(8 + t.gold/6);   /* the "giver" here is paid to depart — a benefit, not a loss */
   }
   return 0;
@@ -2537,6 +2671,7 @@ function termText(w, t){
     case 'tribute': return `${t.gold} gold in tribute`;
     case 'province':return `${PROVDATA[t.prov]?PROVDATA[t.prov].n:'a province'} ceded`;
     case 'throne':  return `the crown of ${rl(t.target)?rl(t.target).n:'the realm'}`;
+    case 'vassal':  return `the fealty of ${rl(t.target)?rl(t.target).n:'the realm'}`;
     case 'buyout':  return `${t.gold} gold to depart`;
   }
   return 'terms';
@@ -2559,6 +2694,11 @@ function peaceTerms(w, takerSide){
     }
   }
   if(w.cb.type==='throne' && takerSide==='a') out.push({kind:'throne', target:w.cb.target, to:taker});
+  /* short of taking the crown outright, you may bend it: leave them their throne and take their oath.
+     In a war of independence only the former liege may demand the oath back. */
+  const indep = w.cb.type==='independence';
+  if(!isVassal(giver) && !wouldCycle(giver, taker) && realmProvs(giver).length && (!indep || takerSide==='b'))
+    out.push({kind:'vassal', target:giver, to:taker});
   return out;
 }
 function strongestAcceptable(w, takerSide){
@@ -2572,7 +2712,7 @@ function strongestAcceptable(w, takerSide){
   return best;
 }
 function settleWar(w, t){
-  if((t.kind==='tribute'||t.kind==='province'||t.kind==='throne') && t.to===G.player && G.stats) G.stats.warsWon++;
+  if((t.kind==='tribute'||t.kind==='province'||t.kind==='throne'||t.kind==='vassal') && t.to===G.player && G.stats) G.stats.warsWon++;
   switch(t.kind){
     case 'white': endWar(w,'white','Both crowns keep what they had.'); break;
     case 'tribute': { const g=Math.min(rl(t.from).gold, t.gold); rl(t.from).gold-=g; rl(t.to).gold+=g;
@@ -2583,6 +2723,13 @@ function settleWar(w, t){
       if(w.cb.type==='throne'){ const cl=ch(w.claimant); if(cl) cl.claims=cl.claims.filter(x=>x!==w.cb.target); }
       endWar(w,'cession',`${PROVDATA[t.prov].n} is ceded to ${rl(t.to).n}.`); break; }
     case 'throne': conquerRealm(t.to, t.target, w.claimant); endWar(w,'conquest',`The crown of ${rl(t.target)?rl(t.target).n:'the realm'} changes heads.`); break;
+    case 'vassal': { const nm=rl(t.target)?rl(t.target).n:'the realm';
+      rl(t.to).prs += Math.round(60*focusWinPrs(t.to));
+      if(rl(t.target)) rl(t.target).leg = clamp(rl(t.target).leg-8,0,100);
+      endWar(w,'vassalage',`${nm} keeps its crown, and bends it.`);
+      swearFealty(t.target, t.to);
+      if(t.to===G.player) chron(`In this year ${nm} bent the knee, keeping its own crown but owing it to ours.`);
+      break; }
     case 'buyout': { const g=Math.min(rl(t.from).gold, t.gold); rl(t.from).gold-=g; rl(t.to).gold+=g;
       endWar(w,'white',`${rl(t.from).n} pays ${g} gold for peace.`); break; }
   }
@@ -2608,7 +2755,15 @@ function conquerRealm(winner, targetRealm, claimantId){
 }
 function realmFalls(rid, toRealm){
   const R_ = rl(rid);
-  R_.dead = G.year;
+  const up = liegeOf(rid);          /* read the oath upward before we break it */
+  const sworn = vassalsOf(rid);
+  R_.dead = G.year; R_.liege = null;
+  /* a dead liege holds no oaths: its vassals pass to its own liege, or go free */
+  for(const v of sworn){
+    if(up && up!==v && !wouldCycle(v, up)){ rl(v).liege = up; rl(v).liegeSince = G.year;
+      logIt('war', `${rl(v).n}'s oath passes to ${rl(up).n}.`); }
+    else releaseVassal(v, `${R_.n} is no more`);
+  }
   for(const c of Object.values(G.chars)) if(alive(c)&&c.realm===rid){ c.realm = toRealm; c.seat = null; }
   R_.council = {marshal:null,steward:null,spymaster:null,chaplain:null};
   for(const w of [...G.wars]){
@@ -3705,12 +3860,19 @@ function aiTurn(rid){
     }
   }
   /* --- declare war --- */
-  if(!wars.length && (G.season<=1) && !G.regencyOf?.(rid)){
+  /* a sworn realm does not make its own wars — its liege speaks for it abroad */
+  if(!wars.length && (G.season<=1) && !G.regencyOf?.(rid) && !isVassal(rid)){
     if(age(rul)>=16){
       const claimants = [rul, ...Object.values(G.chars).filter(c=>alive(c)&&c.realm===rid&&c.claims.length&&c.id!==rul.id)];
       let best=null;
       const viable = tgt => { const T=rl(tgt);
-        return T && !T.dead && tgt!==rid && !truceBetween(rid,tgt) && !warBetween(rid,tgt) && !allianceBetween(rid,tgt); };
+        if(!T || T.dead || tgt===rid) return false;
+        if(truceBetween(rid,tgt) || warBetween(rid,tgt) || allianceBetween(rid,tgt)) return false;
+        /* striking a vassal means striking its liege — few will risk it, and never one's own kin in oath */
+        const lg = liegeOf(tgt);
+        if(lg){ if(lg===rid || topLiege(rid)===topLiege(tgt)) return false;
+          if(realmStrength(lg) > realmStrength(rid)*0.8) return false; }
+        return true; };
       for(const cl of claimants){
         for(const tgt of cl.claims){
           if(!viable(tgt)) continue;
@@ -4156,7 +4318,7 @@ const UI = {
     const m=this.mapMode||'realm';
     if(m==='realm'){ el.classList.remove('show'); el.innerHTML=''; return; }
     if(m==='diplo'){
-      const rows=[['#d9b95c','Your realm'],['#3f8f5f','Ally'],['#5a8fb0','Truce'],['#c9772a','Rival / claimant'],['#b0392a','At war'],['#9a9a8a','Neutral']];
+      const rows=[['#d9b95c','Your realm'],['#8e6fc0','Sworn to you'],['#6a4fa0','Your liege'],['#3f8f5f','Ally'],['#5a8fb0','Truce'],['#c9772a','Rival / claimant'],['#b0392a','At war'],['#9a9a8a','Neutral']];
       el.innerHTML=`<div class="lgHd">Relations</div>`+rows.map(([c,n])=>`<div class="lgRow"><span class="lgSw" style="background:${c}"></span>${n}</div>`).join('');
       el.classList.add('show'); return;
     }
@@ -4321,9 +4483,11 @@ const UI = {
         <div class="kv"><span>Steward’s ledgers</span><b class="${f.stewPct>0?'pos':''}">+${Math.round(f.stewPct*100)}%</b></div>`;
       if(G.season===2) h += `<div class="kv"><span>${sIco} Harvest season</span><b class="pos">×2</b></div>`;
       if(G.plague) h += `<div class="kv"><span>☠ Pestilence</span><b class="neg">×0.65</b></div>`;
-      h += `<div class="kv" style="border-top:1px solid var(--line);margin-top:2px;padding-top:4px"><span><b>Gross revenue</b></span><b class="pos">+${Math.round(f.grossTax*10)/10}</b></div></div>`;
+      if(f.dues>0) h += `<div class="kv"><span data-tip="A quarter of each vassal's taxes, scaled by their loyalty — a sullen vassal renders less, a rebellious one nothing.">⚜ Dues from vassals</span><b class="pos">+${f.dues}</b></div>`;
+      h += `<div class="kv" style="border-top:1px solid var(--line);margin-top:2px;padding-top:4px"><span><b>Gross revenue</b></span><b class="pos">+${Math.round((f.grossTax+f.dues)*10)/10}</b></div></div>`;
       h += `<div class="card" style="margin-top:8px"><div class="eyebrow" style="margin-bottom:4px">Expenditure</div>
         <div class="kv"><span>Retinue upkeep${R_.retinue?` (${R_.retinue} sworn swords)`:''}</span><b class="${f.retUpkeep>0?'neg':''}">−${f.retUpkeep.toFixed(1)}</b></div>`;
+      if(f.owed>0) h += `<div class="kv"><span data-tip="A quarter of your taxes, owed to your liege each season. Throw off the oath and you keep it — if you can hold what follows.">⚜ Dues to ${esc(rl(liegeOf(G.player)).n)}</span><b class="neg">−${f.owed}</b></div>`;
       if(f.hosts.length){ for(const {a,cost} of f.hosts)
         h += `<div class="kv" style="cursor:pointer" onclick="UI.selArmy('${a.id}')"><span>Host at ${esc(PROVDATA[a.prov].n)} (${fmtN(armySize(a))} men)</span><b class="neg">−${cost}</b></div>`;
       } else h += `<div class="kv"><span>Armies in the field</span><b>—</b></div>`;
@@ -4602,6 +4766,11 @@ const UI = {
       add(`Your host at ${PROVDATA[idle.prov].n} still has its march this season.`, '➤ Select army', `UI.selArmy('${idle.id}')`, 'marshal');
     if(!wars.length && myArmies.length)
       add(`The realm is at peace but ${fmtN(myArmies.reduce((s,a)=>s+armySize(a),0))} men stand idle, eating pay and dying of seasons.`, 'Disband host', `Game.act('disband','${myArmies[0].id}')`, 'marshal');
+    /* a vassal on the edge of forswearing you — as urgent as an enemy in the field */
+    { const shaky = vassalsOf(G.player).filter(v=>vassalLoyalty(v)<35).sort((a,b)=>vassalLoyalty(a)-vassalLoyalty(b))[0];
+      if(shaky){ const loy=vassalLoyalty(shaky), gift=Game.can('gift')&&!G.flags['gift'+shaky+G.year]&&R_.gold>=10;
+        add(`<b class="neg">${esc(rl(shaky).n)} is ${esc(loyaltyWord(loy))} (${loy})</b> — sworn to you in name only. They withhold their spears, and a bad year will see them forswear you outright and go to war for it.`,
+          gift?`🎁 Gift to ${esc(rl(shaky).n)}`:'Open relations', gift?`Game.act('gift','${shaky}')`:`UI.tab('relations')`, 'chaplain'); } }
     if(!PR().sp && age(PR())<=60 && Game.can('marry'))
       add(`Your ruler is unwed — no consort, no heirs of the body, no marriage alliance.`, '⚭ Seek a match', `Game.marryMenuChar('${PR().id}')`, 'ruler');
     const heir = heirOf(G.player);
@@ -4654,6 +4823,12 @@ const UI = {
       const weak = borderRealms(G.player).filter(id=>rl(id)&&ruler(id)&&!allianceBetween(id,G.player)&&!warBetween(id,G.player)&&tributeMargin(id)>=12)
         .sort((a,b)=>realmStrength(a)-realmStrength(b))[0];
       if(weak) add(`${esc(rl(weak).n)} is weak and under your shadow. A threatening embassy might fill your coffers without a battle.`, `💰 Demand tribute`, `Game.demandTribute('${weak}')`, 'marshal');
+    }
+    /* a neighbour deep enough in your shadow to swear for it */
+    if(out.length<3 && Game.can()){
+      const bend = borderRealms(G.player).filter(id=>rl(id)&&ruler(id)&&!isVassal(id)&&!warBetween(id,G.player)&&!wouldCycle(id,G.player)&&fealtyMargin(id)>=6)
+        .sort((a,b)=>fealtyMargin(b)-fealtyMargin(a))[0];
+      if(bend) add(`${esc(rl(bend).n)} stands so far in your shadow they might swear for it — their crown kept, their dues and banners yours.`, `⚜ Demand fealty`, `Game.demandFealty('${bend}')`, 'steward');
     }
     /* faith: convert conquered land, or wage a blessed war */
     if(out.length<3 && Game.can() && R_.rel!=='pagan' && !R_.excomm){
@@ -4758,13 +4933,25 @@ const UI = {
     h += `
       <div class="kv"><span>Provinces</span><b>${provs.length}</b></div>
       <div class="kv"><span>Season income</span><b>${income} gold</b></div>
-      <div class="kv"><span>Total levy pool</span><b>${fmtN(realmStrength(G.player))}</b></div>
+      <div class="kv"><span data-tip="Every spear your own lands can raise. Vassal banners come on top of this when you muster.">Total levy pool</span><b>${fmtN(realmStrength(G.player))}${vassalLevies(G.player)?` <span class="hint" style="margin:0">+${fmtN(vassalLevies(G.player))} sworn</span>`:''}</b></div>
       <div class="kv"><span>Standing retinue</span><b>${R_.retinue}</b></div>
       <div class="kv"><span>Steward bonus</span><b>+${Math.round(councilBonus(G.player,'steward')*4)}%</b></div>`;
     { const f=FOCI[R_.focus]; if(f) h += `<div class="kv" style="cursor:pointer" data-tip="Your realm’s standing doctrine — ${esc(f.d)} Set it in the Council tab." onclick="UI.tab('council')"><span>Crown’s focus</span><b>${f.ico} ${f.n}</b></div>`; }
     { const e=ETHOS[cultEthos(G.player)]; const fc=realmForeignCult(G.player).length;
       h += `<div class="kv" data-tip="Your people are ${esc(cap(R_.cult))} — ${esc(e.d)}${fc?' '+fc+' of your provinces are of another culture; they drag on your legitimacy until they assimilate to your ways over the years.':''}"><span>People</span><b>${esc(cap(R_.cult))} <span class="hint" style="margin:0">${e.ico} ${e.n}${fc?' · '+fc+'🏰?':''}</span></b></div>`; }
     h += `<div class="kv"><span>Succession law</span><b>${R_.law==='elective'?'Elective':'Primogeniture'}</b></div>`;
+    { const lg = liegeOf(G.player);
+      if(lg) h += `<div class="kv" style="cursor:pointer" onclick="UI.selProv(rl('${lg}').cap)" data-tip="You hold your crown of another. A quarter of your taxes go to them, your banners answer their summons, and you may make no wars of your own. Loyalty falls and you may throw the oath off — in blood.">⚜ Sworn to</span><b class="neg">${esc(rl(lg).n)}</b></div>`;
+      const vs = vassalsOf(G.player);
+      if(vs.length){
+        h += `<div class="eyebrow" style="margin-top:9px">Sworn to You</div>`;
+        for(const v of vs.slice().sort((a,b)=>vassalLoyalty(a)-vassalLoyalty(b))){
+          const loy = vassalLoyalty(v), w = loyaltyWord(loy);
+          const cls = loy>=55?'pos':loy>=35?'':'neg';
+          h += `<div class="kv" style="cursor:pointer" onclick="UI.selProv('${rl(v).cap}')" data-tip="${esc(cap(w))} — ${esc(loy<22?'they may forswear you at any time':loy<35?'they send excuses instead of spears':loy<55?'they keep the oath, but without love':'they keep the oath gladly')}. Loyalty grows with the years, with your legitimacy, and with their ruler's regard for you."><span>${esc(rl(v).n)}</span><b class="${cls}">${cap(w)} · ${loy}</b></div>`;
+        }
+      }
+    }
     { const wf = realmWrongFaith(G.player).length;
       h += `<div class="kv" style="cursor:pointer" onclick="Game.faith()" data-tip="Your faith and your piety — standing with ${esc(RELAUTH[R_.rel])}. Tend it to earn piety; spend it on holy wars, missions, and blessings.${wf?' '+wf+' of your provinces keep another faith and yield grudgingly until converted.':''}"><span>Faith</span><b>${RELICO[R_.rel]} ${RELNAME[R_.rel]} <span class="hint" style="margin:0">☩${Math.round(R_.piety||0)}${wf?' · '+wf+'✝?':''}</span></b></div>`; }
     { const leg=Math.floor(R_.leg), pen=Math.round((1-legFactor(G.player))*100);
@@ -4877,6 +5064,15 @@ const UI = {
     { const np=navalPower(rid); if(np>0) h += `<div class="kv"><span data-tip="What they can put to sea — every coast counts, a harbour counts for much more. A strong fleet intercepts crossings through the waters it watches.">At sea</span><b>⚓ ${cap(navalWord(np))}${np>=4&&hostile(rid,G.player)?' <span class="hint" style="margin:0">— they patrol these waters</span>':''}</b></div>`; }
     if(al) h += `<div class="kv"><span>Alliance</span><b class="pos">sworn</b></div>`;
     if(tr) h += `<div class="kv"><span>Truce</span><b>until ${tr.until}</b></div>`;
+    { const lg = liegeOf(rid);
+      if(lg===G.player){ const loy=vassalLoyalty(rid);
+        h += `<div class="kv"><span data-tip="They are sworn to you: a quarter of their taxes, their banners at your summons, and no wars of their own. Loyalty falls if they doubt you, keep another faith, or grow over-mighty — and a rebellious vassal will forswear you.">⚜ Sworn to you</span><b class="${loy>=55?'pos':loy>=35?'':'neg'}">${cap(loyaltyWord(loy))} · ${loy}</b></div>`;
+      } else if(lg){
+        h += `<div class="kv"><span data-tip="They owe fealty to another crown — strike them and you strike their liege.">Sworn to</span><b>${esc(rl(lg).n)}</b></div>`;
+      }
+      const theirs = vassalsOf(rid);
+      if(theirs.length) h += `<div class="kv"><span data-tip="Realms sworn to them — their levies answer this crown's summons.">Their vassals</span><b>${theirs.map(v=>esc(rl(v).n)).join(', ')}</b></div>`;
+    }
     if(w){
       h += `<div class="actBtns"><button onclick="Game.offerPeace('${w.id}')">Negotiate peace</button></div>`;
       return h;
@@ -4888,6 +5084,12 @@ const UI = {
       <button class="small" ${!Game.can('marry')?'disabled':''} onclick="Game.marryMenu('${rid}')" data-tip="${(()=>{ const o2=rul?opinion(rul,PR()):0; const est=clamp(Math.round((o2+(PRL().prs-R_.prs)/8+(PRL().rank==='kingdom'?15:0)+skill(PR(),'dip')*3+focusAccept(G.player)+10)/50*100),2,98); return 'Their disposition: roughly '+est+'% likely to accept a fair match'; })()}">Arrange marriage (⚡)</button>`;
     if(!al) h += `<button class="small" ${!Game.can()?'disabled':''} onclick="Game.proposeAlliance('${rid}')" data-tip="Offer a standing alliance without a marriage — weighed by their opinion, a shared enemy, and your renown">🤝 Propose alliance (⚡)</button>`;
     h += `<button class="small" ${!Game.can()?'disabled':''} onclick="Game.demandTribute('${rid}')" data-tip="Threaten a weaker realm into paying tribute — coin now, but they will resent you (or defy you)">💰 Demand tribute (⚡)</button>`;
+    if(!isVassal(rid) && !wouldCycle(rid, G.player)){
+      const fm = fealtyMargin(rid), [fl,fc] = acceptLabel(fm);
+      h += `<button class="small" ${!Game.can()?'disabled':''} onclick="Game.demandFealty('${rid}')" data-tip="${esc('Require their oath: they keep their crown but render a quarter of their taxes, march at your summons, and make no wars of their own. Their inclination: '+fl+' ('+(fm>=0?'+':'')+fm+')')}">⚜ Demand fealty (⚡) <span class="hint" style="margin:0">— <span class="${fc}">${fl}</span></span></button>`;
+    }
+    if(liegeOf(rid)===G.player)
+      h += `<button class="small" ${!Game.can()?'disabled':''} onclick="Game.releaseVassalAsk('${rid}')" data-tip="Release them from their oath — a costly generosity, but it buys goodwill and a clean conscience">🕊 Release from fealty (⚡)</button>`;
     for(const cl of claimants){
       h += `<button class="small" ${!Game.can('war')||tr||G.regency?'disabled':''} onclick="Game.act('war','${rid}','${cl.id}')" data-tip="${G.regency?'A regency cannot declare war':''}">⚔ Press ${esc(cl.nm)}’s claim (⚡)</button>`;
     }
@@ -5310,6 +5512,38 @@ const Game = {
           UI.renderAll(); }},
        {t:'— Withdraw the threat —', fx:()=>{}}]);
   },
+  releaseVassalAsk(rid){
+    if(this.busy()) return;
+    if(liegeOf(rid)!==G.player) return;
+    const R_=rl(rid), rul=ruler(rid);
+    UI.modal('Release from Fealty', `Free ${esc(R_.n)} from its oath? You lose their dues and their banners — but a crown freely given back is remembered, and their house will think well of yours.`,
+      [{t:'⚜ Release them (⚡)', fx:()=>{ if(!this.order()) return;
+          releaseVassal(rid, 'released by their liege');
+          PRL().prs += 10; PRL().leg = clamp(PRL().leg+3,0,100);
+          if(rul) addOp(rul, PR().id, 45);
+          toast(`🕊 <b>${esc(R_.n)}</b> is released from its oath — they will not forget it`);
+          UI.renderAll(); }},
+       {t:'— Keep their oath —', fx:()=>{}}]);
+  },
+  demandFealty(rid){
+    if(this.busy()) return;
+    const R_=rl(rid), rul=ruler(rid); if(!rul) return;
+    if(warBetween(rid,G.player)||allianceBetween(rid,G.player)){ toast('Not while you are at war or allied.'); return; }
+    if(isVassal(rid)){ toast(`${R_.n} is already sworn to ${esc(rl(liegeOf(rid)).n)}.`); return; }
+    if(wouldCycle(rid, G.player)){ toast('You cannot take the oath of your own liege.'); return; }
+    const m = fealtyMargin(rid); const [lbl,cls]=acceptLabel(m);
+    UI.modal('Demand Fealty', `Send to ${esc(R_.n)} and require their oath: they keep their crown, their court and their lands, but render a quarter of their taxes to you, march when you summon them, and make no wars of their own.<br><br>It is a far heavier thing to ask than tribute, and only a realm deep in your shadow will swallow it.<br><br>Their inclination to submit: <span class="${cls}">${lbl}</span> (${m>=0?'+':''}${m}).`,
+      [{t:'⚜ Require the oath (⚡)', fx:()=>{ if(!this.order()) return;
+          if(fealtyMargin(rid)>=0){
+            swearFealty(rid, G.player);
+            PRL().prs+=25; addOp(rul, PR().id, -20);
+            UI.modal('They Kneel', `${esc(fullName(rul))} of ${esc(R_.n)} swears the oath — lands, levies and a quarter of their taxes now answer to you, and their crown sits on their head at your pleasure.<br><br>Hold their loyalty. A sullen vassal is a rebellion waiting for a bad year.`, [{t:'Rise, my vassal.',fx:()=>{}}]);
+            chron(`In this year ${R_.n} bent the knee to us without a blow struck.`);
+          } else { addOp(rul, PR().id, -25); PRL().prs=Math.max(0,PRL().prs-8);
+            UI.modal('Defiance', `${esc(R_.n)} refuses the oath outright. “We are no man's men,” the envoy is told — and the insult of the asking will not soon be forgotten.`, [{t:'Then the sword.',fx:()=>{}}]); }
+          UI.renderAll(); }},
+       {t:'— Withdraw the demand —', fx:()=>{}}]);
+  },
   marryMenu(rid){
     if(this.busy()) return;
     const mine = marriageCandidates(G.player), theirs = marriageCandidates(rid);
@@ -5644,6 +5878,7 @@ const Game = {
       : t.kind==='tribute' ? `Demand ${t.gold} gold in tribute`
       : t.kind==='province' ? `Demand ${esc(PROVDATA[t.prov].n)} be ceded`
       : t.kind==='throne' ? `Demand the crown of ${esc(rl(t.target).n)} — full conquest`
+      : t.kind==='vassal' ? `⚜ Demand fealty — ${esc(rl(t.target).n)} keeps its crown, sworn to you`
       : t.kind==='buyout' ? `Pay ${t.gold} gold for them to depart`
       : 'Terms';
     const ch_ = [];
@@ -5878,6 +6113,7 @@ const Game = {
         }
       }
     }
+    vassalYear();
     if(G.flags.spyBoost) G.flags.spyBoost = Math.max(0, G.flags.spyBoost-1);
     ensureMarriageMarket();
   },
