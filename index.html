@@ -519,6 +519,9 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
       <button id="mmFaith" data-tip="Colour every province by its faith — spot the land that spurns your religion" onclick="UI.setMapMode('faith')">Faith</button>
       <button id="mmCulture" data-tip="Colour every province by its people — see cultural borders and unassimilated land" onclick="UI.setMapMode('culture')">Culture</button>
       <button id="mmDiplo" data-tip="Colour realms by their standing with you — sworn vassal, liege, ally, rival, at war, under truce, or neutral" onclick="UI.setMapMode('diplo')">Relations</button>
+      <button id="mmEmpire" data-tip="The Holy Roman Empire alone — the Emperor, the princes sworn to him, any pretender, and the world outside" onclick="UI.setMapMode('empire')">Empire</button>
+      <button id="mmDev" data-tip="Colour every province by how built-up it is — find the rich land worth taking and the poor land worth improving" onclick="UI.setMapMode('dev')">Wealth</button>
+      <button id="mmClaims" data-tip="Land that is spoken for — what your house has a lawful claim to, and what others claim of yours" onclick="UI.setMapMode('claims')">Claims</button>
     </div>
     <div id="mapLegend"></div>
   </div>
@@ -1640,6 +1643,8 @@ function relationReasons(rid){
   return {realm:R_, rul, op, al, w, tr, sameF, crownClaim, landClaims, myClaims, factors, rival, threat};
 }
 function isRival(rid){ return relationReasons(rid).rival; }
+/* development choropleth — bare hills to a rich city, sequential and colour-blind safe */
+const DEV_COL = {1:'#e6ddc0', 2:'#c9c98f', 3:'#9bb271', 4:'#5f8f63', 5:'#2f6a52'};
 function diploRelColor(rid){
   if(rid===G.player) return '#d9b95c';
   if(liegeOf(rid)===G.player) return '#8e6fc0';        /* sworn to you */
@@ -4324,6 +4329,7 @@ const UI = {
     const svg = document.getElementById('mapSvg'); if(!svg) return;
     const dOf = {};
     for(const [pid, pd] of Object.entries(PROVDATA)) dOf[pid] = pd.polys.map(r=>'M'+r.map(pt=>pt.join(' ')).join('L')+'Z').join('');
+    this._dCache = dOf;   /* the Imperial overlay redraws from these without rebuilding the geometry */
     let h = `<defs>
       <filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" seed="7" result="n"/>
         <feDisplacementMap in="SourceGraphic" in2="n" scale="7"/></filter>
@@ -4331,6 +4337,9 @@ const UI = {
         <rect width="9" height="9" fill="#b7b2a0"/><rect width="9" height="3.5" fill="#a5a08e"/></pattern>
       <pattern id="desertPat" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
         <rect width="10" height="10" fill="#dcc79a"/><rect width="10" height="3.6" fill="#cbb079"/></pattern>
+      <!-- the Imperial wash: a faint gold hatch laid over every province of the Empire -->
+      <pattern id="empPat" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <rect width="7" height="7" fill="none"/><rect width="7" height="2" fill="rgba(214,176,74,.42)"/></pattern>
       <filter id="parchtex"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" result="n"/>
         <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.42 0 0 0 0 0.33 0 0 0 0 0.18 0 0 0 0.06 0"/>
         <feComposite in2="SourceGraphic" operator="over"/></filter>
@@ -4366,6 +4375,8 @@ const UI = {
       else h += `<path id="p_${pid}" class="provPath" d="${dOf[pid]}" fill-rule="evenodd" onclick="UI.selProv('${pid}')"></path>`;
     }
     h += `</g></g></g>`;
+    /* the Empire, laid over the realms — filled per repaint so it follows conquest and election */
+    h += `<g id="empLayer" style="pointer-events:none"></g>`;
     h += `<g class="rivers">`;
     for(const [nm, pts] of Object.entries(RIVERS)){
       let d = `M${pts[0][0]} ${pts[0][1]}`;
@@ -4393,13 +4404,30 @@ const UI = {
   mapMode:'realm',
   setMapMode(m){
     this.mapMode = m;
-    for(const [k,id] of [['realm','mmRealm'],['faith','mmFaith'],['culture','mmCulture'],['diplo','mmDiplo']]){ const b=document.getElementById(id); if(b) b.classList.toggle('on', k===m); }
+    for(const [k,id] of [['realm','mmRealm'],['faith','mmFaith'],['culture','mmCulture'],['diplo','mmDiplo'],
+      ['empire','mmEmpire'],['dev','mmDev'],['claims','mmClaims']]){ const b=document.getElementById(id); if(b) b.classList.toggle('on', k===m); }
     this.renderMapLegend(); this.renderMapDynamic();
   },
   renderMapLegend(){
     const el=document.getElementById('mapLegend'); if(!el) return;
     const m=this.mapMode||'realm';
     if(m==='realm'){ el.classList.remove('show'); el.innerHTML=''; return; }
+    if(m==='empire'){
+      const rows=[['#e0bf5e','The Emperor'],['#9a86c4','Prince of the Empire'],['#c9772a','Pretender'],['#9a9a8a','Outside the Empire']];
+      el.innerHTML=`<div class="lgHd">The Empire</div>`+rows.map(([c,n])=>`<div class="lgRow"><span class="lgSw" style="background:${c}"></span>${n}</div>`).join('')
+        + `<div class="lgRow" style="margin-top:3px;opacity:.75">The gold hatch marks Imperial land on the political map too.</div>`;
+      el.classList.add('show'); return;
+    }
+    if(m==='dev'){
+      const rows=[[DEV_COL[1],'1 — bare'],[DEV_COL[2],'2'],[DEV_COL[3],'3'],[DEV_COL[4],'4'],[DEV_COL[5],'5 — rich']];
+      el.innerHTML=`<div class="lgHd">Development</div>`+rows.map(([c,n])=>`<div class="lgRow"><span class="lgSw" style="background:${c}"></span>${n}</div>`).join('');
+      el.classList.add('show'); return;
+    }
+    if(m==='claims'){
+      const rows=[['#d9b95c','Yours'],['#3f8f5f','You claim this land'],['#6f9a4a','You claim their crown'],['#b0392a','Claimed against you'],['#9a9a8a','Unspoken for']];
+      el.innerHTML=`<div class="lgHd">Claims</div>`+rows.map(([c,n])=>`<div class="lgRow"><span class="lgSw" style="background:${c}"></span>${n}</div>`).join('');
+      el.classList.add('show'); return;
+    }
     if(m==='diplo'){
       const rows=[['#d9b95c','Your realm'],['#8e6fc0','Sworn to you'],['#6a4fa0','Your liege'],['#3f8f5f','Ally'],['#5a8fb0','Truce'],['#c9772a','Rival / claimant'],['#b0392a','At war'],['#9a9a8a','Neutral']];
       el.innerHTML=`<div class="lgHd">Relations</div>`+rows.map(([c,n])=>`<div class="lgRow"><span class="lgSw" style="background:${c}"></span>${n}</div>`).join('');
@@ -4434,6 +4462,21 @@ const UI = {
     }
     let diploCols = null;
     if((this.mapMode||'realm')==='diplo'){ diploCols={}; for(const rid in G.realms){ if(!rl(rid).dead) diploCols[rid]=diploRelColor(rid); } }
+    /* claims mode: precompute which land is spoken for, and by whom */
+    let claimSet = null;
+    if((this.mapMode||'realm')==='claims'){
+      claimSet = {};
+      for(const c of myCourt()){ if(!alive(c)) continue;
+        for(const p of c.pclaims) if(pv(p) && pv(p).r!==G.player) claimSet[p] = 'mine';
+        /* a claim on your own crown colours nothing — it is already yours */
+        for(const t of c.claims){ if(t===G.player || !rl(t) || rl(t).dead) continue;
+          for(const p of realmProvs(t)) if(!claimSet[p]) claimSet[p]='throne'; } }
+      for(const ot of Object.values(G.chars)){
+        if(!alive(ot) || ot.realm===G.player) continue;
+        for(const p of ot.pclaims) if(pv(p) && pv(p).r===G.player) claimSet[p] = 'theirs';
+        if(ot.claims.includes(G.player)) for(const p of realmProvs(G.player)) if(!claimSet[p]) claimSet[p]='theirs';
+      }
+    }
     for(const [pid, pd] of Object.entries(PROVDATA)){
       const el = document.getElementById('p_'+pid); if(!el) continue;
       const st = pv(pid);
@@ -4443,6 +4486,18 @@ const UI = {
       if(mode==='faith'){ fill = FAITH_COL[st.rel] || '#8a8a80'; mineMark = st.r===G.player; }
       else if(mode==='culture'){ fill = CULT_COL[st.cult] || '#8a8a80'; mineMark = st.r===G.player; }
       else if(mode==='diplo'){ fill = (st.r&&rl(st.r)&&!rl(st.r).dead) ? (diploCols[st.r]||'#9a9a8a') : '#8a8a80'; mineMark = st.r===G.player; }
+      else if(mode==='dev'){ fill = DEV_COL[clamp(st.dev,1,5)] || '#8a8a80'; mineMark = st.r===G.player; }
+      else if(mode==='claims'){ const k=claimSet[pid];
+        fill = k==='mine' ? '#3f8f5f' : k==='throne' ? '#6f9a4a' : k==='theirs' ? '#b0392a' : (st.r===G.player ? '#d9b95c' : '#9a9a8a');
+        mineMark = st.r===G.player; }
+      else if(mode==='empire'){
+        const r0 = st.r;
+        fill = !r0||!rl(r0)||rl(r0).dead ? '#8a8a80'
+          : isEmperor(r0) ? '#e0bf5e'
+          : empMember(r0) ? '#9a86c4'
+          : G.empire && G.empire.pretender===r0 ? '#c9772a'
+          : '#9a9a8a';
+        mineMark = st.r===G.player; }
       else if(st.occ) fill = `url(#occ_${st.occ})`;
       else if(st.r && rl(st.r)){ const f = [0.9,0.95,1.0,1.05,1.1][this.dynHash(pid)%5]; fill = this.shade(rl(st.r).col, f); }
       else fill = '#8a8a80';
@@ -4453,6 +4508,21 @@ const UI = {
       el.setAttribute('class', cls);
       el.setAttribute('data-tip', this.provTip(pid));
     }
+    /* the Empire, washed over the political map so its extent reads at a glance without a mode */
+    { const eL = document.getElementById('empLayer');
+      if(eL){
+        const mode = this.mapMode||'realm';
+        if(!G.empire || (mode!=='realm' && mode!=='empire')) eL.innerHTML='';
+        else {
+          let e='';
+          for(const pid of Object.keys(G.provinces)){
+            const r0 = pv(pid).r; if(!r0 || !empMember(r0)) continue;
+            const d = this._dCache && this._dCache[pid]; if(!d) continue;
+            e += `<path d="${d}" fill-rule="evenodd" fill="url(#empPat)" stroke="rgba(196,158,60,.55)" stroke-width="0.7"/>`;
+          }
+          eL.innerHTML = e;
+        }
+      } }
     /* marks: buildings, capitals, sieges */
     let m = '';
     for(const [pid, pd] of Object.entries(PROVDATA)){

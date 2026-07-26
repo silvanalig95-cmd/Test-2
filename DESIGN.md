@@ -1206,6 +1206,29 @@ turns negative, and **Plots** when someone is scheming against you. The
 **Empire** tab now hides itself entirely when there is no Empire, and the World
 band reflows to two columns.
 
+### v6.9 — three more map modes, and the Empire made visible (SHIPPED)
+**The Empire on the political map.** Imperial extent now reads at a glance
+*without* changing mode: every province of the Empire carries a faint gold
+diagonal wash and a gold edge on the default Realms map, so the federation shows
+as one bloc while each prince keeps his own colour underneath. (A computed
+single outer border was the first instinct and was rejected on evidence — only
+492 of 2121 polygon edges are shared exactly between neighbours, so a union
+outline would have come out gappy.)
+
+**Three new modes**, bringing the total to seven:
+- **Empire** — the Emperor in gold, his princes in violet, any pretender in
+  orange, the world outside in grey.
+- **Wealth** — a sequential development choropleth, bare land to rich city.
+  Finds the land worth taking and the land worth improving.
+- **Claims** — what is spoken for: land your house has a lawful claim to, crowns
+  you claim, and — in red — your own land that others claim.
+
+Each mode has its own legend. A bug caught while testing Claims: a ruler holds a
+claim on their *own* crown, which pre-marked the player's whole realm as "you
+claim their crown" and masked the four foreign claimants on England in 1066.
+Self-claims are now skipped, and your land correctly shows as claimed against
+you.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
