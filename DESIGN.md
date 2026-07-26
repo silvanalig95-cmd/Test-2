@@ -1289,6 +1289,43 @@ Arms now appear on the realm-selection cards, in the top bar beside your title,
 in the diplomacy panel and in the Empire roster. **All 55 live realms are
 blazoned — no fallbacks.**
 
+### v6.12 — the first reign, and a long-run health check (SHIPPED)
+Two things at once: teaching the game, and learning whether it stays healthy.
+
+**The first reign.** The game had no onboarding — every system was visible from
+the first second: orders, focus, council, mandates, piety, legitimacy, prestige,
+culture, ambition, legacy, vassals, the Empire, the sea, trade, plots, claims.
+The fix is not less depth but **staged introduction**. A quiet card at the top of
+your realm view walks nine steps in the order a ruler actually meets them —
+orders, the council, the Crown's focus, reading your land, the ledger, marriage,
+why war needs a claim, ambition and legacy, and the succession.
+
+It follows what you do rather than forcing a script: each step knows when it is
+satisfied, nothing is ever blocked, and one click dismisses the guide for good
+(every explanation still lives in the tooltips). A first attempt keyed the steps
+to game state and silently skipped four of them — the council, focus, land and
+ambition are all pre-set at game start, so the player would never have been told
+they exist. The teaching steps are now acknowledged rather than inferred.
+
+**The balance harness** (`scratchpad/balance.js`). `scen.js` proves the game does
+not crash; it says nothing about whether the world stays interesting. The new
+harness runs the world on autopilot for 120–150 years and samples it every
+decade: realms alive, largest realm, top-three share of the map, unowned land,
+wars, vassals, the Emperor, median treasury, median legitimacy, hosts, and the
+living population.
+
+The first run confirmed the world's shape is good — realms drift 55 → 43-48 over
+a century, the largest realm never exceeds 30 provinces, the top three hold only
+23-26% of the map, no province is ever orphaned, and no run errored. But it
+caught two faults invisible to any short test:
+- **Gold hyperinflation.** Median treasury ran 44 → **6,653** in 100 years: AI
+  courts hoarded silver and never spent it, so late-game coin meant nothing. Rich
+  crowns now develop their land and hire sworn swords, and anything still idle
+  above 300 drains away in household, display and waste.
+- **Unbounded courts.** The living cast grew 314 → **1,926**. Obscure foreign
+  courtiers now drift out of the chronicle once a court passes fourteen souls —
+  never the player's court, and never a ruler, heir, kinsman, claimant or officer.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

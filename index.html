@@ -131,6 +131,15 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
   background:radial-gradient(circle at 35% 35%, #ffe08a, #c99a2a); box-shadow:0 0 0 1px rgba(80,55,10,.6), 0 0 5px rgba(255,210,110,.9)}
 .tabDot.has{display:block}
 .tabs button.on .tabDot{display:none}
+/* the first-reign guide */
+.tutorCard{border:1px solid var(--gold2); border-left:3px solid var(--gold); border-radius:4px;
+  padding:8px 10px; margin:0 0 9px;
+  background:radial-gradient(ellipse at 92% 0%, rgba(217,185,92,.16), transparent 60%), rgba(217,185,92,.07)}
+.tutorTop{display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:3px}
+.tutorTop b{font-family:var(--disp); color:var(--gold); font-size:12.5px; letter-spacing:.4px}
+.tutorStep{font-size:10px; color:var(--ink2); opacity:.7; font-variant-numeric:tabular-nums}
+.tutorBody{font-size:12px; line-height:1.5; color:var(--ink)}
+.tutorActs{display:flex; flex-wrap:wrap; gap:5px; margin-top:6px}
 .statMeter{margin:3px 0 6px}
 .statMeter .smTop{display:flex; justify-content:space-between; font-size:12px; margin-bottom:2px}
 .statMeter .smBar{position:relative; height:9px; border-radius:5px; background:rgba(43,32,19,.2); overflow:hidden}
@@ -1200,6 +1209,30 @@ function swearFealty(v, lg, quiet){
   for(const w of [...G.wars]) if((w.att===v&&w.def===lg)||(w.att===lg&&w.def===v)) endWar(w,'white',`${rl(v).n} swears fealty.`);
   if(!quiet) logIt('war', `⚜ ${rl(v).n} swears fealty to ${rl(lg).n}.`);
   return true;
+}
+/* Foreign courts grew without bound — a century in, the world carried some 1,900
+   souls, most of them nobodies nobody would ever meet. The obscure drift out of the
+   chronicle: never the player's court, never rulers, kin, claimants or officers. */
+function pruneCourts(){
+  const byRealm = {};
+  for(const c of Object.values(G.chars)){
+    if(c.dead || c.realm===G.player) continue;
+    (byRealm[c.realm] = byRealm[c.realm] || []).push(c);
+  }
+  for(const [rid, court] of Object.entries(byRealm)){
+    const R = rl(rid); if(!R) continue;
+    if(court.length <= 14) continue;                       /* a court of decent size is left alone */
+    const spare = court.filter(c=>
+      c.id !== R.ruler && !c.seat && !c.claims.length && !c.pclaims.length &&
+      !c.mandate && !c.prison && c.id !== (heirOf(rid)||{}).id &&
+      c.dyn !== (ruler(rid)||{}).dyn &&                     /* kin of the house stay */
+      age(c) >= 45);
+    /* thin the oldest hangers-on back toward a manageable hall */
+    spare.sort((a,b)=>age(b)-age(a));
+    for(const c of spare.slice(0, Math.min(spare.length, court.length-14))){
+      if(chance(.5)) c.dead = G.year;                       /* quietly, offstage */
+    }
+  }
 }
 /* Each year the sworn weigh their oath. The sullen throw it off. */
 function vassalYear(){
@@ -4209,6 +4242,17 @@ function aiTurn(rid){
       R_.gold -= BUILDINGS[b].cost; pv(slot).cons = {b, left:4};
     }
   }
+  /* A full treasury is meant to be spent. Left alone, AI courts hoarded silver until
+     coin stopped meaning anything — so a rich crown improves its land and its guard. */
+  if(R_.gold > 140){
+    const raw = realmProvs(rid).filter(p=>!pv(p).occ && pv(p).dev < 5)
+      .sort((a,b)=>pv(b).dev-pv(a).dev)[0];
+    if(raw && chance(.55)){ const cost = 30 + pv(raw).dev*12;
+      if(R_.gold >= cost){ R_.gold -= cost; pv(raw).dev++; } }
+    if(R_.gold > 200 && chance(.5)){ R_.gold -= 12; R_.retinue += 100; }   /* sworn swords */
+  }
+  /* and what is neither spent nor invested drains away in household, display and waste */
+  if(R_.gold > 300) R_.gold -= (R_.gold - 300) * 0.06;
   /* --- marriages (AI–AI) --- */
   if(chance(.15)){
     const mine = marriageCandidates(rid);
@@ -5367,11 +5411,59 @@ const UI = {
     if(PRL().leg < 40) out.push({i:'⚖', t:`<b class="neg">Legitimacy is low (${Math.floor(PRL().leg)})</b> — vassals withhold levies, plotters take heart, and the commons mutter of revolt`, click:`UI.tab('dyn')`});
     return out.slice(0,8);
   },
+  /* ---- The first reign: one idea at a time, in the order a ruler meets them ----
+     Each step knows when it is already satisfied, so the guide follows what you
+     actually do rather than forcing a script. It never blocks anything. */
+  tutorHtml(){
+    if(!PRL() || G.flags.tutorOff || G.over) return '';
+    const R_ = PRL();
+    const steps = [
+      {id:'orders', t:'Your orders',
+       d:`A season gives you a handful of <b>⚡ orders</b> — shown top right. Every deed costs one. When they are spent, end the season and the world moves.`,
+       done:()=>G.ordersLeft < G.ordersMax},
+      {id:'council', t:'Fill your council',
+       d:`Your four great officers do the work a crown cannot do alone — and a staffed council grants you <b>an extra order</b> each season.`,
+       done:()=>G.flags.tutorSeenCouncil, btn:'Open the Council', go:`G.flags.tutorSeenCouncil=1; UI.tab('council')`},
+      {id:'focus', t:'Set the Crown’s focus',
+       d:`A realm has a standing doctrine — the sword, the purse, the altar, the whisper or the olive branch. It quietly bends everything you do.`,
+       done:()=>G.flags.tutorSeenFocus, btn:'Choose a focus', go:`G.flags.tutorSeenFocus=1; UI.tab('council')`},
+      {id:'land', t:'Read your land',
+       d:`Click any province of yours. <b>Development</b> is its wealth and its spears; a <b>building</b> gives it a standing gift. Hover any figure to learn what moves it.`,
+       done:()=>G.flags.tutorSeenProv,
+       btn:'Show me the map', go:`G.flags.tutorSeenProv=1; UI.renderAll()`},
+      {id:'money', t:'Mind the ledger',
+       d:`Coin comes from your provinces each season and drains into hosts and retinue. The <b>Treasury</b> shows exactly where — autumn’s harvest doubles the yield, so time your spending.`,
+       done:()=>G.flags.tutorSeenTreas, btn:'Open the Treasury', go:`G.flags.tutorSeenTreas=1; UI.tab('treasury')`},
+      {id:'match', t:'Marry for the realm',
+       d:`A marriage is a treaty with children in it. Wed your kin into a foreign house and their spears may answer your call.`,
+       done:()=>G.alliances.some(a=>a.a===G.player||a.b===G.player), btn:'Open Relations', go:`UI.tab('relations')`},
+      {id:'claim', t:'War needs a reason',
+       d:`You cannot simply take land. You need a <b>claim</b> — inherited, married into, or forged by your monks. The <b>Claims</b> map mode shows what is spoken for.`,
+       done:()=>G.flags.tutorSeenClaims || G.wars.length>0,
+       btn:'Show the Claims map', go:`G.flags.tutorSeenClaims=1; UI.setMapMode('claims')`},
+      {id:'ambition', t:'Choose what your reign is for',
+       d:`Your <b>ambition</b> is a goal worth chasing, and your house’s <b>legacy</b> outlives you. Both are on this page, above.`,
+       done:()=>G.flags.tutorSeenAmb, btn:'Got it', go:`G.flags.tutorSeenAmb=1; UI.renderAll()`},
+      {id:'succession', t:'The line must hold',
+       d:`Your ruler will die. What matters is that an heir of age and ability is waiting — the <b>Court</b> is where you raise, betroth and watch them.`,
+       done:()=>!!heirOf(G.player) && G.year >= G.reignStart+6, btn:'Open the Court', go:`UI.tab('court')`},
+    ];
+    const i = steps.findIndex(s=>{ try{ return !s.done(); }catch(_){ return false; } });
+    if(i < 0){ G.flags.tutorOff = 1; return ''; }
+    const s = steps[i];
+    return `<div class="tutorCard">
+      <div class="tutorTop"><b>❧ ${esc(s.t)}</b><span class="tutorStep">${i+1} / ${steps.length}</span></div>
+      <div class="tutorBody">${s.d}</div>
+      <div class="tutorActs">
+        ${s.go?`<button class="small" onclick="${s.go}">${esc(s.btn||'Show me')}</button>`:''}
+        <button class="small" onclick="G.flags.tutorOff=1;UI.renderAll()" data-tip="Hide these notes for good — nothing is lost, and every explanation stays in the tooltips">Dismiss the guide</button>
+      </div></div>`;
+  },
   overviewHtml(){
     const R_ = PRL();
     const provs = realmProvs(G.player);
     const income = provs.reduce((s,p)=>pv(p).occ?s:s+taxOf(p),0);
-    let h = '';
+    let h = this.tutorHtml();
     const adv = this.advise();
     if(adv.length){
       h += `<div class="advCard"><h3>The Council Advises</h3>` +
@@ -6574,6 +6666,7 @@ const Game = {
       }
     }
     vassalYear();
+    pruneCourts();
     if(G.flags.spyBoost) G.flags.spyBoost = Math.max(0, G.flags.spyBoost-1);
     ensureMarriageMarket();
   },
