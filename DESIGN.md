@@ -1229,6 +1229,34 @@ claim their crown" and masked the four foreign claimants on England in 1066.
 Self-claims are now skipped, and your land correctly shows as claimed against
 you.
 
+### v6.10 — Europe, divided finer (SHIPPED)
+Europe was drawn coarser than it was governed: the median European province was
+425 units of area, but the largest ran to 2,900 — great shapeless lordships that
+made campaigns in the east feel like moving between countries rather than
+counties. **25 of the largest are now split in two**, taking the map from 268 to
+**293 provinces**.
+
+Rather than hand-editing a megabyte of map data, the split is **driven at load
+from a small historical table**: each entry names a real subdivision and says
+which side of the parent it occupied. The splitter clips the parent's rings
+against a line through its centre (Sutherland–Hodgman), gives the child the
+parent's terrain, development and coast, recomputes both halves' label anchors
+and areas, rebuilds adjacency on both sides — including fixing every neighbour's
+own list — and inserts the child into whichever realm holds the parent, in every
+scenario.
+
+The new lands are real places, sited where they actually were: **Vyazma,
+Ladoga, Pinsk, Novgorod-Seversk, Minsk, Kursk, Kaniv, Lutsk, Peremyshl** and
+**Aukštaitija** in the Rus and Baltic east; **Płock, Lublin, Kuyavia** and
+**Pomerelia** in Poland; **Nyitra, the Banat, Oltenia, Silistria, Sofia** and
+**Hum** along the Danube and in the Balkans; and **the Altmark, Asturias,
+Cuenca, Hedmark** and **Dorylaion** on the other frontiers.
+
+Verified: 25/25 splits clean, every ring closed, **adjacency fully symmetric
+(0 asymmetric links)**, no orphaned provinces in either scenario, and rendering
+still costs 2.1ms a repaint against a 6.2ms one-time base build — density
+bought at no measurable performance price.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

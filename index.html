@@ -839,6 +839,116 @@ function skill(c, s){
   for(const t of c.tr){ const T=TRAITS[t]; if(T && T[s]) v += T[s]; }
   return clamp(v, 0, 12);
 }
+/* ---------- Province density: the great European lordships, divided ----------
+   Europe was drawn coarser than it was governed. Rather than hand-editing the map
+   data, we split the largest provinces at load from a small historical table —
+   each entry names a real subdivision and says which side of the parent it took. */
+const PROV_SPLITS = [
+  /* Rus and the eastern marches */
+  {from:'smolensk',     id:'vyazma',      n:'Vyazma',            axis:'x', side:'hi'},
+  {from:'novgorod',     id:'ladoga',      n:'Ladoga',            axis:'y', side:'lo'},
+  {from:'turov',        id:'pinsk',       n:'Pinsk',             axis:'x', side:'lo'},
+  {from:'chernigov',    id:'seversk',     n:'Novgorod-Seversk',  axis:'x', side:'hi'},
+  {from:'polotsk',      id:'minsk',       n:'Minsk',             axis:'y', side:'hi'},
+  {from:'pereyaslavl',  id:'kursk',       n:'Kursk',             axis:'x', side:'hi'},
+  {from:'kiev',         id:'kaniv',       n:'Kaniv',             axis:'y', side:'hi'},
+  {from:'volhynia',     id:'lutsk',       n:'Lutsk',             axis:'x', side:'hi'},
+  {from:'halych',       id:'peremyshl',   n:'Peremyshl',         axis:'x', side:'lo'},
+  {from:'lithuania',    id:'aukstaitija', n:'Aukštaitija',       axis:'y', side:'lo'},
+  /* Poland */
+  {from:'masovia',      id:'plock',       n:'Płock',             axis:'x', side:'lo'},
+  {from:'sandomierz',   id:'lublin',      n:'Lublin',            axis:'x', side:'hi'},
+  {from:'poland',       id:'kuyavia',     n:'Kuyavia',           axis:'y', side:'lo'},
+  {from:'pomerania',    id:'pomerelia',   n:'Pomerelia',         axis:'x', side:'hi'},
+  /* Hungary, the Balkans and the lower Danube */
+  {from:'hungary',      id:'nyitra',      n:'Nyitra',            axis:'y', side:'lo'},
+  {from:'transylvania', id:'banat',       n:'The Banat',         axis:'x', side:'lo'},
+  {from:'wallachia',    id:'oltenia',     n:'Oltenia',           axis:'x', side:'lo'},
+  {from:'dobruja',      id:'silistria',   n:'Silistria',         axis:'y', side:'hi'},
+  {from:'vidin',        id:'sofia',       n:'Sofia',             axis:'y', side:'hi'},
+  {from:'bosnia',       id:'hum',         n:'Hum',               axis:'y', side:'hi'},
+  /* the Empire, Iberia, Scandinavia and Anatolia */
+  {from:'brandenburg',  id:'altmark',     n:'The Altmark',       axis:'x', side:'lo'},
+  {from:'leonp',        id:'asturias',    n:'Asturias',          axis:'y', side:'lo'},
+  {from:'toledo',       id:'cuenca',      n:'Cuenca',            axis:'x', side:'hi'},
+  {from:'oppland',      id:'hedmark',     n:'Hedmark',           axis:'x', side:'hi'},
+  {from:'nicaea',       id:'dorylaion',   n:'Dorylaion',         axis:'x', side:'hi'},
+];
+/* Clip a closed ring to one side of an axis-aligned line (Sutherland–Hodgman). */
+function clipRing(ring, axis, cut, keepLo){
+  const k = axis==='x' ? 0 : 1;
+  const inside = p => keepLo ? p[k] <= cut : p[k] >= cut;
+  const out = [];
+  const pts = ring.slice(0, ring.length-1);          /* drop the repeated closing point */
+  for(let i=0;i<pts.length;i++){
+    const a = pts[i], b = pts[(i+1)%pts.length];
+    const ai = inside(a), bi = inside(b);
+    if(ai) out.push(a);
+    if(ai !== bi){
+      const t = (cut - a[k]) / (b[k] - a[k]);
+      const p = [ +(a[0] + (b[0]-a[0])*t).toFixed(2), +(a[1] + (b[1]-a[1])*t).toFixed(2) ];
+      out.push(p);
+    }
+  }
+  if(out.length < 3) return null;
+  out.push(out[0].slice());                          /* close the ring */
+  return out;
+}
+function ringArea(r){ let a=0; for(let i=0;i<r.length-1;i++) a += r[i][0]*r[i+1][1] - r[i+1][0]*r[i][1]; return Math.abs(a/2); }
+function ringCentroid(r){ let x=0,y=0,n=r.length-1; for(let i=0;i<n;i++){ x+=r[i][0]; y+=r[i][1]; } return [ +(x/n).toFixed(1), +(y/n).toFixed(1) ]; }
+function ringsMinDist(A, B){
+  let best = Infinity;
+  for(const ra of A) for(const pa of ra) for(const rb of B) for(const pb of rb){
+    const d = (pa[0]-pb[0])**2 + (pa[1]-pb[1])**2; if(d < best) best = d;
+  }
+  return Math.sqrt(best);
+}
+function applyProvinceSplits(){
+  for(const s of PROV_SPLITS){
+    const par = PROVDATA[s.from];
+    if(!par || PROVDATA[s.id]) continue;
+    /* cut through the parent's centre, across its longer reach on the chosen axis */
+    const k = s.axis==='x' ? 0 : 1;
+    let lo=Infinity, hi=-Infinity;
+    for(const r of par.polys) for(const p of r){ if(p[k]<lo) lo=p[k]; if(p[k]>hi) hi=p[k]; }
+    const cut = (lo+hi)/2;
+    const loRings=[], hiRings=[];
+    for(const r of par.polys){
+      const a = clipRing(r, s.axis, cut, true);  if(a) loRings.push(a);
+      const b = clipRing(r, s.axis, cut, false); if(b) hiRings.push(b);
+    }
+    if(!loRings.length || !hiRings.length) continue;      /* refuse a split that would erase land */
+    const newRings = s.side==='lo' ? loRings : hiRings;
+    const keepRings = s.side==='lo' ? hiRings : loRings;
+    /* the child inherits the parent's character */
+    PROVDATA[s.id] = { n:s.n, t:par.t, d:par.d, coast:par.coast||0,
+      polys:newRings, lbl:ringCentroid(newRings[0]), area:newRings.reduce((t,r)=>t+ringArea(r),0), adj:[] };
+    par.polys = keepRings;
+    par.lbl = ringCentroid(keepRings[0]);
+    par.area = keepRings.reduce((t,r)=>t+ringArea(r),0);
+    /* the two halves border each other; the parent's old neighbours go to whichever half they touch */
+    const oldAdj = (par.adj||[]).slice();
+    par.adj = [s.id];
+    PROVDATA[s.id].adj = [s.from];
+    for(const q of oldAdj){
+      const qd = PROVDATA[q]; if(!qd) continue;
+      const dPar = ringsMinDist(par.polys, qd.polys), dNew = ringsMinDist(newRings, qd.polys);
+      const near = 26;
+      const toPar = dPar <= near || dPar <= dNew, toNew = dNew <= near || dNew < dPar;
+      if(toPar && !par.adj.includes(q)) par.adj.push(q);
+      if(toNew && !PROVDATA[s.id].adj.includes(q)) PROVDATA[s.id].adj.push(q);
+      /* keep the neighbour's own list honest */
+      qd.adj = (qd.adj||[]).filter(x=>x!==s.from);
+      if(toPar) qd.adj.push(s.from);
+      if(toNew) qd.adj.push(s.id);
+    }
+    /* the child is held by whoever holds the parent, in every scenario */
+    const addAfter = arr => { const i = arr.indexOf(s.from); if(i>=0 && !arr.includes(s.id)) arr.splice(i+1, 0, s.id); };
+    for(const rd of Object.values(REALMDATA)) if(rd.provs) addAfter(rd.provs);
+    for(const sc of Object.values(SCENARIOS)) if(sc.provs) for(const arr of Object.values(sc.provs)) addAfter(arr);
+  }
+}
+applyProvinceSplits();
 function age(c){ return (G.year - c.by); }
 function alive(c){ return c && !c.dead; }
 function ch(id){ return G.chars[id]; }
