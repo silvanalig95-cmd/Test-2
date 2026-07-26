@@ -1179,6 +1179,34 @@ function realmStrength(rid){
   s += rl(rid).retinue||0;
   return s;
 }
+/* ---------- The character of a place ----------
+   Provinces were development, tax and levy and nothing else — Kent played exactly
+   like Carinthia. Each now carries a temper that colours what it yields, how
+   readily it takes a new faith or tongue, and how quietly it suffers a lord. */
+const PROVCHAR = {
+  martial:    {n:'Martial',    ico:'⚔', d:'Hard men and a fighting name — levies come readily here, though the plough suffers for it.'},
+  mercantile: {n:'Mercantile', ico:'⚖', d:'Markets, tolls and clerks — the land yields coin rather than spears.'},
+  devout:     {n:'Devout',     ico:'✝', d:'A pious countryside — it takes the crown\u2019s faith quickly and lends the realm its prayers.'},
+  proud:      {n:'Proud',      ico:'⚑', d:'An old people with long memories — slow to forget a foreign tongue, and slower to forgive a foreign lord.'},
+  remote:     {n:'Remote',     ico:'🏔', d:'Far from any road — it renders little, but an army bleeds to hold it.'},
+  fertile:    {n:'Fertile',    ico:'🌾', d:'Good black earth — it feeds more mouths than its neighbours and grows richer for it.'},
+};
+function provCharOf(p){ const st=pv(p); return st && st.chr ? PROVCHAR[st.chr] : null; }
+/* seeded from the province id so a given map always feels the same */
+function seedProvChar(pid, pd){
+  let h=7; for(let i=0;i<pid.length;i++) h=(h*31+pid.charCodeAt(i))>>>0;
+  const t = pd.t;
+  if(t==='mountain' || t==='marsh') return (h%3) ? 'remote' : 'proud';
+  if(pd.coast && h%4===0) return 'mercantile';
+  if(t==='hills' || t==='forest') return (h%3===0) ? 'martial' : (h%3===1 ? 'remote' : 'proud');
+  const pool = ['fertile','mercantile','devout','martial','proud','fertile'];
+  return pool[h % pool.length];
+}
+function charTax(p){ const c=pv(p).chr; return c==='mercantile'?1.30 : c==='fertile'?1.18 : c==='remote'?0.72 : c==='martial'?0.88 : 1; }
+function charLevy(p){ const c=pv(p).chr; return c==='martial'?1.28 : c==='proud'?1.06 : c==='mercantile'?0.84 : c==='remote'?0.90 : 1; }
+function charConv(p){ const c=pv(p).chr; return c==='devout'?1.5 : c==='proud'?0.6 : 1; }   /* faith takes hold */
+function charAsm(p){ const c=pv(p).chr; return c==='proud'?0.55 : c==='remote'?0.8 : 1; }   /* tongue takes hold */
+
 /* ---------- Vassalage: realms that keep their crown but owe another ---------- */
 function liegeOf(rid){ const R=rl(rid); return R && R.liege && rl(R.liege) && !rl(R.liege).dead ? R.liege : null; }
 function isVassal(rid){ return !!liegeOf(rid); }
@@ -1281,7 +1309,7 @@ function releaseVassal(v, why){
   logIt('war', `${rl(v).n} is no longer sworn to ${rl(lg).n}${why?' — '+why:''}.`);
 }
 function legFactor(rid){ const r = rl(rid); return r ? Math.min(1, 0.7 + r.leg/150) : 1; } /* below ~45 legitimacy, vassals withhold spears */
-function levyOf(p){ const pr=pv(p); return Math.round((200 + pr.dev*110 + (pr.bld==='castle'?150:0)) * legFactor(pr.r) * focusLevy(pr.r) * faithPenalty(p) * cultureLevy(pr.r)); }
+function levyOf(p){ const pr=pv(p); return Math.round((200 + pr.dev*110 + (pr.bld==='castle'?150:0)) * legFactor(pr.r) * focusLevy(pr.r) * faithPenalty(p) * cultureLevy(pr.r) * charLevy(p)); }
 /* a blockaded (occupied) port trades with nobody — it drops out of the network entirely */
 function harboursOf(rid){ let n=0; for(const p of realmProvs(rid)) if(pv(p).bld==='harbour' && !pv(p).occ) n++; return n; }
 /* what a realm can put to sea: every coast counts, a harbour counts for much more */
@@ -1292,7 +1320,9 @@ function harbourTrade(p){ const pr=pv(p); if(pr.bld!=='harbour') return 0;
   let t = 2 + Math.min(harboursOf(pr.r)-1, 4);
   if(pr.r===G.player && G.flags && G.flags.corsairYr===G.year) t = Math.max(1, t-2); /* corsairs prey on your lanes this year */
   return t; }
-function taxOf(p){ const pr=pv(p); return Math.round((pr.dev + (pr.bld==='market'?2:0) + harbourTrade(p)) * faithPenalty(p)); }
+/* kept to one decimal: rounding to whole coins swallowed the character of a place
+   entirely on low-development land, which is most of the map */
+function taxOf(p){ const pr=pv(p); return Math.round((pr.dev + (pr.bld==='market'?2:0) + harbourTrade(p)) * faithPenalty(p) * charTax(p) * 10)/10; }
 function realmFinances(rid){
   const R_ = rl(rid);
   let baseTax = 0, occLost = 0; const rows = [];
@@ -1380,7 +1410,7 @@ function newGame(playerRealm, seed, scenId){
     flags:{}, over:false, regency:false, eventQueue:[], stats:{warsWon:0},
   };
   for(const [pid, pd] of Object.entries(PROVDATA)){
-    G.provinces[pid] = { r:null, occ:null, dev:pd.d, bld:null };
+    G.provinces[pid] = { r:null, occ:null, dev:pd.d, bld:null, chr:seedProvChar(pid, pd) };
   }
   for(const [rid, rd] of Object.entries(REALMDATA)){
     const provs = S.provs ? (S.provs[rid]||[]) : rd.provs;
@@ -2219,9 +2249,20 @@ function empOnRulerDeath(rid){ if(G.empire && G.empire.holder===rid) imperialEle
 function empOnRealmFall(rid){ if(G.empire){ if(G.empire.holder===rid) G.empire.holder=null; G.empire.members=G.empire.members.filter(m=>m!==rid); if(G.empire.pretender===rid) G.empire.pretender=null; if(!G.empire.holder) imperialElection('interregnum'); } }
 
 /* ---- flexible order pool: base ~3, plus council, high legitimacy, and temporary event boons ---- */
+/* A reign has a shape: the young have vigour and no standing, the old the reverse. */
+function lifeStage(c){ const a = age(c); return a<25 ? 'young' : a<50 ? 'prime' : a<62 ? 'seasoned' : 'aged'; }
+const LIFESTAGE = {
+  young:    {n:'Young',    d:'Vigorous and tireless, but untested — an extra order each season, though older heads give little weight to your word.'},
+  prime:    {n:'In prime', d:'The best years of a reign: strength and standing together.'},
+  seasoned: {n:'Seasoned', d:'Long experience commands respect — courts think better of you, and your right sits more firmly.'},
+  aged:     {n:'Aged',     d:'Greatly respected and greatly tired — the highest standing of all, but one order fewer, and the physicians hover.'},
+};
 function ordersMaxNow(){
   const R_ = PRL(); if(!R_) return 2;
   let n = (G.regency ? 1 : 2);                    /* the crown and its household */
+  { const r = PR(); if(r && !G.regency){ const st = lifeStage(r);
+      if(st==='young') n += 1;                    /* youth outruns its own judgement */
+      else if(st==='aged') n -= 1; } }            /* age outlasts its own strength */
   if(councilSize(G.player) >= 2) n += 1;          /* a functioning council frees the crown to do more */
   n += (G.ordersBonus||0);                        /* lasting unlocks */
   for(const t of (G.ordersTemp||[])) if(t.until > G.year + G.season/4) n += t.n;  /* temporary boons */
@@ -2737,6 +2778,13 @@ function doMarriage(a, b){
 function warBetween(a,b){ return G.wars.find(w=>w.sides && ((w.sides.a.includes(a)&&w.sides.b.includes(b))||(w.sides.a.includes(b)&&w.sides.b.includes(a)))); }
 function hostile(a,b){ return a!==b && !!warBetween(a,b); }
 function atWar(rid){ return G.wars.filter(w=>w.sides.a.includes(rid)||w.sides.b.includes(rid)); }
+/* Long wars broke kings. Every year a war drags on past its third, it costs the
+   belligerents at home — which finally gives the peace table something to push against. */
+function warWeariness(rid){
+  let w = 0;
+  for(const x of atWar(rid)) w += Math.max(0, warAge(x)/4 - 3);
+  return Math.round(w*10)/10;
+}
 function warAge(w){ const st = (w.startTurn!=null) ? w.startTurn : (w.started||G.year)*4; return (G.year*4+G.season) - st; } /* age in seasons */
 function truceBetween(a,b){ return G.truces.find(t=>((t.a===a&&t.b===b)||(t.a===b&&t.b===a)) && t.until > G.year + G.season/4); }
 
@@ -5519,7 +5567,7 @@ const UI = {
   overviewHtml(){
     const R_ = PRL();
     const provs = realmProvs(G.player);
-    const income = provs.reduce((s,p)=>pv(p).occ?s:s+taxOf(p),0);
+    const income = Math.round(provs.reduce((s,p)=>pv(p).occ?s:s+taxOf(p),0)*10)/10;
     let h = this.tutorHtml();
     const adv = this.advise();
     if(adv.length){
@@ -5548,6 +5596,10 @@ const UI = {
     { const f=FOCI[R_.focus]; if(f) h += `<div class="kv" style="cursor:pointer" data-tip="Your realm’s standing doctrine — ${esc(f.d)} Set it in the Council tab." onclick="UI.tab('council')"><span>Crown’s focus</span><b>${f.ico} ${f.n}</b></div>`; }
     { const e=ETHOS[cultEthos(G.player)]; const fc=realmForeignCult(G.player).length;
       h += `<div class="kv" data-tip="Your people are ${esc(cap(R_.cult))} — ${esc(e.d)}${fc?' '+fc+' of your provinces are of another culture; they drag on your legitimacy until they assimilate to your ways over the years.':''}"><span>People</span><b>${esc(cap(R_.cult))} <span class="hint" style="margin:0">${e.ico} ${e.n}${fc?' · '+fc+'🏰?':''}</span></b></div>`; }
+    { const st=lifeStage(PR()), L=LIFESTAGE[st];
+      h += `<div class="kv" data-tip="${esc(fullName(PR()))} is ${age(PR())}. ${esc(L.d)}"><span>Stage of life</span><b>${esc(L.n)} <span class="hint" style="margin:0">${age(PR())}</span></b></div>`; }
+    { const ww = warWeariness(G.player);
+      if(ww>0) h += `<div class="kv" data-tip="Wars past their third year wear the realm down — this costs you ${(Math.min(3,ww*0.5)).toFixed(1)} legitimacy every year until they end."><span class="neg">War weariness</span><b class="neg">−${(Math.min(3,ww*0.5)).toFixed(1)} ✠/yr</b></div>`; }
     h += `<div class="kv"><span>Succession law</span><b>${R_.law==='elective'?'Elective':'Primogeniture'}</b></div>`;
     { const lg = liegeOf(G.player);
       if(lg) h += `<div class="kv" style="cursor:pointer" onclick="UI.selProv(rl('${lg}').cap)" data-tip="You hold your crown of another. A quarter of your taxes go to them, your banners answer their summons, and you may make no wars of your own. Loyalty falls and you may throw the oath off — in blood.">⚜ Sworn to</span><b class="neg">${esc(rl(lg).n)}</b></div>`;
@@ -5619,6 +5671,7 @@ const UI = {
       <div class="kv"><span>Realm</span><b>${R_?esc(R_.n):'—'}</b></div>
       ${st.occ?`<div class="kv"><span>Occupied by</span><b class="neg">${esc(rl(st.occ).n)}</b></div>`:''}
       <div class="kv"><span data-tip="The lie of the land. Hills and mountains favour the defender in battle; open ground and coast do not.">Terrain</span><b>${TERRAIN[pd.t].n}</b></div>
+      ${(()=>{ const ch=provCharOf(pid); return ch?`<div class="kv"><span data-tip="${esc(ch.d)}">Its people</span><b>${ch.ico} ${esc(ch.n)}</b></div>`:''; })()}
       <div class="kv"><span data-tip="How built-up and populous the land is. Higher development means more tax and larger levies. Raise it with the Develop action (to a maximum of 5).">${STATICO.dev} Development</span><b>${st.dev} / 5</b></div>
       <div class="kv"><span data-tip="Each province holds one permanent improvement — a keep, a market, a temple and the like. It gives a standing bonus once built.">${st.bld?BUILDINGS[st.bld].ico:'🏗'} Building</span><b>${st.bld?BUILDINGS[st.bld].n : st.cons?BUILDINGS[st.cons.b].n+' — '+st.cons.left+' season'+(st.cons.left>1?'s':'')+' left' : '—'}</b></div>
       <div class="kv"><span data-tip="The soldiers this land can raise when you Muster. Cut by low legitimacy, foreign faith and occupation — raised by development, martial culture and a keep.">${STATICO.levy} Levies</span><b>${fmtN(levyOf(pid))}</b></div>
@@ -6370,7 +6423,7 @@ const Game = {
         t:`${esc(PROVDATA[p].n)} — ${RELICO[pv(p).rel]} ${RELNAME[pv(p).rel]}, ${Math.min(99,Math.round(pv(p).conv||0))}% turned`,
         fx:()=>{ if(R_.gold<20||(R_.piety||0)<20){ toast('Not enough gold or piety.'); return; } if(!this.order()) return;
           R_.gold-=20; R_.piety=clamp(R_.piety-20,0,100);
-          pv(p).conv=(pv(p).conv||0)+34+councilBonus(G.player,'chaplain')*3;
+          pv(p).conv=(pv(p).conv||0)+(34+councilBonus(G.player,'chaplain')*3)*charConv(p);
           if(pv(p).conv>=100){ pv(p).rel=R_.rel; pv(p).conv=0;
             toast(`✝ <b>${esc(PROVDATA[p].n)}</b> is brought into the ${RELNAME[R_.rel]} faith`);
             logIt('court',`${PROVDATA[p].n} is converted to the ${RELNAME[R_.rel]} faith, its churches reconsecrated.`); }
@@ -6720,6 +6773,7 @@ const Game = {
       /* and the higher a crown stands, the more is expected of it */
       if(R_.leg > 70) d -= (R_.leg - 70) * 0.15;
       if(R_.excomm) d -= 4;
+      d -= Math.min(3, warWeariness(R_.id) * 0.5);   /* a war that will not end wears the crown down */
       R_.leg = clamp(R_.leg + d, 0, 100);
       R_.piety = clamp((R_.piety!=null?R_.piety:30) + pietyChange(R_.id), 0, 100);
       if(isEmperor(R_.id)) R_.prs += 3;   /* the Imperial dignity lends steady renown */
@@ -6737,7 +6791,7 @@ const Game = {
         for(const p of fc){ const pr=pv(p);
           let step = 3 + councilBonus(R_.id,'steward')*0.5;   /* good administration speeds integration */
           if(pr.rel===R_.rel) step += 2;                       /* a shared faith eases it */
-          pr.asm = (pr.asm||0) + step;
+          pr.asm = (pr.asm||0) + step * charAsm(p);
           if(pr.asm>=100){ pr.asm=0; pr.cult=R_.cult;
             logIt('court', `${PROVDATA[p].n} has taken up the ${cap(R_.cult)} tongue and ways.`);
             if(isPlayer(R_.id)&&!G._ff) toast(`🏰 <b>${esc(PROVDATA[p].n)}</b> assimilates — now ${esc(cap(R_.cult))}`);

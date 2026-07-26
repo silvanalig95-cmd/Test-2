@@ -1430,6 +1430,36 @@ realm, and the death notice carries what the reign *was*: years on the throne,
 provinces won or lost, wars won, what was raised in stone, oaths taken, renown at
 the end, the epithets earned, and the chronicler's own last lines about it.
 
+### v6.16 — the shape of a reign, the character of a place (SHIPPED)
+Three mechanics, each cheap, each giving the coming event work something to hook
+into beyond faith and neighbours.
+
+**A reign now has a shape.** Every season played identically whether the ruler
+was sixteen or sixty. Four stages of life: the **young** get an extra order and
+outrun their own judgement; the **prime** is the peak; the **seasoned** command
+respect; the **aged** are the most respected of all and one order the poorer, with
+the physicians hovering. Succession now matters beyond heir-or-no-heir — the age
+of the heir you leave decides how the next reign opens.
+
+**Land has a temper.** Provinces were development, tax and levy and nothing else:
+Kent played exactly like Carinthia. Each now carries one of six characters, seeded
+from its own id and terrain so a map always feels the same — **martial** (spears
+readily, the plough suffers), **mercantile** (coin over spears), **fertile**,
+**devout** (takes a new faith half again as fast), **proud** (slow to forget its
+tongue and slower to forgive a foreign lord), **remote** (renders little, costs
+much to hold). It feeds levies, tax, conversion and assimilation, and it is
+written on the province panel.
+
+**War weariness.** Attrition and gold drain existed, but a decade-long war cost a
+ruler nothing politically — historically backwards, since long wars broke kings.
+Every year past a war's third now costs legitimacy at home, up to 3 a year, which
+finally gives the peace table something to push against.
+
+Fixed while measuring: `taxOf` rounded to whole coins, so a province's character
+multiplier **rounded straight back out of existence** on development-1 land —
+which is most of the map. Tax is now kept to one decimal, and the character of a
+place actually reaches the treasury.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
