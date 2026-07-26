@@ -1153,6 +1153,37 @@ make no wars of its own.
   release-from-fealty act of generosity, purple on the Relations map, and council
   advice both for taking oaths and for shoring up a vassal about to break one.
 
+### v6.7 — the Empire as a federation, not a nation (SHIPPED)
+The Holy Roman Empire was a single realm of **33 provinces** — a grey superpower
+blob that was both ahistorical and bad for the game. It is now what it actually
+was: **a federation of a dozen princes bound by an oath to one elected Emperor.**
+
+The old `germany` realm is gone, replaced by twelve constituent principalities:
+Franconia, Swabia, Saxony, Bavaria, Austria, Brandenburg, Cologne, Lower and
+Upper Lorraine, Lombardy, Tuscany and Savoy — each with its own court, levies,
+council, ambitions and diplomacy. No prince holds more than four provinces, so
+the Empire is a mosaic of near-peers rather than one giant.
+
+- **The Imperial seat is scenario-historical.** In 1066 the crown sits with
+  Salian **Franconia** under Henry IV, with Rudolf of Rheinfelden in Swabia and
+  Otto of Nordheim in Saxony — the very princes who would raise the anti-kings
+  against him — and Matilda of Canossa holding Tuscany for the Pope. In 1187 it
+  sits with Hohenstaufen **Swabia** under Barbarossa, with Henry the Lion back
+  from exile in Saxony and Leopold V in Austria.
+- **Every prince is elective**, as the Empire's crowns actually were.
+- **The Imperial dignity is worn, not inherited with the land**: the Emperor
+  reads as "Emperor, Duke of Swabia" — the title outranks the duchy but does not
+  replace it. The crown genuinely moves between houses at election.
+- **The Empire tab now shows the federation**: a roster of every prince with
+  provinces, spears, and their standing toward you — Emperor, ally, at war,
+  sworn, or a plain opinion score.
+- The old imperial machinery (electors, courting, the Diet, the Ban, the summons
+  to war, pressing an outside claim) all carries over unchanged and still works.
+
+Also fixed along the way: `opinion()` crashed the entire interface on an unknown
+trait key — one bad character definition white-screened the game. It now
+tolerates the bad key instead.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
