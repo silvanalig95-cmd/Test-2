@@ -412,6 +412,9 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
 .realmCard .diff{font-size:11.5px; font-weight:bold; margin:3px 0 8px; color:var(--ink2)}
 .realmCard p{font-size:12.5px; line-height:1.5}
 .realmCard .shield{float:right; width:46px; height:54px; filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
+/* arms worn small, inline with a realm's name */
+.armsSm{width:19px; height:21px; vertical-align:-5px; margin-right:5px; flex:0 0 auto}
+.armsMd{width:26px; height:29px; vertical-align:-7px; margin-right:6px; flex:0 0 auto}
 #setup .foot{margin-top:28px; font-size:12px; color:#9a8a68; font-style:italic; position:relative}
 #setup .loadRow{margin-top:20px; position:relative}
 #achRow{margin-top:22px; text-align:center; position:relative}
@@ -949,6 +952,177 @@ function applyProvinceSplits(){
   }
 }
 applyProvinceSplits();
+
+/* ---------- Heraldry: the real arms of the age, drawn rather than fetched ----------
+   Charges are authored in a 0..100 box and placed into the shield by transform,
+   so the same lion serves England, Scotland, León and Bohemia at any size. */
+const TINCT = { or:'#d8b043', argent:'#eae6db', gules:'#a8202a', azure:'#23508f',
+  sable:'#241f1c', vert:'#2f6a3a', purpure:'#6d2f6d', tenne:'#a35a24' };
+const CHARGE = {
+  /* a lion rampant — reared on the hind legs, facing dexter, assembled from
+     head, ruffed mane, body, raised foreleg, hind leg and a tufted tail */
+  lion:`M31 22 a12 12 0 1 0 0.1 0 z
+        M22 12 l-11 -7 3 11 -12 1 9 8 -8 8 12 1 2 8 z
+        M18 20 l-10 -3 2 6 z
+        M37 30 c9 -3 18 4 22 15 l9 27 -11 4 -9 -24 c-7 6 -18 5 -24 -4 -5 -8 -2 -16 6 -19 z
+        M35 33 l-18 -14 -5 9 16 13 z
+        M12 17 l-8 -1 4 7 z
+        M57 68 l7 23 -10 3 -8 -23 z
+        M44 74 l4 16 -10 1 -1 -16 z
+        M63 60 c11 -5 19 -16 21 -29 l8 3 c-3 18 -14 31 -27 35 z
+        M89 27 l7 -7 4 9 -8 5 z`,
+  /* a lion passant guardant — walking, as England, Normandy and Denmark bore them;
+     a wide charge stacks far better in a shield than a reared one */
+  lionp:`M12 42 a11 11 0 1 0 0.1 0 z
+         M4 34 l-4 -8 8 2 z  M18 30 l6 -6 1 8 z
+         M22 44 c12 -6 30 -6 44 -2 l12 2 8 -8 5 7 -10 10 -15 0 c-15 3 -32 3 -46 -2 z
+         M26 56 l3 20 -8 0 -4 -20 z
+         M40 58 l3 18 -8 0 -4 -18 z
+         M58 58 l4 18 -8 0 -3 -18 z
+         M70 55 l4 21 -8 0 -3 -20 z
+         M82 40 c9 -5 13 -16 11 -27 l7 1 c2 15 -5 29 -16 33 z
+         M96 10 l6 -5 2 9 -7 3 z`,
+  /* an eagle displayed — wings spread and feathered, head to dexter, tail below */
+  eagle:`M50 10 a8 8 0 1 0 0.1 0 z
+         M40 15 l-10 2 9 5 z
+         M44 26 c-2 8 -2 18 0 26 l-2 22 16 0 -2 -22 c2 -8 2 -18 0 -26 z
+         M43 30 l-13 -8 -16 -12 6 12 -16 -6 9 12 -15 -1 13 9 -12 5 15 3 -8 9 16 -1 -4 10 15 -8 z
+         M57 30 l13 -8 16 -12 -6 12 16 -6 -9 12 15 -1 -13 9 12 5 -15 3 8 9 -16 -1 4 10 -15 -8 z
+         M44 76 l-7 16 8 -3 5 9 5 -9 8 3 -7 -16 z`,
+  fleur:`M50 6 c-7 10 -3 18 0 22 3 -4 7 -12 0 -22 z M50 30 l-16 -8 c-8 6 -6 18 2 21 5 2 10 0 14 -4 4 4 9 6 14 4 8 -3 10 -15 2 -21 z
+         M28 44 h44 v7 h-44 z M50 51 c-6 12 -4 28 0 41 4 -13 6 -29 0 -41 z
+         M50 62 c-9 6 -16 16 -17 28 8 -4 14 -14 17 -21 3 7 9 17 17 21 -1 -12 -8 -22 -17 -28 z`,
+  tower:`M22 44 h56 v42 h-56 z M18 30 h14 v14 h-14 z M43 30 h14 v14 h-14 z M68 30 h14 v14 h-14 z
+         M44 62 h12 v24 h-12 z`,
+  key:`M32 22 a11 11 0 1 0 0.1 0 z M36 30 a7 7 0 1 1 -0.1 0 z M40 36 l38 38 M70 60 l8 8 M62 52 l8 8`,
+  esc:`M18 14 h64 v40 q0 20 -32 32 q-32 -12 -32 -32 z`,
+  crescent:`M60 12 a34 34 0 1 0 0 66 a26 26 0 1 1 0 -66 z`,
+  mullet:`M50 6 l11 30 32 1 -25 20 9 31 -27 -19 -27 19 9 -31 -25 -20 32 -1 z`,
+  crown:`M18 40 l8 -22 12 14 12 -22 12 22 12 -14 8 22 z M18 44 h64 v12 h-64 z`,
+  wyvern:`M20 66 l10 -18 14 -10 18 -2 12 -8 -2 12 10 6 -10 4 -4 10 -12 8 -14 4 -12 8 -8 -6 z M62 34 l6 -2 2 5 -6 2 -2 -5 z`,
+};
+/* field = tincture or a pattern; charges = [{d, fill, x, y, s, n, rot}] laid over it */
+const ARMS = {
+  /* --- the British Isles --- */
+  england:   {f:'gules', c:[{k:'lionp', t:'or', s:.155, ys:[9,18,27]}]},
+  normandy:  {f:'gules', c:[{k:'lionp', t:'or', s:.185, ys:[12,24]}]},
+  scotland:  {f:'or',    c:[{k:'lion', t:'gules'}]},
+  wales:     {f:'vert',  c:[{k:'lion', t:'gules'}]},
+  ireland:   {f:'azure', c:[{k:'crown', t:'or', s:.24}]},
+  mercia:    {f:'azure', c:[{k:'mullet', t:'or', s:.24}]},
+  northumbria:{f:'gules',c:[{k:'lion', t:'or'}]},
+  munster:   {f:'azure', c:[{k:'crown', t:'or', s:.24}]},
+  ulaid:     {f:'argent',c:[{k:'lion', t:'gules'}]},
+  /* --- France and its great fiefs --- */
+  france:    {f:'azure', c:[{k:'fleur', t:'or', s:.13, n:3}]},
+  anjou:     {f:'azure', c:[{k:'fleur', t:'or', s:.24}]},
+  aquitaine: {f:'gules', c:[{k:'lion', t:'or'}]},
+  toulouse:  {f:'gules', c:[{k:'crown', t:'or', s:.24}]},
+  brittany:  {f:'argent',c:[{k:'lion', t:'sable'}]},
+  flanders:  {f:'or',    c:[{k:'lion', t:'sable'}]},
+  blois:     {f:'azure', c:[{k:'fleur', t:'or', s:.24}]},
+  bourgogne: {f:'azure', c:[{k:'fleur', t:'or', s:.24}]},
+  /* --- Iberia --- */
+  castile:   {f:'gules', c:[{k:'tower', t:'or', s:.25}]},
+  leonp:     {f:'argent',c:[{k:'lion', t:'purpure'}]},
+  portugal:  {f:'argent',c:[{k:'esc', t:'azure', s:.095, n:5}]},
+  aragon:    {f:'paly',  fa:'or', fb:'gules'},
+  navarre:   {f:'gules', c:[{k:'mullet', t:'or', s:.25}]},
+  barcelona: {f:'paly',  fa:'or', fb:'gules'},
+  /* --- the Empire and its princes --- */
+  franconia: {f:'or',    c:[{k:'eagle', t:'sable', s:.27}]},
+  swabia:    {f:'or',    c:[{k:'lionp', t:'sable', s:.155, ys:[9,18,27]}]},
+  saxonyr:   {f:'barry', fa:'sable', fb:'or'},
+  bavariar:  {f:'lozengy', fa:'argent', fb:'azure'},
+  austriar:  {f:'fess',  fa:'gules', fb:'argent'},
+  brandenburgr:{f:'argent',c:[{k:'eagle', t:'gules', s:.27}]},
+  koln:      {f:'argent',c:[{k:'cross', t:'sable'}]},
+  lowlorraine:{f:'or',   c:[{k:'lion', t:'gules'}]},
+  uplorraine:{f:'or',    c:[{k:'eagle', t:'gules', s:.25}]},
+  lombardyr: {f:'argent',c:[{k:'cross', t:'gules'}]},
+  tuscanyr:  {f:'gules', c:[{k:'cross', t:'argent'}]},
+  savoyr:    {f:'gules', c:[{k:'cross', t:'argent'}]},
+  bohemia:   {f:'gules', c:[{k:'lion', t:'argent'}]},
+  /* --- the North and East --- */
+  norway:    {f:'gules', c:[{k:'lion', t:'or'}]},
+  denmark:   {f:'or',    c:[{k:'lionp', t:'azure', s:.155, ys:[9,18,27]}]},
+  sweden:    {f:'azure', c:[{k:'crown', t:'or', s:.13, n:3}]},
+  poland:    {f:'gules', c:[{k:'eagle', t:'argent', s:.27}]},
+  hungary:   {f:'barry', fa:'gules', fb:'argent'},
+  lithuania: {f:'gules', c:[{k:'lion', t:'argent'}]},
+  kiev:      {f:'azure', c:[{k:'mullet', t:'or', s:.25}]},
+  croatia:   {f:'checky',fa:'gules', fb:'argent'},
+  serbia:    {f:'gules', c:[{k:'eagle', t:'argent', s:.26}]},
+  bulgaria:  {f:'gules', c:[{k:'lion', t:'or'}]},
+  cumania:   {f:'tenne', c:[{k:'crescent', t:'argent', s:.24}]},
+  /* --- Italy and the Mediterranean --- */
+  papacy:    {f:'gules', c:[{k:'key', t:'or', s:.24}]},
+  venice:    {f:'gules', c:[{k:'lion', t:'or'}]},
+  sicily:    {f:'gules', c:[{k:'eagle', t:'or', s:.26}]},
+  apulia:    {f:'azure', c:[{k:'cross', t:'argent'}]},
+  byzantium: {f:'gules', c:[{k:'cross', t:'or'}]},
+  crusaders: {f:'argent',c:[{k:'cross', t:'or'}]},
+  outremer:  {f:'argent',c:[{k:'cross', t:'or'}]},
+  /* --- the Muslim powers: banners rather than shields, as they bore them --- */
+  seljuk:    {f:'azure', c:[{k:'crescent', t:'or', s:.24}]},
+  fatimid:   {f:'argent',c:[{k:'crescent', t:'vert', s:.24}]},
+  abbasid:   {f:'sable', c:[{k:'crescent', t:'or', s:.24}]},
+  almoravid: {f:'vert',  c:[{k:'crescent', t:'argent', s:.24}]},
+  almohad:   {f:'vert',  c:[{k:'mullet', t:'argent', s:.24}]},
+  ayyubid:   {f:'or',    c:[{k:'eagle', t:'sable', s:.26}]},
+  andalus:   {f:'purpure',c:[{k:'crescent', t:'or', s:.24}]},
+  hammadid:  {f:'vert',  c:[{k:'crescent', t:'or', s:.24}]},
+  zirid:     {f:'tenne', c:[{k:'crescent', t:'argent', s:.24}]},
+};
+const SHIELD_D = 'M3 3 h28 v18 q0 8 -14 14 q-14 -6 -14 -14 z';
+let _armUid = 0;
+/* Render a realm's arms as a shield. Falls back to the realm colour when unblazoned. */
+function armsSvg(rid, cls, big){
+  const A = ARMS[rid];
+  const R = (typeof G!=='undefined' && G && G.realms) ? G.realms[rid] : null;
+  const base = (R && R.col) || (REALMDATA[rid] && REALMDATA[rid].col) || '#777';
+  const uid = 'ar'+(++_armUid);
+  let field = '', over = '';
+  const T = t => TINCT[t] || t;
+  if(!A){
+    field = `<path d="${SHIELD_D}" fill="${base}"/>`;
+    over = `<text x="17" y="23" text-anchor="middle" font-size="13" fill="#f3e9cf" font-family="Georgia" font-weight="bold">${esc((REALMDATA[rid]?REALMDATA[rid].n:'?')[0])}</text>`;
+  } else {
+    /* charges are authored in a 0..100 box; place them by their centre inside the shield */
+    const put = (k, t, cx, cy, s) => {
+      const d = CHARGE[k]; if(!d) return '';
+      const paint = k==='key'
+        ? `fill="none" stroke="${T(t)}" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"`
+        : `fill="${T(t)}"`;
+      return `<path d="${d}" ${paint} transform="translate(${(cx-50*s).toFixed(2)} ${(cy-50*s).toFixed(2)}) scale(${s})"/>`;
+    };
+    if(A.f==='paly'){ field = `<path d="${SHIELD_D}" fill="${T(A.fa)}"/>`;
+      for(let i=0;i<4;i++) field += `<rect x="${6.5+i*6.2}" y="3" width="3.1" height="32" fill="${T(A.fb)}"/>`; }
+    else if(A.f==='barry'){ field = `<path d="${SHIELD_D}" fill="${T(A.fa)}"/>`;
+      for(let i=0;i<4;i++) field += `<rect x="3" y="${6+i*7}" width="28" height="3.5" fill="${T(A.fb)}"/>`; }
+    else if(A.f==='fess'){ field = `<path d="${SHIELD_D}" fill="${T(A.fa)}"/>`
+      + `<rect x="3" y="14" width="28" height="10" fill="${T(A.fb)}"/>`; }
+    else if(A.f==='lozengy'){ field = `<path d="${SHIELD_D}" fill="${T(A.fa)}"/>`;
+      for(let r=0;r<5;r++) for(let q=0;q<5;q++){ const cx=3+q*7+(r%2?3.5:0), cy=3+r*7;
+        field += `<path d="M${cx} ${cy-4} l4 4 -4 4 -4 -4 z" fill="${T(A.fb)}"/>`; } }
+    else if(A.f==='checky'){ field = `<path d="${SHIELD_D}" fill="${T(A.fa)}"/>`;
+      for(let r=0;r<6;r++) for(let q=0;q<5;q++) if((r+q)%2)
+        field += `<rect x="${3+q*5.6}" y="${3+r*5.6}" width="5.6" height="5.6" fill="${T(A.fb)}"/>`; }
+    else field = `<path d="${SHIELD_D}" fill="${T(A.f)}"/>`;
+    for(const ch of (A.c||[])){
+      if(ch.k==='cross'){ over += `<path d="M14.2 3 h5.6 v10 h11.2 v5.6 h-11.2 v14 h-5.6 v-14 h-11.2 v-5.6 h11.2 z" fill="${T(ch.t)}"/>`; continue; }
+      const s = ch.s || .26, cx = ch.cx!=null?ch.cx:17, cy = ch.cy!=null?ch.cy:17;
+      if(ch.ys){ for(const yy of ch.ys) over += put(ch.k, ch.t, cx, yy, s); }
+      else if(ch.n===3){ for(const [px,py] of [[cx-6,cy-5],[cx+6,cy-5],[cx,cy+7]]) over += put(ch.k, ch.t, px, py, s); }
+      else if(ch.n===5){ for(const [px,py] of [[cx,cy-8],[cx-7,cy],[cx+7,cy],[cx,cy+8],[cx,cy]]) over += put(ch.k, ch.t, px, py, s); }
+      else over += put(ch.k, ch.t, cx, cy, s);
+    }
+  }
+  return `<svg class="${cls||'shield'}${big?' big':''}" viewBox="0 0 34 38">
+    <defs><clipPath id="${uid}"><path d="${SHIELD_D}"/></clipPath></defs>
+    <g clip-path="url(#${uid})">${field}${over}</g>
+    <path d="${SHIELD_D}" fill="none" stroke="#3a2c18" stroke-width="1.5"/></svg>`;
+}
 function age(c){ return (G.year - c.by); }
 function alive(c){ return c && !c.dead; }
 function ch(id){ return G.chars[id]; }
@@ -4341,7 +4515,7 @@ const UI = {
     const sIco = ['🌱','☀️','🍂','❄️'][G.season];
     document.getElementById('dateBox').innerHTML = `${sIco} ${SEASONS[G.season]}, Anno Domini ${G.year}`;
     const R_ = PRL();
-    document.getElementById('realmBox').innerHTML = `${this.medallion(PR())}<span><b style="color:#d9b95c;font-family:var(--disp);letter-spacing:1px">${esc(R_.n)}</b> — ${esc(fullName(PR()))}${G.regency?' <i>(regency)</i>':''}</span>`;
+    document.getElementById('realmBox').innerHTML = `${armsSvg(G.player,'armsMd')}${this.medallion(PR())}<span><b style="color:#d9b95c;font-family:var(--disp);letter-spacing:1px">${esc(R_.n)}</b> — ${esc(fullName(PR()))}${G.regency?' <i>(regency)</i>':''}</span>`;
     const inc = this.incomePreview();
     document.getElementById('goldBox').innerHTML = `🪙 <b>${Math.floor(R_.gold)}</b><i class="resLbl"> gold</i> <span class="${inc.net>=0?'':'neg'}" style="font-size:11px">(${inc.net>=0?'+':''}${inc.net})</span>`;
     document.getElementById('goldBox').setAttribute('data-tip', inc.tip);
@@ -5017,7 +5191,7 @@ const UI = {
           : liegeOf(m)===G.player ? '<span class="pos">sworn</span>'
           : op!=null ? `<span class="${op>=0?'':'neg'}">${op>0?'+':''}${op}</span>` : '';
         h += `<div class="econRow" onclick="UI.selProv('${rl(m).cap}')" data-tip="${esc((mr?fullName(mr)+', ':'')+rl(m).n+' — '+realmProvs(m).length+' provinces, about '+fmtN(realmStrength(m))+' spears')}">
-          <span class="en">${esc(rl(m).n)}</span><span>${realmProvs(m).length}</span>
+          <span class="en">${armsSvg(m,'armsSm')}${esc(rl(m).n)}</span><span>${realmProvs(m).length}</span>
           <span>${fmtN(realmStrength(m))}</span><span>${tag}</span></div>`;
       }
       h += `</div>`;
@@ -5338,7 +5512,7 @@ const UI = {
     const al = allianceBetween(rid, G.player);
     const w = warBetween(rid, G.player);
     const tr = truceBetween(rid, G.player);
-    let h = `<h3 style="margin-top:10px">${esc(R_.n)}</h3>`;
+    let h = `<h3 style="margin-top:10px">${armsSvg(rid,'armsSm')}${esc(R_.n)}</h3>`;
     if(rul){
       const o = opinion(rul, myR);
       h += `<div class="charRow" onclick="UI.selChar('${rul.id}')">${this.portrait(rul)}<div class="nm"><div>${esc(fullName(rul))}</div>
@@ -6592,8 +6766,7 @@ function renderSetup(scenId){
     const r = REALMDATA[rid];
     return `
     <div class="realmCard" onclick="Game.start('${scenId}','${rid}')">
-      <svg class="shield" viewBox="0 0 34 38"><path d="M3 3 h28 v18 q0 8 -14 14 q-14 -6 -14 -14 z" fill="${r.col}" stroke="#3a2c18" stroke-width="1.5"/>
-      <text x="17" y="21" text-anchor="middle" font-size="13" fill="#f3e9cf" font-family="Georgia" font-weight="bold">${r.n[0]}</text></svg>
+      ${armsSvg(rid, 'shield')}
       <h2>${r.n}</h2><div class="diff">${card.diff}</div><p>${card.blurb}</p>
     </div>`;}).join('');
 }

@@ -1257,6 +1257,38 @@ Verified: 25/25 splits clean, every ring closed, **adjacency fully symmetric
 still costs 2.1ms a repaint against a 6.2ms one-time base build — density
 bought at no measurable performance price.
 
+### v6.11 — the arms of the age (SHIPPED)
+Every realm bore a plain colour-and-initial shield. Now each bears **its own
+historical arms**, drawn as SVG rather than fetched — the artifact CSP blocks
+external images, and hand-authored heraldry stays crisp at any size.
+
+A small heraldic engine: **tinctures** (or, argent, gules, azure, sable, vert,
+purpure, tenné), **field divisions** (paly, barry, fess, lozengy, checky) and
+**charges** authored in a shared 0–100 box and placed by their centre — one lion
+serves Scotland, Bohemia, León and Venice alike.
+
+The blazons follow the period: **England** three gold lions passant on gules;
+**Scotland** the red lion rampant on or; **France** azure semé of gold
+fleurs-de-lis; the **Emperor's** black eagle on gold for Franconia; **Poland's**
+white eagle and **Brandenburg's** red one; **Aragon** the gold-and-red pales;
+**Hungary** the Árpád bars; **Austria** the red-white-red fess; **Bavaria** the
+Wittelsbach lozenges; **Croatia** the chequy; **Castile's** gold tower;
+**Portugal's** five escutcheons; the **Papacy's** crossed keys; **Cologne's**
+black cross; and crescents for the Muslim powers, who bore banners rather than
+shields.
+
+Two rounds of visual iteration were needed and both were worth it: the first
+placement maths pushed every charge outside the shield (translate before scale),
+and the first beasts read as blobs. The lion and eagle were redrawn from
+recognisable parts — head, mane, body, raised foreleg, tufted tail; feathered
+spread wings — and England, Normandy, Denmark and Swabia moved to a **lion
+passant**, which is both historically right and stacks far better in a shield
+than a reared one.
+
+Arms now appear on the realm-selection cards, in the top bar beside your title,
+in the diplomacy panel and in the Empire roster. **All 55 live realms are
+blazoned — no fallbacks.**
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
