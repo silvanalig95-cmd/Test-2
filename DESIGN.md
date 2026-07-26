@@ -1377,6 +1377,28 @@ Legitimacy now settles across a real range instead of converging on 85+:
 with cathedrals too, **82** at best, and **44** under excommunication. The
 *A Secure Throne* ambition at 85 is now an achievement rather than a default.
 
+### v6.14 — playing a prince of the Empire (SHIPPED)
+Both scenarios offered only outsiders — England, Normandy, Norway, France,
+Scotland, Byzantium and the Muslim powers. The Empire could be fought or joined
+but never *played*, which wasted the whole electoral system built in v6.7.
+
+Two Imperial princes are now playable, and both are a different kind of game:
+you hold two provinces and no crown, and the Imperial dignity is won by **votes,
+not conquest**.
+- **1066 — Swabia**, as Rudolf of Rheinfelden: one prince among a dozen under the
+  Salian boy-king in Franconia. Court four of the seven electors, then contest.
+  Saxony under Otto of Nordheim hates Henry as much as you do — an ally today is
+  a rival at the next vote.
+- **1187 — Saxony**, as Henry the Lion: home from exile with half his duchies
+  stripped by Barbarossa, who is now sixty-five and bound for the Holy Land. When
+  an Emperor dies the electors convene, and a Welf has as much right as a
+  Hohenstaufen.
+
+Fixed while testing: the illness event fires above age 55, so Henry the Lion (58
+at the start) could be struck down **in the opening turn** before the player had
+acted. No scenario should open on a coin-flip death — illness now waits until
+after the first year.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
