@@ -1399,6 +1399,37 @@ at the start) could be struck down **in the opening turn** before the player had
 acted. No scenario should open on a coin-flip death — illness now waits until
 after the first year.
 
+### v6.15 — say what will happen before it happens (SHIPPED)
+Three changes aimed at the same fault: a game this deep was asking players to
+commit blind, and hiding its own explanations from half its audience.
+
+**Touch support for the whole teaching layer.** The tooltip engine was bound to
+`mousemove` alone, so on a tablet or phone **every explanation in the game simply
+did not exist** — three hundred hoverable elements, the province stats, the
+fealty odds, the tab bands, all invisible. A tap now reveals the note and it
+clears itself; scrolling or leaving the window dismisses it.
+
+**The war declaration finally tells the truth.** It showed your levy against
+theirs and named allies — but **omitted vassal levies entirely**, which had been
+wrong since v6.6, and never mentioned that attacking the Emperor rallies the
+whole Empire. It now counts sworn men on both sides, warns of an Imperial rally
+with its strength, totals each side, flags a truce you would be breaking, and
+opens with a plain verdict: *you overmatch them* through *you are badly
+outmatched*.
+
+**A season cannot be taken back.** Ending one now says what is being left undone:
+unspent orders, hosts that have not marched, hosts standing on foreign ground
+going into autumn or winter, and a war where your score is high enough that terms
+would likely be accepted. Nothing is blocked — it is a sentence, not a gate. The
+keyboard shortcut routes through the same guard.
+
+**The reign, summed up over the grave.** The chronicle was written throughout and
+readable only after the game ended, so a ruler's death — the emotional centre of
+a dynasty game — passed as a modal and a succession. Accession now snapshots the
+realm, and the death notice carries what the reign *was*: years on the throne,
+provinces won or lost, wars won, what was raised in stone, oaths taken, renown at
+the end, the epithets earned, and the chronicler's own last lines about it.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

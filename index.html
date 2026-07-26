@@ -131,6 +131,12 @@ h3::after{content:""; flex:1; height:3px; border-top:1px solid rgba(160,140,95,.
   background:radial-gradient(circle at 35% 35%, #ffe08a, #c99a2a); box-shadow:0 0 0 1px rgba(80,55,10,.6), 0 0 5px rgba(255,210,110,.9)}
 .tabDot.has{display:block}
 .tabs button.on .tabDot{display:none}
+/* the summing-up of a reign, read over the grave */
+.reignCard{border:1px solid var(--gold2); border-radius:4px; padding:8px 10px; margin:10px 0 4px;
+  background:radial-gradient(ellipse at 88% 0%, rgba(217,185,92,.14), transparent 62%), rgba(217,185,92,.06)}
+.reignChron{margin-top:6px; padding-top:5px; border-top:1px dotted rgba(90,70,25,.35);
+  font-style:italic; font-size:11.5px; line-height:1.5; color:var(--ink2)}
+.reignChron div{margin:2px 0}
 /* the first-reign guide */
 .tutorCard{border:1px solid var(--gold2); border-left:3px solid var(--gold); border-radius:4px;
   padding:8px 10px; margin:0 0 9px;
@@ -492,7 +498,7 @@ button.seasonal{border-color:#8a6d1f; background:linear-gradient(#f5ecd0,#e6d3a0
   <button class="small" onclick="Game.save()">Save</button>
   <button class="small" onclick="Game.load()">Load</button>
   <button class="small" id="ffBtn" onclick="Game.fastForward()" data-tip="Play quiet seasons quickly — stops at events, wars, or spring musters">⏩ Quiet seasons</button>
-  <button class="primary" id="endBtn" onclick="Game.endSeason()">End Season ⏵</button>
+  <button class="primary" id="endBtn" onclick="Game.tryEndSeason()">End Season ⏵</button>
 </div>
 
 <div id="main">
@@ -1441,6 +1447,7 @@ function newGame(playerRealm, seed, scenId){
   /* the player's imperial threshold scales with their inheritance */
   G.impThresh = Math.max(15, realmProvs(playerRealm).length+5);
   G.reignStart = S.year;
+  snapReign();
   for(const rid of Object.keys(G.realms)){
     if(G.realms[rid].dead) continue;
     for(let i=0;i<3;i++) mkCourtier(rid);
@@ -2420,6 +2427,36 @@ function seasonBanner(){
   b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
 }
 function chron(txt){ G.chron.push({y:G.year, txt}); }
+/* What a reign was. Snapshotted on accession, read back over the grave. */
+function snapReign(){
+  if(!G || !G.realms || !G.player) return;
+  G.reign = { yr:G.year, provs:realmProvs(G.player).length, prs:Math.floor(PRL().prs),
+    warsWon:(G.stats&&G.stats.warsWon)||0,
+    bld:realmProvs(G.player).filter(p=>pv(p).bld).length,
+    chronAt:G.chron.length, vassals:vassalsOf(G.player).length };
+}
+function reignSummaryHtml(c){
+  const s = G.reign; if(!s) return '';
+  const yrs = G.year - s.yr;
+  const dProv = realmProvs(G.player).length - s.provs;
+  const dWars = ((G.stats&&G.stats.warsWon)||0) - s.warsWon;
+  const dBld  = realmProvs(G.player).filter(p=>pv(p).bld).length - s.bld;
+  const dVass = vassalsOf(G.player).length - s.vassals;
+  const earned = (c.tr||[]).filter(t=>TRAITS[t] && TRAITS[t].earned);
+  const row = (k,v,cls) => `<div class="kv"><span>${k}</span><b class="${cls||''}">${v}</b></div>`;
+  const sgn = n => (n>0?'+':'') + n;
+  let h = `<div class="reignCard"><div class="eyebrow" style="margin-bottom:3px">The reign of ${esc(fullName(c))}</div>`;
+  h += row('Years upon the throne', yrs + (yrs===1?' year':' years'));
+  h += row('Provinces', `${realmProvs(G.player).length} <span class="hint" style="margin:0">(${sgn(dProv)})</span>`, dProv>=0?'pos':'neg');
+  if(dWars) h += row('Wars won', dWars, 'pos');
+  if(dBld>0) h += row('Raised in stone', dBld, 'pos');
+  if(dVass) h += row('Oaths taken', sgn(dVass), dVass>0?'pos':'neg');
+  h += row('Renown at the end', '☀'+Math.floor(PRL().prs));
+  if(earned.length) h += row('Remembered as', earned.map(t=>cap(t)).join(', '));
+  const lines = G.chron.slice(s.chronAt).slice(-3);
+  if(lines.length) h += `<div class="reignChron">${lines.map(l=>`<div>${esc(l.txt)}</div>`).join('')}</div>`;
+  return h + `</div>`;
+}
 </script>
 <script>
 /* ============ Life, death & succession ============ */
@@ -2588,6 +2625,7 @@ function rulerDied(R_, c, causeTxt){
   }
   R_.ruler = h.id;
   h.realm = R_.id;
+  const _reignPast = isPlayer(R_.id) ? reignSummaryHtml(c) : '';
   if(isPlayer(R_.id)) G.reignStart = G.year;
   R_.leg = clamp(R_.leg - 15, 0, 100);
   const minor = age(h) < 16;
@@ -2598,8 +2636,9 @@ function rulerDied(R_, c, causeTxt){
       text:`<span class="dropcap">${fullName(c)} is dead — ${causeTxt||'the fever took him in the night'}. The crown passes to ${fullName(h)}, ${age(h)} years of age.` +
         (minor?` A child cannot rule alone: a regency council will govern until the ${h.sex==='m'?'young king':'young queen'} comes of age. The realm's enemies know this.`:
         ` The magnates swear their oaths — some more slowly than others.`) +
-        `</span><br><br><em>You now play as ${fullName(h)}. Legitimacy has fallen; disappointed kin may press their own claims.</em>`,
-      choices:[{t:'The '+(h.sex==='m'?'king':'queen')+' is dead. Long live the '+(h.sex==='m'?'king':'queen')+'.', fx:()=>{ R_.ambition=null; if(!G.regency && typeof Game!=='undefined') Game.pickAmbition(true); }}]
+        `</span>` + _reignPast +
+        `<br><em>You now play as ${fullName(h)}. Legitimacy has fallen; disappointed kin may press their own claims.</em>`,
+      choices:[{t:'The '+(h.sex==='m'?'king':'queen')+' is dead. Long live the '+(h.sex==='m'?'king':'queen')+'.', fx:()=>{ R_.ambition=null; snapReign(); if(!G.regency && typeof Game!=='undefined') Game.pickAmbition(true); }}]
     });
   } else if(minor){
     logIt('court', `A child of ${age(h)} now wears the crown of ${R_.n}. Wolves take note.`);
@@ -6029,10 +6068,33 @@ const Game = {
       .map(al=>al.a===rid?al.b:al.a).filter(r=>rl(r)&&!rl(r).dead&&r!==tgt&&r!==G.player);
     const theirA = alliesOf(tgt), myA = alliesOf(G.player);
     const theirTotal = theirs + theirA.reduce((s,r)=>s+realmStrength(r),0);
-    let body = `<div class="kv"><span>Your full levy (with retinue)</span><b>${fmtN(mine)}</b></div>
-      <div class="kv"><span>${esc(rl(tgt).n)}</span><b>${fmtN(theirs)}</b></div>`;
-    if(theirA.length) body += `<div class="kv"><span class="neg">Sworn to their defence</span><b>${theirA.map(r=>esc(rl(r).n)).join(', ')} — in all ~${fmtN(theirTotal)}</b></div>`;
-    if(myA.length) body += `<div class="kv"><span class="pos">May answer your call</span><b>${myA.map(r=>esc(rl(r).n)).join(', ')}</b></div>`;
+    /* sworn men march for their liege — count them on both sides */
+    const myVass = vassalLevies(G.player), theirVass = vassalLevies(tgt);
+    const myAllyStr = myA.reduce((s,r)=>s+realmStrength(r),0);
+    const myTotal = mine + myVass + myAllyStr;
+    const theirGrand = theirTotal + theirVass;
+    /* the Empire rallies to its Emperor — and that is a different war entirely */
+    const empRally = !!(G.empire && isEmperor(tgt) && !empMember(G.player));
+    const empStr = empRally ? G.empire.members.filter(m=>rl(m)&&!rl(m).dead&&m!==tgt)
+      .reduce((s,m)=>s+realmStrength(m),0) : 0;
+    const foeAll = theirGrand + empStr;
+    const ratio = foeAll>0 ? myTotal/foeAll : 9;
+    const [vlbl, vcls] = ratio>=1.6 ? ['You overmatch them','pos']
+      : ratio>=1.15 ? ['The advantage is yours','pos']
+      : ratio>=0.87 ? ['An even fight','']
+      : ratio>=0.6  ? ['You are the weaker side','neg']
+      : ['You are badly outmatched','neg'];
+    let body = `<div class="statMeter"><div class="smTop"><span>The reckoning</span><b class="${vcls}">${vlbl}</b></div></div>`;
+    body += `<div class="kv"><span>Your levy (with retinue)</span><b>${fmtN(mine)}</b></div>`;
+    if(myVass) body += `<div class="kv"><span class="pos">⚜ Your sworn vassals</span><b>+${fmtN(myVass)}</b></div>`;
+    if(myA.length) body += `<div class="kv"><span class="pos">May answer your call</span><b>${myA.map(r=>esc(rl(r).n)).join(', ')} — +${fmtN(myAllyStr)}</b></div>`;
+    body += `<div class="kv" style="border-top:1px solid var(--line);padding-top:4px"><span><b>Your side, at most</b></span><b class="pos">${fmtN(myTotal)}</b></div>`;
+    body += `<div class="kv" style="margin-top:6px"><span>${esc(rl(tgt).n)}</span><b>${fmtN(theirs)}</b></div>`;
+    if(theirVass) body += `<div class="kv"><span class="neg">⚜ Their sworn vassals</span><b>+${fmtN(theirVass)}</b></div>`;
+    if(theirA.length) body += `<div class="kv"><span class="neg">Sworn to their defence</span><b>${theirA.map(r=>esc(rl(r).n)).join(', ')} — +${fmtN(theirTotal-theirs)}</b></div>`;
+    if(empRally) body += `<div class="kv"><span class="neg">⚜ The Empire rallies to its Emperor</span><b>+${fmtN(empStr)}</b></div>`;
+    body += `<div class="kv" style="border-top:1px solid var(--line);padding-top:4px"><span><b>Against you, at most</b></span><b class="neg">${fmtN(foeAll)}</b></div>`;
+    if(truceBetween(tgt,G.player)) body += `<div class="hint neg">You are under truce with them — breaking it will cost you dearly in the eyes of every court.</div>`;
     body += cb.type==='throne' ? `<div class="hint">A throne war: victory takes their crown and every province. Defeat costs gold, honor, and the claim itself.</div>` :
       cb.type==='province' ? `<div class="hint">A province war: victory cedes ${esc(PROVDATA[cb.target].n)}. Smaller stakes, smaller glory.</div>` :
       `<div class="hint neg">War without cause: −20 legitimacy, and Christendom will remember the aggression.</div>`;
@@ -6555,6 +6617,27 @@ const Game = {
     }
     if(G){ G._ff = false; seasonBanner(); }
   },
+  /* A season cannot be taken back. Say plainly what is being left undone. */
+  tryEndSeason(){
+    if(!G || G.over || G.eventQueue.length) return;
+    if(this.busy && this.busy()) return;
+    const warn = [];
+    if(G.ordersLeft > 0)
+      warn.push(`<b>${G.ordersLeft} order${G.ordersLeft>1?'s':''}</b> still unspent — they do not carry over.`);
+    const idle = G.armies.filter(a=>a.realm===G.player && !a.moved);
+    if(atWar(G.player).length && idle.length)
+      warn.push(`${idle.length===1?'A host':idle.length+' hosts'} of yours ${idle.length===1?'has':'have'} not marched this season.`);
+    if(G.season>=2){
+      const exposed = G.armies.filter(a=>a.realm===G.player && pv(a.prov) && pv(a.prov).r!==G.player);
+      if(exposed.length) warn.push(`${exposed.length===1?'A host stands':'Hosts stand'} on foreign ground going into ${G.season===2?'autumn':'winter'} — the season will take men from ${exposed.length===1?'it':'them'}.`);
+    }
+    { const w = atWar(G.player).find(x=>warAge(x)>=2 && (warScore(x)*(x.sides.a.includes(G.player)?1:-1))>=55);
+      if(w) warn.push(`You hold a commanding war score against <b>${esc(rl(w.sides.a.includes(G.player)?w.def:w.att).n)}</b> — terms would likely be accepted now.`); }
+    if(!warn.length) return this.endSeason();
+    UI.modal('End the Season?', warn.map(x=>`<div class="tidRow"><span>❧</span><span>${x}</span></div>`).join(''),
+      [{t:'⏵ End the season anyway', fx:()=>this.endSeason()},
+       {t:'— Stay a while —', fx:()=>{}}]);
+  },
   endSeason(){
     if(!G || G.over || G.eventQueue.length) return;
     const logStart = G.log.length;
@@ -6850,25 +6933,46 @@ document.addEventListener('keydown', e=>{
   if(!G || G.over) return;
   const modalOpen = G.eventQueue.length>0;
   if(e.key==='Escape' && !modalOpen){ G.sel=null; G.moveMode=null; UI.renderAll(); }
-  if((e.key===' '||e.key==='Enter') && !modalOpen && !e.repeat){ e.preventDefault(); Game.endSeason(); }
+  if((e.key===' '||e.key==='Enter') && !modalOpen && !e.repeat){ e.preventDefault(); Game.tryEndSeason(); }
   if((e.key==='f'||e.key==='F') && !modalOpen){ Game.fastForward(); }
 });
 
 /* ---------- tooltip engine ---------- */
 (function(){
   const tip = document.createElement('div'); tip.id='tipBox'; document.body.appendChild(tip);
+  let hideTimer = null;
+  const hide = () => { tip.style.display='none'; };
+  const show = (el, px, py, pad) => {
+    tip.innerHTML = el.getAttribute('data-tip');
+    tip.style.display='block';
+    const w = tip.offsetWidth, h2 = tip.offsetHeight;
+    let x = px + 14, y = py + (pad||16);
+    if(x + w > innerWidth - 8) x = px - w - 10;
+    if(x < 6) x = 6;
+    if(y + h2 > innerHeight - 8) y = py - h2 - (pad||16);
+    if(y < 6) y = 6;
+    tip.style.left = x+'px'; tip.style.top = y+'px';
+  };
+  const tipFor = e => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
   document.addEventListener('mousemove', e=>{
-    const el = e.target && e.target.closest ? e.target.closest('[data-tip]') : null;
-    if(el && el.getAttribute('data-tip')){
-      tip.innerHTML = el.getAttribute('data-tip');
-      tip.style.display='block';
-      const w = tip.offsetWidth, h2 = tip.offsetHeight;
-      let x = e.clientX+14, y = e.clientY+16;
-      if(x+w > innerWidth-8) x = e.clientX-w-10;
-      if(y+h2 > innerHeight-8) y = e.clientY-h2-10;
-      tip.style.left = x+'px'; tip.style.top = y+'px';
-    } else tip.style.display='none';
+    const el = tipFor(e);
+    if(el && el.getAttribute('data-tip')) show(el, e.clientX, e.clientY);
+    else hide();
   });
+  /* Touch devices have no hover, so every explanation in the game was invisible on
+     them. A tap reveals the note; it clears itself, or on the next tap elsewhere. */
+  document.addEventListener('touchstart', e=>{
+    const t = e.touches && e.touches[0]; if(!t) return;
+    const el = tipFor(e);
+    clearTimeout(hideTimer);
+    if(el && el.getAttribute('data-tip')){
+      show(el, t.clientX, t.clientY, 22);
+      hideTimer = setTimeout(hide, 5000);
+    } else hide();
+  }, {passive:true});
+  document.addEventListener('touchend', ()=>{ clearTimeout(hideTimer); hideTimer = setTimeout(hide, 3500); }, {passive:true});
+  addEventListener('scroll', hide, true);
+  addEventListener('blur', hide);
 })();
 
 /* ---------- setup screen ---------- */
