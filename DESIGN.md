@@ -1326,6 +1326,20 @@ caught two faults invisible to any short test:
   courtiers now drift out of the chronicle once a court passes fourteen souls —
   never the player's court, and never a ruler, heir, kinsman, claimant or officer.
 
+**Confirmed over a second full century** (2 runs × 100 years, 0 errors):
+- Gold is fixed decisively: median treasury now settles at **585–688** instead of
+  running to 6,653 — a tenfold correction, and it plateaus rather than climbing.
+- Courts are improved but not solved: the cast reaches **1,432–1,516** against
+  1,775–1,926 before. The important change is the shape — the population now
+  **peaks around 1140 and declines**, where before it rose to the end. The
+  pruning spares everyone of the ruling dynasty, so houses with many branches
+  still accumulate. Worth another pass if it ever costs performance.
+- The world stayed healthy through the change: realms 55 → 44-46, top-three
+  share 22-27%, no orphaned provinces, vassalage spreading naturally to 9-11
+  sworn realms.
+- Still open: median legitimacy drifts up 70 → 81-85 over a century, so
+  legitimacy slowly stops being a pressure. Noted, not yet addressed.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
