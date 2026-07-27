@@ -1576,10 +1576,20 @@ A straight clip can work off the polygon's own corners; a curved one cannot, so
 rings are densified to 2.5-unit steps before cutting and crossings are found from
 the signed distance to the wandering line rather than a single coordinate.
 
-Measured: **5 long straight edges remain out of 8,641** — and those are original
-coastline, not splits. Geometry stayed sound through the change: no bad rings,
-adjacency fully symmetric, no orphaned provinces, 460 provinces, 0 errors across
-both scenarios.
+The first attempt at this was **not enough, and the metric used to check it was
+wrong**. Counting axis-aligned edges said 5 of 8,641 remained — but after
+densification no edge is axis-aligned even when the line is effectively straight,
+so the measure could not see the problem. The real fault was **wavelength**: at a
+period of ~114 units across provinces spanning ~40, each border showed less than
+half a wave and read as a gentle straight sweep.
+
+Three octaves now, the longest about 18 units, so a frontier bends several times
+as it runs, with densification tightened to 1.1 units to trace the shortest wave.
+The honest measure is **wiggliness** — path length against bounding perimeter:
+split provinces score **0.846** against the hand-drawn originals' **0.845**,
+which is to say they are no longer distinguishable. Geometry stayed sound: no bad
+rings, adjacency fully symmetric, no orphaned provinces, 464 provinces, 6.5ms
+repaint, 0 errors across both scenarios.
 
 A subtlety worth recording: `sliceRings` guarded its outer slices with
 `lo > -Infinity`, which is silently **false** once the cut is a function rather

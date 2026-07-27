@@ -908,8 +908,12 @@ function makeWander(cut, span, seed){
   let h = 2166136261;
   for(let i=0;i<seed.length;i++){ h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
   const p1 = (h>>>0) % 628 / 100, p2 = (h>>>9) % 628 / 100;
-  const a1 = Math.min(9, span*0.085), a2 = Math.min(4.5, span*0.042);
-  return v => cut + a1*Math.sin(v*0.055 + p1) + a2*Math.sin(v*0.132 + p2);
+  /* The wavelength must be short against the province, or a border shows less than
+     half a wave and reads as a straight sweep — which is exactly what happened at
+     0.055 (a ~114-unit period across ~40-unit provinces). Three octaves now, the
+     longest about 18 units, so a frontier bends several times as it runs. */
+  const a1 = Math.min(5.5, span*0.15), a2 = Math.min(2.8, span*0.075), a3 = Math.min(1.4, span*0.038);
+  return v => cut + a1*Math.sin(v*0.34 + p1) + a2*Math.sin(v*0.83 + p2) + a3*Math.sin(v*1.9 + p1*2.3);
 }
 /* a wandering cut needs points close enough together to follow its curve */
 function densifyRing(ring, step){
@@ -931,7 +935,7 @@ function clipRing(ring, axis, cut, keepLo){
   const sd = p => p[k] - cutAt(p[o]);
   const inside = p => keepLo ? sd(p) <= 0 : sd(p) >= 0;
   const out = [];
-  const dense = typeof cut === 'function' ? densifyRing(ring, 2.5) : ring;
+  const dense = typeof cut === 'function' ? densifyRing(ring, 1.1) : ring;   /* fine enough to follow the shortest wave */
   const pts = dense.slice(0, dense.length-1);        /* drop the repeated closing point */
   for(let i=0;i<pts.length;i++){
     const a = pts[i], b = pts[(i+1)%pts.length];
