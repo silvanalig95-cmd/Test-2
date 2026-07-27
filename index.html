@@ -1403,6 +1403,26 @@ function realmStrength(rid){
   s += rl(rid).retinue||0;
   return s;
 }
+/* A province with no owner is claimed by whichever realm holds most of its
+   neighbours — geography deciding what a data table failed to say. Runs until it
+   settles, so a pocket of new land fills inward from its edges. */
+function adoptUnownedProvinces(){
+  for(let pass=0; pass<6; pass++){
+    let claimed = 0;
+    for(const pid of Object.keys(G.provinces)){
+      if(G.provinces[pid].r || (PROVDATA[pid] && PROVDATA[pid].waste)) continue;
+      const tally = {};
+      for(const q of (PROVDATA[pid] && PROVDATA[pid].adj) || []){
+        const owner = G.provinces[q] && G.provinces[q].r;
+        if(owner) tally[owner] = (tally[owner] || 0) + 1;
+      }
+      let best = null, bestN = 0;
+      for(const [rid, n] of Object.entries(tally)) if(n > bestN){ bestN = n; best = rid; }
+      if(best){ G.provinces[pid].r = best; claimed++; }
+    }
+    if(!claimed) break;
+  }
+}
 /* ---------- The character of a place ----------
    Provinces were development, tax and levy and nothing else — Kent played exactly
    like Carinthia. Each now carries a temper that colours what it yields, how
@@ -1697,6 +1717,10 @@ function newGame(playerRealm, seed, scenId){
       by:G.year - ri(26,52), tr:randTraits(2), sk:{dip:ri(3,7),mar:ri(3,7),int:ri(3,7),ste:ri(3,7)} });
     R_.ruler = c.id;
   }
+  /* Any province the scenario data forgot takes the realm of its neighbours. Today
+     this claims nothing — but it is what lets new seats be added to the map
+     generator without hand-assigning each one to a realm in every scenario. */
+  adoptUnownedProvinces();
   ensureMarriageMarket();
   /* the player's imperial threshold scales with their inheritance */
   G.impThresh = Math.max(15, realmProvs(playerRealm).length+5);

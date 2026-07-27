@@ -1650,6 +1650,20 @@ rivers, 74 KB of geometry, plus a `preview.html`. Regenerating the *existing*
 seats maps cleanly onto the current realm data — only 9 unowned and 7 stale ids,
 which are the waste cells and the artificial split ids.
 
+**The ownership fallback is now in place** (v6.23). `adoptUnownedProvinces()`
+runs at scenario setup and gives any province the scenario data left unowned the
+realm holding most of its neighbours, iterating until it settles so a pocket of
+new land fills inward from its edges. Today it claims nothing — there are no
+orphans — but it is precisely what lets new seats be added to the generator
+without hand-assigning each one to a realm in both scenarios.
+
+Tested by stripping nine provinces of their owners: all nine were reclaimed, none
+left unowned. Worth knowing what it is and is not — three of the nine returned to
+their original realm and six went to a neighbour. It is a plausible-geography
+assigner, not a reconstructor. For genuinely new land that is the correct
+behaviour, since there is no original owner to recover; it would be the wrong tool
+for repairing corrupted save data.
+
 **The remaining work is ownership, not geometry.** A new seat produces a new
 province id that appears in no realm's `provs` list, in either scenario, and so
 would be unowned land. Assigning ~150 of those by hand across two scenarios is the
