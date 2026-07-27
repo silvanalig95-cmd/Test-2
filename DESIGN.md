@@ -1560,6 +1560,32 @@ faults compounded:
 The lesson worth keeping: the collision pass must be checked against *rendered*
 geometry, not its own estimate — it was confidently wrong.
 
+### v6.21 — frontiers that wander (SHIPPED)
+The hand-drawn provinces were always organic, but **every border created by the
+splitter was dead straight**, because both the curated splits of v6.10 and the
+automatic subdivision of v6.20 clipped against an axis-aligned line. Nearly two
+hundred of the map's borders were ruler-straight, and it showed: the new
+provinces read as boxes stacked on an otherwise hand-drawn map.
+
+The dividing line now wanders. Two lazy sine waves — one long, one short —
+displace the cut, with amplitudes scaled to the province and phases derived from
+its own name, so a given map always divides the same way. Because both halves are
+clipped against the *identical* line, they still meet exactly with no seam.
+
+A straight clip can work off the polygon's own corners; a curved one cannot, so
+rings are densified to 2.5-unit steps before cutting and crossings are found from
+the signed distance to the wandering line rather than a single coordinate.
+
+Measured: **5 long straight edges remain out of 8,641** — and those are original
+coastline, not splits. Geometry stayed sound through the change: no bad rings,
+adjacency fully symmetric, no orphaned provinces, 460 provinces, 0 errors across
+both scenarios.
+
+A subtlety worth recording: `sliceRings` guarded its outer slices with
+`lo > -Infinity`, which is silently **false** once the cut is a function rather
+than a number — the guard had to become a type check, or the first and last
+slices would have skipped clipping entirely and overlapped their neighbours.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
