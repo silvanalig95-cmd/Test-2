@@ -1596,6 +1596,36 @@ A subtlety worth recording: `sliceRings` guarded its outer slices with
 than a number — the guard had to become a type check, or the first and last
 slices would have skipped clipping entirely and overlapped their neighbours.
 
+### v6.22 — Voronoi cells instead of bisection (SHIPPED)
+Wandering the cut was not the fix, and the reason is structural rather than
+cosmetic. **Bisecting** a province leaves two halves meeting along one sweeping
+edge, and doing that to every province along an x or y axis tiles the map into a
+grid. However much the line wobbled, the result read as rectangles — the map
+looked like American states, which is exactly what it was.
+
+Real frontiers meet at three-way junctions and wrap irregular cells. That is a
+**Voronoi partition**: scatter seeds inside the province and let cells grow
+between them. Each cell is the parent shape clipped by the perpendicular bisector
+against every other seed, so it needed a half-plane clipper working in any
+direction rather than along an axis — and each bisector still wobbles, so no cell
+edge is clean either. Cells are then named for where they actually ended up
+rather than an assumed order.
+
+The measure that matters here is **bounding-box fill** — what fraction of its own
+box a shape occupies, where a perfect rectangle scores 1.0. Split provinces come
+out at **0.591** against the hand-drawn originals' **0.564**, with wiggliness
+matched at 0.841 against 0.843. Geometry sound: no bad rings, adjacency fully
+symmetric, no orphans, 464 provinces, 0 errors.
+
+**On real historical borders.** They are not available here: there is no network
+access, the artifact's CSP blocks external fetches, and no offline dataset ships
+with the environment. The coastlines look right because they are **hand-authored
+coordinates** — polygon point lists written out to approximate real European
+geography. So the constraint on province borders is not access to geography but
+sheer volume: hand-drawing one coastline is feasible, hand-drawing 170 interior
+frontiers is a great deal of coordinate work. It could be done region by region
+if the algorithmic result is ever judged not good enough.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.

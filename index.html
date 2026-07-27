@@ -928,6 +928,75 @@ function densifyRing(ring, step){
   out.push(ring[ring.length-1]);
   return out;
 }
+/* Bisecting a province leaves two halves meeting along one sweeping edge, and doing
+   that to every province on the same axis tiles the map into a grid — the reason the
+   split provinces read as rectangles however much the cut wobbled. Real frontiers meet
+   at three-way junctions around irregular cells, which is what a Voronoi partition
+   gives: scatter seeds inside the province and let the cells grow between them.
+   Each cell is the parent shape cut by the perpendicular bisector against every other
+   seed, so this needs a clipper that works in any direction, not just along an axis. */
+function clipHalf(ring, nx, ny, c, wob){
+  const sd = p => nx*p[0] + ny*p[1] - c - (wob ? wob(-ny*p[0] + nx*p[1]) : 0);
+  const out = [];
+  const dense = densifyRing(ring, 1.1);
+  const pts = dense.slice(0, dense.length-1);
+  for(let i=0;i<pts.length;i++){
+    const a = pts[i], b = pts[(i+1)%pts.length];
+    const da = sd(a), db = sd(b);
+    if(da <= 0) out.push(a);
+    if((da <= 0) !== (db <= 0)){
+      const t = Math.abs(da-db) < 1e-9 ? .5 : da/(da-db);
+      out.push([ +(a[0]+(b[0]-a[0])*t).toFixed(2), +(a[1]+(b[1]-a[1])*t).toFixed(2) ]);
+    }
+  }
+  if(out.length < 3) return null;
+  out.push(out[0].slice());
+  return out;
+}
+/* the bisector itself wanders, so no cell edge is a clean straight line either */
+function edgeWobble(seed, scale){
+  let h = 2166136261;
+  for(let i=0;i<seed.length;i++){ h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const p1 = (h>>>0)%628/100, p2 = (h>>>11)%628/100;
+  const a1 = Math.min(4.2, scale*0.13), a2 = Math.min(2.0, scale*0.06);
+  return v => a1*Math.sin(v*0.30 + p1) + a2*Math.sin(v*0.77 + p2);
+}
+/* Carve a province into n organic cells. Returns null if it cannot be done cleanly. */
+function voronoiCarve(polys, n, seedKey, bbox){
+  const [x0,y0,x1,y1] = bbox;
+  let h = 2166136261;
+  for(let i=0;i<seedKey.length;i++){ h ^= seedKey.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const rnd = () => { h = Math.imul(h ^ (h>>>15), 2246822507); h ^= h>>>13; return ((h>>>0)%10000)/10000; };
+  /* seeds spread across the shape, jittered so the cells are never regular */
+  const seeds = [];
+  for(let i=0;i<n;i++){
+    const fx = (i+0.5)/n, sway = 0.30;
+    const wide = (x1-x0) >= (y1-y0);
+    const px = wide ? x0 + (x1-x0)*(fx + (rnd()-0.5)*sway/n) : x0 + (x1-x0)*(0.30 + rnd()*0.40);
+    const py = wide ? y0 + (y1-y0)*(0.30 + rnd()*0.40) : y0 + (y1-y0)*(fx + (rnd()-0.5)*sway/n);
+    seeds.push([px, py]);
+  }
+  const cells = [];
+  for(let i=0;i<n;i++){
+    let rings = polys;
+    for(let j=0;j<n;j++){
+      if(i===j) continue;
+      const dx = seeds[j][0]-seeds[i][0], dy = seeds[j][1]-seeds[i][1];
+      const len = Math.hypot(dx,dy) || 1;
+      const nx = dx/len, ny = dy/len;
+      const mx = (seeds[i][0]+seeds[j][0])/2, my = (seeds[i][1]+seeds[j][1])/2;
+      const c = nx*mx + ny*my;
+      const wob = edgeWobble(seedKey+':'+Math.min(i,j)+'-'+Math.max(i,j), len);
+      const next = [];
+      for(const r of rings){ const cut = clipHalf(r, nx, ny, c, wob); if(cut) next.push(cut); }
+      rings = next;
+      if(!rings.length) break;
+    }
+    if(!rings.length) return null;
+    cells.push(rings);
+  }
+  return cells;
+}
 function clipRing(ring, axis, cut, keepLo){
   const k = axis==='x' ? 0 : 1, o = 1-k;
   const cutAt = typeof cut === 'function' ? cut : () => cut;
@@ -1047,22 +1116,30 @@ function autoSubdivide(minArea){
     const lo = axis==='x'?x0:y0, hi = axis==='x'?x1:y1, span = hi-lo;
     if(span < 14) continue;
     const n = pd.area > minArea*2.1 ? 3 : 2;
-    const raw = n===3 ? [lo+span/3, lo+2*span/3] : [lo+span/2];
-    const cuts = raw.map((c,i)=>makeWander(c, span, pid+'#'+i));
-    const sets = sliceRings(pd.polys, axis, cuts).filter(set=>set.length && set.reduce((t,r)=>t+ringArea(r),0) > 55);
-    if(sets.length < 2) continue;
-    const names = (sets.length===3 ? DIRN3 : DIRN2)[axis];
+    /* grow the parts as Voronoi cells rather than slicing the province in half */
+    let sets = voronoiCarve(pd.polys, n, pid, [x0,y0,x1,y1]);
+    if(sets) sets = sets.filter(set=>set.length && set.reduce((t,r)=>t+ringArea(r),0) > 55);
+    if(!sets || sets.length < 2) continue;
+    /* name each cell for where it actually ended up, along whichever way the land runs */
+    const ord = sets.map((set,i)=>({ i, c:ringCentroid(set[0]) }))
+      .sort((a,b)=> axis==='x' ? a.c[0]-b.c[0] : a.c[1]-b.c[1]);
+    const names0 = (sets.length===3 ? DIRN3 : DIRN2)[axis];
+    const names = [];
+    ord.forEach((o,rank)=>{ names[o.i] = names0[rank]; });
+    sets = ord.map(o=>sets[o.i]);
+    const namesOrdered = ord.map((o,rank)=>names0[rank]);
     const stem = pd.n.replace(/^The\s+/i, '');      /* "The Banat" reads as "Upper Banat", not "Upper The Banat" */
+    const nm = i => namesOrdered[i];
     const ids = [];
     sets.forEach((set, i) => {
       const area = set.reduce((t,r)=>t+ringArea(r), 0);
       if(i === 0){                                   /* the parent keeps its shape's first part */
         pd.polys = set; pd.area = area; pd.lbl = ringCentroid(set[0]);
-        pd.n = `${names[0]} ${stem}`;
+        pd.n = `${nm(0)} ${stem}`;
         ids.push(pid);
       } else {
         const nid = pid + '~' + i;
-        PROVDATA[nid] = { n:`${names[i]} ${stem}`, t:pd.t, d:pd.d,
+        PROVDATA[nid] = { n:`${nm(i)} ${stem}`, t:pd.t, d:pd.d,
           coast:pd.coast||0, polys:set, lbl:ringCentroid(set[0]), area, adj:[] };
         ids.push(nid);
       }
