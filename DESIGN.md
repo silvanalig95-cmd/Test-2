@@ -1641,11 +1641,30 @@ density the seat list supports. That would also allow deleting the entire
 algorithmic splitting layer — `PROV_SPLITS`, `autoSubdivide`, `voronoiCarve` —
 which exists only to compensate for missing seeds.
 
-Verified feasible in this environment: `npm i d3-geo d3-delaunay topojson-client
-polygon-clipping world-atlas` succeeds and `node_modules/world-atlas/land-50m.json`
-is present. The job is scoped and known-good; it was not started only because the
-session lacked the context budget to finish it, and a half-replaced `PROVDATA`
-would leave the map broken.
+**Verified end to end.** `npm i d3-geo d3-delaunay topojson-client
+polygon-clipping world-atlas` succeeds and the Natural Earth data is present.
+Running `node tools/gen_map.mjs` **from the repository root** (it resolves
+`node_modules` relative to the working directory, so running it from `tools/`
+fails) rebuilds all 268 provinces: adjacency computed, no isolated province, 18
+rivers, 74 KB of geometry, plus a `preview.html`. Regenerating the *existing*
+seats maps cleanly onto the current realm data — only 9 unowned and 7 stale ids,
+which are the waste cells and the artificial split ids.
+
+**The remaining work is ownership, not geometry.** A new seat produces a new
+province id that appears in no realm's `provs` list, in either scenario, and so
+would be unowned land. Assigning ~150 of those by hand across two scenarios is the
+real cost. The clean way to avoid it: have the generator emit, for each new
+province, the id of the nearest pre-existing province, then insert the new id into
+whichever realm array already contains that neighbour — the same trick
+`applyProvinceSplits` uses for its children, but driven by geography instead of a
+hand-written table.
+
+Sequence for whoever picks this up: extend `SEEDS` with real towns at true
+coordinates → regenerate → auto-assign ownership by nearest neighbour → swap
+`PROVDATA` into `index.html` → **delete `PROV_SPLITS`, `autoSubdivide`,
+`voronoiCarve`, `makeWander`, `sliceRings` and `clipHalf`**, which exist only to
+compensate for the missing seeds. Generated artefacts (`provdata.json`,
+`preview.html`) are gitignored.
 
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
