@@ -1617,14 +1617,35 @@ out at **0.591** against the hand-drawn originals' **0.564**, with wiggliness
 matched at 0.841 against 0.843. Geometry sound: no bad rings, adjacency fully
 symmetric, no orphans, 464 provinces, 0 errors.
 
-**On real historical borders.** They are not available here: there is no network
-access, the artifact's CSP blocks external fetches, and no offline dataset ships
-with the environment. The coastlines look right because they are **hand-authored
-coordinates** — polygon point lists written out to approximate real European
-geography. So the constraint on province borders is not access to geography but
-sheer volume: hand-drawing one coastline is feasible, hand-drawing 170 interior
-frontiers is a great deal of coordinate work. It could be done region by region
-if the algorithmic result is ever judged not good enough.
+**Correction — the map is generated from real geography, and this whole approach
+was wrong.** An earlier draft of this entry claimed the coastlines were
+hand-authored and that historical data was unavailable. Both statements were
+false, and they were made without checking `tools/README.md`.
+
+`tools/gen_map.mjs` builds the geometry from **Natural Earth 50m land data**
+(the `world-atlas` package), clipped to the region, projected conic-conformal,
+and partitioned by **Voronoi around ~154 historical seats given at their true
+longitude and latitude** — `['york','York',-1.08,53.96,…]`, Winchester, Rouen,
+Uppsala, Toulouse. Each cell is intersected with the real landmass, simplified,
+and adjacency computed from shared boundary vertices.
+
+So the original provinces already *are* Voronoi cells — but seeded on **real
+towns**. That is exactly why they read as historical, and why v6.20–v6.22 did
+not: those passes subdivided the *finished output*, and no work at that layer can
+recover geography that was never in the seeds.
+
+**The right fix is to regenerate, not subdivide.** Add real medieval towns to the
+`SEEDS` array with their true coordinates and re-run the generator; every new
+province is then a real place's hinterland with a real border, at whatever
+density the seat list supports. That would also allow deleting the entire
+algorithmic splitting layer — `PROV_SPLITS`, `autoSubdivide`, `voronoiCarve` —
+which exists only to compensate for missing seeds.
+
+Verified feasible in this environment: `npm i d3-geo d3-delaunay topojson-client
+polygon-clipping world-atlas` succeeds and `node_modules/world-atlas/land-50m.json`
+is present. The job is scoped and known-good; it was not started only because the
+session lacked the context budget to finish it, and a half-replaced `PROVDATA`
+would leave the map broken.
 
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
