@@ -7203,37 +7203,130 @@ const Game = {
         ${G.over?'<button class="primary" onclick="location.reload()">Begin a new chronicle</button>':'<button onclick="UI.renderAll()">Return to the realm</button>'}
       </div></div></div>`;
   },
-  /* ---------- persistence ---------- */
+  /* ---------- persistence: several chronicles, each with its own history ----------
+     Saves live in the browser that made them. There is no cross-device store
+     available to a published page, so a chronicle can also be written out as text
+     and read back in anywhere — which is how you carry one between machines. */
+  SLOTS: 6,
+  slotKey(i){ return 'crownSave_' + i; },
+  slotMeta(i){
+    try{ const raw = localStorage.getItem(this.slotKey(i)); if(!raw) return null;
+      const o = JSON.parse(raw); return o && o.meta ? o.meta : null; }catch(e){ return null; }
+  },
+  slotLabel(i){
+    const m = this.slotMeta(i);
+    if(!m) return `<b>${i+1}.</b> <i>an empty shelf</i>`;
+    return `<b>${i+1}.</b> ${esc(m.realm)} — ${esc(m.ruler)}<br>` +
+      `<span class="hint" style="margin:0">${['🌱','☀️','🍂','❄️'][m.season]} ${SEASONS[m.season]} ${m.year} · ` +
+      `${m.provs} provinces · ✠${m.leg} · ☀${m.prs}${m.wars?' · ⚔ at war':''} · written ${esc(m.when)}</span>`;
+  },
+  currentMeta(){
+    const R = PRL(), c = PR();
+    return { realm:R.n, ruler:c ? fullName(c) : '—', year:G.year, season:G.season,
+      provs:realmProvs(G.player).length, leg:Math.floor(R.leg), prs:Math.floor(R.prs),
+      wars:atWar(G.player).length, when:new Date().toLocaleString() };
+  },
+  serialise(){ return JSON.stringify(Object.assign({}, G, {eventQueue:[], sel:null, moveMode:null, _cid})); },
   save(){
-    if(!G){ return; }
-    if(G.eventQueue.length){ UI.modal('Not Now','Settle the matter before you (the open event) before the scribes can copy the ledgers.',[{t:'Very well.',fx:()=>{}}]); return; }
-    try{
-      const s = JSON.stringify(Object.assign({}, G, {eventQueue:[], sel:null, moveMode:null, _cid}));
-      localStorage.setItem('crownRealmSave', s);
-      logIt('court','The scribes copy the ledgers. (Game saved.)');
-      toast('📜 <b>Game saved</b>');
-      UI.renderLog();
-    }catch(e){ alert('Save failed: '+e); }
+    if(!G) return;
+    if(G.eventQueue.length){ UI.modal('Not Now','Settle the matter before you before the scribes can copy the ledgers.',[{t:'Very well.',fx:()=>{}}]); return; }
+    const ch = [];
+    for(let i=0;i<this.SLOTS;i++) ch.push({ t:this.slotLabel(i), fx:()=>this.saveToSlot(i) });
+    ch.push({ t:'📜 Write the chronicle out as text (to carry elsewhere)', fx:()=>this.exportSave() });
+    ch.push({ t:'— Not now —', fx:()=>{} });
+    UI.modal('Copy the Ledgers', 'Choose a shelf. Writing over one that is already filled cannot be undone.', ch);
+  },
+  saveToSlot(i){
+    const meta = this.currentMeta();
+    const write = () => {
+      try{
+        localStorage.setItem(this.slotKey(i), JSON.stringify({ meta, data:this.serialise() }));
+        logIt('court','The scribes copy the ledgers. (Saved.)');
+        toast(`📜 <b>Saved</b> to shelf ${i+1}`); UI.renderLog();
+      }catch(e){ UI.modal('The Ink Runs Dry', `The chronicle could not be written: ${esc(String(e))}<br><br>The browser\u2019s store may be full — clear a shelf and try again.`, [{t:'I see.',fx:()=>{}}]); }
+    };
+    const had = this.slotMeta(i);
+    if(!had) return write();
+    UI.modal('Write Over It?', `Shelf ${i+1} already holds <b>${esc(had.realm)}</b> at ${SEASONS[had.season]} ${had.year}. That chronicle will be lost.`,
+      [{t:'Write over it', fx:write}, {t:'— Keep it —', fx:()=>{}}]);
   },
   load(){
-    const s = localStorage.getItem('crownRealmSave');
-    if(!s){ alert('No saved chronicle found.'); return; }
-    try{
-      G = JSON.parse(s);
-      G.eventQueue = []; G.sel=null; G.moveMode=null;
-      if(!G.empire) empInit();   /* migrate older saves to the Empire system */
-      if(!G.stats) G.stats = {warsWon:0};
-      _cid = G._cid||900;
-      srand((G.seed + G.year*4 + G.season)>>>0);
-      document.getElementById('setup').style.display='none';
-      UI.tab('dyn'); UI.renderAll();
-      logIt('court','The chronicle resumes. (Game loaded.)'); UI.renderLog();
-    }catch(e){ alert('Load failed: '+e); }
+    const ch = [];
+    for(let i=0;i<this.SLOTS;i++){
+      const m = this.slotMeta(i);
+      ch.push({ t:this.slotLabel(i), fx:()=> m ? this.loadFromSlot(i) : toast('That shelf is empty.') });
+    }
+    ch.push({ t:'📥 Read in a chronicle from text', fx:()=>this.importSave() });
+    if([...Array(this.SLOTS).keys()].some(i=>this.slotMeta(i)))
+      ch.push({ t:'🗑 Clear a shelf', fx:()=>this.clearMenu() });
+    ch.push({ t:'— Not now —', fx:()=>{} });
+    UI.modal('Resume a Chronicle', 'Which reign do you take up again?', ch);
   },
+  applySave(str){
+    G = JSON.parse(str);
+    G.eventQueue = []; G.sel = null; G.moveMode = null;
+    if(!G.empire) empInit();                 /* migrate older saves to the Empire */
+    if(!G.stats) G.stats = {warsWon:0};
+    if(typeof adoptUnownedProvinces === 'function') adoptUnownedProvinces();  /* a save made on an older map */
+    if(typeof ensureCapitals === 'function') ensureCapitals();
+    _cid = G._cid || 900;
+    srand((G.seed + G.year*4 + G.season)>>>0);
+    document.getElementById('setup').style.display = 'none';
+    UI.tab('dyn'); UI.renderAll();
+    logIt('court','The chronicle resumes. (Loaded.)'); UI.renderLog();
+  },
+  loadFromSlot(i){
+    try{
+      const raw = localStorage.getItem(this.slotKey(i));
+      const o = JSON.parse(raw);
+      this.applySave(o.data);
+      toast(`📜 <b>Resumed</b> from shelf ${i+1}`);
+    }catch(e){ UI.modal('Illegible', `That chronicle could not be read: ${esc(String(e))}`, [{t:'A pity.',fx:()=>{}}]); }
+  },
+  clearMenu(){
+    const ch = [];
+    for(let i=0;i<this.SLOTS;i++){ const m=this.slotMeta(i); if(!m) continue;
+      ch.push({ t:this.slotLabel(i), fx:()=>{ try{ localStorage.removeItem(this.slotKey(i)); }catch(e){}
+        toast(`🗑 Shelf ${i+1} cleared`); } }); }
+    ch.push({ t:'— Keep them all —', fx:()=>{} });
+    UI.modal('Clear a Shelf', 'The chronicle on it will be lost for good.', ch);
+  },
+  exportSave(){
+    if(!G) return;
+    const txt = this.serialise();
+    UI.modal('The Chronicle in Full',
+      `Copy all of the text below and keep it somewhere safe — a note to yourself, a file, a message. ` +
+      `Read it back in on any device to take up this reign exactly where you left it.` +
+      `<textarea id="saveOut" readonly style="width:100%;height:150px;margin-top:8px;font-size:10px;font-family:monospace">${esc(txt)}</textarea>`,
+      [{t:'Select it all', fx:()=>{ const t=document.getElementById('saveOut'); if(t){ t.focus(); t.select(); } }},
+       {t:'— Done —', fx:()=>{}}]);
+    setTimeout(()=>{ const t=document.getElementById('saveOut'); if(t){ t.focus(); t.select(); } }, 60);
+  },
+  importSave(){
+    UI.modal('Read In a Chronicle',
+      `Paste a chronicle written out from this game — from this device or any other.` +
+      `<textarea id="saveIn" style="width:100%;height:150px;margin-top:8px;font-size:10px;font-family:monospace" placeholder="Paste here…"></textarea>`,
+      [{t:'📥 Take up this reign', fx:()=>{
+          const t = document.getElementById('saveIn'); const v = t ? t.value.trim() : '';
+          if(!v){ toast('Nothing was pasted.'); return; }
+          try{ this.applySave(v); toast('📜 <b>Chronicle read in</b>'); }
+          catch(e){ UI.modal('Illegible', `That text is not a chronicle this game can read.<br><span class="hint" style="margin:0">${esc(String(e))}</span>`, [{t:'A pity.',fx:()=>{}}]); }
+        }},
+       {t:'— Never mind —', fx:()=>{}}]);
+  },
+
   start(scenId, rid){
     newGame(rid, (Date.now() ^ (Math.random()*1e9))>>>0, scenId);
     document.getElementById('setup').style.display='none';
-    try{ if(localStorage.getItem('crownMusic')==='on'){ MUSIC.start(); const b=document.getElementById('musBtn'); if(b) b.textContent='🎵'; } }catch(e){}
+    /* a chronicle saved before there were shelves is placed on the first one */
+  try{ const old = localStorage.getItem('crownRealmSave');
+    if(old && !localStorage.getItem('crownSave_0')){
+      const g = JSON.parse(old);
+      localStorage.setItem('crownSave_0', JSON.stringify({ meta:{ realm:(g.realms&&g.realms[g.player]?g.realms[g.player].n:'A realm'),
+        ruler:'—', year:g.year, season:g.season, provs:0, leg:0, prs:0, wars:0, when:'before the shelves' }, data:old }));
+      localStorage.removeItem('crownRealmSave');
+    } }catch(e){}
+  try{ if(localStorage.getItem('crownMusic')==='on'){ MUSIC.start(); const b=document.getElementById('musBtn'); if(b) b.textContent='🎵'; } }catch(e){}
     fireEvents(true); /* opening turn: the briefing and scripted history only */
     const card = SCENARIOS[scenId].cards[rid];
     if(card && card.brief){

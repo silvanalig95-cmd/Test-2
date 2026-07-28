@@ -1726,6 +1726,30 @@ capital valid, 0 errors across all three regression scenarios. Ownership again
 resolved itself: Turin to Lombardy, Danzig to Poland, Ragusa to Croatia in 1066
 and to Hungary in 1187.
 
+### v6.26 — several chronicles, and carrying one between devices (SHIPPED)
+There was one save slot, overwritten silently, showing nothing about what it
+held. Now **six shelves**, each labelled with the realm, its ruler, the season and
+year, provinces held, legitimacy, renown, and whether that reign is at war — so
+you can tell your chronicles apart before choosing one. Writing over a filled
+shelf asks first and names what would be lost; shelves can be cleared
+individually. A pre-existing single save is migrated onto the first shelf rather
+than stranded.
+
+**On cross-device saves — the honest answer.** A published artifact is granted
+only two runtime capabilities, `downloads` and `mcp`. **There is no storage
+capability**, so the page cannot sync anything by itself; `localStorage` belongs
+to one browser on one machine.
+
+What works instead is carrying the chronicle by hand: **write it out as text and
+read it back in anywhere**. Both directions are built in, and a round-trip was
+verified to restore the game state exactly. It is plain text, so it travels by
+note, file or message and needs no capability at all — which also means it keeps
+working if the page is opened from a local file rather than the artifact host.
+
+(`downloads` could make the export a one-click file instead of a copy-paste. It
+was not used because its API only exists inside the artifact runtime and could
+not be exercised here, and a guessed call is worse than a working textarea.)
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
