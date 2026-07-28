@@ -229,6 +229,39 @@ const SEEDS = [
  // Byzantium and the East
  ['thessalonica','Thessalonica',22.94,40.64,'plains',4], ['athens','Athens',23.73,37.98,'hills',2],
  ['corinth','Corinth',22.93,37.94,'hills',2], ['ohrid','Ohrid',20.80,41.12,'hills',2],
+ // ===== a further course of seats =====
+ // France
+ ['troyes','Troyes',4.07,48.30,'plains',3], ['dijon','Dijon',5.04,47.32,'hills',3],
+ ['besancon','Besançon',6.02,47.24,'hills',2], ['cahors','Cahors',1.44,44.45,'hills',2],
+ ['arles','Arles',4.63,43.68,'marsh',3], ['nice','Nice',7.27,43.70,'hills',2],
+ ['bayonne','Bayonne',-1.48,43.49,'plains',2],
+ // Iberia
+ ['oviedo','Oviedo',-5.84,43.36,'hills',2], ['salamanca','Salamanca',-5.66,40.97,'plains',2],
+ ['segovia','Segovia',-4.12,40.95,'hills',2], ['malaga','Málaga',-4.42,36.72,'hills',3],
+ ['almeria','Almería',-2.46,36.84,'hills',2], ['lleida','Lleida',0.62,41.62,'plains',2],
+ // the Empire and the Baltic
+ ['aachen','Aachen',6.08,50.78,'hills',3], ['kassel','Kassel',9.50,51.31,'forest',2],
+ ['stettin','Stettin',14.55,53.43,'marsh',2], ['danzig','Danzig',18.65,54.35,'marsh',3],
+ ['riga','Riga',24.11,56.95,'marsh',2], ['reval','Reval',24.75,59.44,'forest',2],
+ ['dorpat','Dorpat',26.72,58.38,'forest',1],
+ // Italy
+ ['turin','Turin',7.69,45.07,'plains',3], ['asti','Asti',8.21,44.90,'hills',2],
+ ['piacenza','Piacenza',9.69,45.05,'plains',3], ['parma','Parma',10.33,44.80,'plains',3],
+ ['padua','Padua',11.88,45.41,'plains',3], ['treviso','Treviso',12.24,45.67,'plains',2],
+ ['trento','Trento',11.12,46.07,'hills',2], ['lucca','Lucca',10.50,43.84,'hills',3],
+ ['capua','Capua',14.22,41.11,'plains',3], ['taranto','Taranto',17.24,40.47,'plains',2],
+ ['reggio','Reggio',15.65,38.11,'hills',2],
+ // Scandinavia
+ ['oslo','Oslo',10.75,59.91,'forest',2], ['stavanger','Stavanger',5.73,58.97,'hills',2],
+ ['uppsala','Uppsala',17.64,59.86,'forest',3], ['linkoping','Linköping',15.62,58.41,'plains',2],
+ ['kalmar','Kalmar',16.36,56.66,'plains',2],
+ // the Rus and the eastern marches
+ ['suzdal','Suzdal',40.44,56.42,'forest',2], ['tver','Tver',35.90,56.86,'forest',2],
+ ['minsk','Minsk',27.56,53.90,'marsh',2], ['grodno','Grodno',23.83,53.68,'forest',2],
+ // the Balkans and Byzantium
+ ['sofia','Sofia',23.32,42.70,'hills',2], ['varna','Varna',27.91,43.21,'plains',2],
+ ['ragusa','Ragusa',18.09,42.65,'hills',3], ['skopje','Skopje',21.43,41.99,'hills',2],
+ ['larissa','Larissa',22.42,39.64,'plains',2], ['patras','Patras',21.73,38.25,'hills',2],
 ];
 const DUMMIES_NEW = [
  // Iberia / Africa fringe & the eastern Mediterranean

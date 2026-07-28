@@ -1712,6 +1712,20 @@ With those fixed: **0 unowned provinces**, 55 realms alive in 1066 and 49 in
 v6.23 did its job — the new towns landed in historically right hands without a
 line of hand-assignment: **Milan to Lombardy, Kraków to Poland**.
 
+### v6.25 — a second course of seats (SHIPPED)
+Another **45 real towns** — Turin, Parma, Padua, Lucca, Capua, Taranto, Aachen,
+Danzig, Riga, Reval, Stettin, Dijon, Troyes, Arles, Oviedo, Salamanca, Málaga,
+Oslo, Uppsala, Kalmar, Tver, Minsk, Grodno, Sofia, Varna, Ragusa, Skopje, Patras
+and the rest — bringing the map to **381 provinces**, every one the hinterland of
+a real place.
+
+This took one command and one swap, which is the point: with the pipeline proven
+in v6.24, density is now data rather than engineering. Verified in both
+scenarios — 0 unowned provinces, 55 realms alive in 1066 and 49 in 1187, every
+capital valid, 0 errors across all three regression scenarios. Ownership again
+resolved itself: Turin to Lombardy, Danzig to Poland, Ragusa to Croatia in 1066
+and to Hungary in 1187.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
