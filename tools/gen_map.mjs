@@ -182,6 +182,53 @@ const SEEDS = [
  ['sahara_c','The Sahara',15.50,25.50,'desert',0], ['libyan','The Libyan Desert',25.50,25.20,'desert',0],
  ['nafud','The Great Nafud',42.00,28.60,'desert',0], ['rubalkhali','The Empty Quarter',46.00,21.20,'desert',0],
  ['syriandes','The Syrian Waste',38.80,32.30,'desert',0],
+ // ===== further seats: real towns of the age, at their true coordinates =====
+ // Britain and Ireland
+ ['norwich','Norwich',1.30,52.63,'plains',3], ['bristol','Bristol',-2.59,51.45,'plains',3],
+ ['durham','Durham',-1.58,54.78,'hills',2], ['nottingham','Nottingham',-1.15,52.95,'forest',2],
+ ['shrewsbury','Shrewsbury',-2.75,52.71,'hills',2], ['carlisle','Carlisle',-2.94,54.89,'hills',1],
+ ['dublin','Dublin',-6.27,53.35,'plains',3], ['waterford','Waterford',-7.11,52.26,'plains',2],
+ // France and the Low Countries
+ ['reims','Reims',4.03,49.26,'plains',3], ['amiens','Amiens',2.30,49.89,'plains',2],
+ ['bourges','Bourges',2.40,47.08,'plains',2], ['bordeaux','Bordeaux',-0.58,44.84,'plains',3],
+ ['nantes','Nantes',-1.55,47.22,'plains',2], ['montpellier','Montpellier',3.88,43.61,'hills',2],
+ ['narbonne','Narbonne',3.00,43.18,'hills',2], ['bruges','Bruges',3.22,51.21,'marsh',4],
+ ['utrecht','Utrecht',5.12,52.09,'marsh',3], ['liege','Liège',5.57,50.63,'hills',3],
+ // the Empire: Rhine, Danube and the north
+ ['mainz','Mainz',8.27,49.99,'plains',3], ['trier','Trier',6.64,49.76,'hills',2],
+ ['wurzburg','Würzburg',9.93,49.79,'hills',2], ['bamberg','Bamberg',10.89,49.89,'hills',2],
+ ['regensburg','Regensburg',12.10,49.01,'plains',3], ['augsburg','Augsburg',10.90,48.37,'plains',3],
+ ['konstanz','Konstanz',9.17,47.66,'hills',2], ['basel','Basel',7.59,47.56,'hills',2],
+ ['zurich','Zürich',8.54,47.38,'hills',2], ['chur','Chur',9.53,46.85,'hills',1],
+ ['magdeburg','Magdeburg',11.63,52.13,'plains',2], ['bremen','Bremen',8.81,53.08,'marsh',3],
+ ['hamburg','Hamburg',9.99,53.55,'marsh',3], ['lubeck','Lübeck',10.69,53.87,'marsh',3],
+ ['munster','Münster',7.63,51.96,'plains',2], ['erfurt','Erfurt',11.03,50.98,'hills',2],
+ ['passau','Passau',13.46,48.57,'hills',2], ['speyer','Speyer',8.43,49.32,'plains',2],
+ // Italy
+ ['milan','Milan',9.19,45.46,'plains',4], ['pavia','Pavia',9.16,45.19,'plains',3],
+ ['cremona','Cremona',10.02,45.13,'plains',3], ['mantua','Mantua',10.79,45.16,'marsh',3],
+ ['ferrara','Ferrara',11.62,44.84,'marsh',3], ['ravenna','Ravenna',12.20,44.42,'marsh',3],
+ ['bologna','Bologna',11.34,44.49,'plains',4], ['florence','Florence',11.26,43.77,'hills',4],
+ ['siena','Siena',11.33,43.32,'hills',3], ['perugia','Perugia',12.39,43.11,'hills',2],
+ ['bari','Bari',16.87,41.12,'plains',3], ['palermo','Palermo',13.36,38.12,'hills',4],
+ ['messina','Messina',15.55,38.19,'hills',3], ['cagliari','Cagliari',9.11,39.22,'hills',2],
+ // Iberia
+ ['burgos','Burgos',-3.70,42.34,'plains',3], ['zaragoza','Zaragoza',-0.88,41.65,'plains',3],
+ ['santiago','Santiago',-8.54,42.88,'hills',2], ['porto','Porto',-8.61,41.15,'hills',3],
+ ['sevilla','Seville',-5.99,37.39,'plains',4],
+ // Poland, Bohemia, Hungary and the Balkans
+ ['krakow','Kraków',19.94,50.06,'plains',3], ['gniezno','Gniezno',17.60,52.54,'plains',2],
+ ['wroclaw','Wrocław',17.04,51.11,'plains',3], ['olomouc','Olomouc',17.25,49.59,'hills',2],
+ ['esztergom','Esztergom',18.74,47.79,'plains',3], ['buda','Buda',19.04,47.50,'plains',3],
+ ['zagreb','Zagreb',15.98,45.81,'hills',2], ['split','Split',16.44,43.51,'hills',2],
+ ['belgrade','Belgrade',20.46,44.79,'plains',2], ['nis','Niš',21.90,43.32,'hills',2],
+ // Scandinavia and the Baltic
+ ['bergen','Bergen',5.32,60.39,'hills',2], ['lund','Lund',13.19,55.70,'plains',3],
+ ['sigtuna','Sigtuna',17.72,59.62,'forest',2], ['turku','Turku',22.27,60.45,'forest',1],
+ ['roskilde','Roskilde',12.08,55.64,'plains',3], ['ribe','Ribe',8.76,55.33,'marsh',2],
+ // Byzantium and the East
+ ['thessalonica','Thessalonica',22.94,40.64,'plains',4], ['athens','Athens',23.73,37.98,'hills',2],
+ ['corinth','Corinth',22.93,37.94,'hills',2], ['ohrid','Ohrid',20.80,41.12,'hills',2],
 ];
 const DUMMIES_NEW = [
  // Iberia / Africa fringe & the eastern Mediterranean
@@ -323,7 +370,7 @@ for(let i=0;i<SEEDS.length;i++){
   }
 }
 // ---- manual straits (crossable like land) ----
-for(const [a,b] of [['jylland','fyn'],['slesvig','fyn'],['fyn','sjaelland'],['sjaelland','skane'],['sicily','calabria'],['thrace','nicaea'],['crete','hellas'],['cyprus','cilicia'],['mallorca','barcelona'],['mallorca','valencia'],
+for(const [a,b] of [['jylland','fyn'],['slesvig','fyn'],['fyn','sjaelland'],['sjaelland','skane'],['sicily','calabria'],['thrace','nicaea'],['crete','hellas'],['cyprus','cilicia'],['mallorca','barcelona'],['mallorca','valencia'],['cagliari','palermo'],['cagliari','pisa'],['cagliari','mallorca'],
   // the new south: straits & desert-margin crossings
   ['andalusia','fez'],['granada','fez'],['sicily','tunis'],['tunis','kairouan'],['cyprus','acre'],['cyprus','antioch'],
   ['acre','jerusalem'],['jerusalem','kerak'],['basra','hasa'],['nejd','medina'],

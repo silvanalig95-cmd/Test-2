@@ -1680,6 +1680,38 @@ coordinates → regenerate → auto-assign ownership by nearest neighbour → sw
 compensate for the missing seeds. Generated artefacts (`provdata.json`,
 `preview.html`) are gitignored.
 
+### v6.24 — the map regenerated from real seats (SHIPPED)
+The map is now built the way it was always meant to be. **70 real medieval towns
+at their true coordinates** were added to `SEEDS` in `tools/gen_map.mjs` — Milan,
+Bologna, Florence, Mainz, Bamberg, Regensburg, Augsburg, Basel, Zürich,
+Magdeburg, Bremen, Hamburg, Lübeck, Kraków, Wrocław, Olomouc, Esztergom, Buda,
+Zagreb, Belgrade, Bruges, Utrecht, Liège, Reims, Bordeaux, Burgos, Zaragoza,
+Seville, Porto, Bergen, Lund, Turku, Thessalonica, Athens and the rest — and the
+map regenerated from Natural Earth coastline data by Voronoi around those seats.
+
+**339 provinces, every border the natural hinterland of a real town.** The
+artificial splitting layer is retired: `applyProvinceSplits` and `autoSubdivide`
+are no longer called, because the density they were faking now comes from the
+seats themselves.
+
+Four faults surfaced during the swap, each worth recording:
+1. **Sardinia had no land neighbour** and came out isolated; it needed manual sea
+   crossings to Palermo, Pisa and Mallorca, as the other islands already had.
+2. **The realm-assignment loop aborted on the first missing id.** A regenerated
+   map drops or renames a few seats, and `G.provinces[p].r = rid` threw on the
+   first of them — so most realms never received their land at all. 266 provinces
+   unowned and the world collapsing to 17 realms, from one unguarded write.
+3. **Capitals could point at provinces that no longer exist**, which broke the AI
+   the moment it asked whether its capital was coastal. `ensureCapitals()` now
+   gives every living realm a seat it actually holds, choosing its richest.
+4. **`PROVDATA[cap]` was read without checking `cap`**, so a landless realm
+   crashed the turn. Guarded in both the AI and the player's advisor.
+
+With those fixed: **0 unowned provinces**, 55 realms alive in 1066 and 49 in
+1187, 0 errors across all three regression scenarios. The neighbour-adoption from
+v6.23 did its job — the new towns landed in historically right hands without a
+line of hand-assignment: **Milan to Lombardy, Kraków to Poland**.
+
 ### v3 candidates (still cut)
 Personal unions (one ruler, two crowns) · gavelkind partition · 1328 Hundred
 Years and 1213 Reconquista scenarios · achievements · Ironman mode.
